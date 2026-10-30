@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <!-- Preserve the migrated user collection database and its SQLite sidecars. -->
+    <include domain="database" path="user_database" />
+    <include domain="database" path="user_database-wal" />
+    <include domain="database" path="user_database-shm" />
+
+    <!-- Keep app preferences, including migration state. -->
+    <include domain="sharedpref" path="." />
+
+    <!-- Preferences DataStore files live below files/datastore/. -->
+    <include domain="file" path="datastore" />
+
+    <!-- The legacy database contains the old user_cards table; V2 is authoritative. -->
+    <exclude domain="database" path="tcg_sammlung_database" />
+    <exclude domain="database" path="tcg_sammlung_database-journal" />
+    <exclude domain="database" path="tcg_sammlung_database-wal" />
+    <exclude domain="database" path="tcg_sammlung_database-shm" />
+</full-backup-content>

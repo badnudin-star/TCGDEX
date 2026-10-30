@@ -1,0 +1,40 @@
+package com.pokemontcg.sammlung.data.model
+
+import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
+import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
+
+data class GenerationSection(
+    val generationId: Int,
+    val pokemon: List<PokemonEntity>,
+    val collectedCount: Int,
+    val totalCount: Int
+)
+
+/** Pure grouping function shared by the ViewModel and unit tests. */
+fun groupPokemonByGeneration(
+    catalogPokemon: List<PokemonEntity>,
+    displayedPokemon: List<PokemonEntity>,
+    userCards: List<UserCardEntityV2>,
+    hiddenGenerations: Set<Int>
+): List<GenerationSection> {
+    val collectedPokemonIds = userCards.map { it.pokemonId }.toSet()
+    val catalogByGeneration = catalogPokemon.asSequence()
+        .filter { GenerationModel.generationOf(it.dexId) !in hiddenGenerations }
+        .groupBy { GenerationModel.generationOf(it.dexId) }
+    val displayedByGeneration = displayedPokemon.asSequence()
+        .filter { GenerationModel.generationOf(it.dexId) !in hiddenGenerations }
+        .groupBy { GenerationModel.generationOf(it.dexId) }
+    return catalogByGeneration.toSortedMap().filter { (generationId, _) -> displayedByGeneration[generationId].orEmpty().isNotEmpty() }.map { (generationId, allMembers) ->
+        val displayed = displayedByGeneration[generationId].orEmpty()
+            .sortedWith(compareBy<PokemonEntity> { it.dexId }.thenBy { it.id })
+        GenerationSection(
+            generationId = generationId,
+            pokemon = displayed,
+            collectedCount = allMembers.count { it.id in collectedPokemonIds },
+            totalCount = allMembers.size
+        )
+    }
+}
+
+fun countHiddenGenerationMatches(pokemon: List<PokemonEntity>, hiddenGenerations: Set<Int>): Int =
+    pokemon.count { GenerationModel.generationOf(it.dexId) in hiddenGenerations }

@@ -1,0 +1,54 @@
+# ============================================================
+#  TCG Sammlung - .gitignore
+#  Alles hier wird NICHT zu GitHub hochgeladen.
+# ============================================================
+
+# ----- Android Studio / Gradle (wird automatisch neu erzeugt) -----
+.gradle/
+.idea/
+*.iml
+build/
+.kotlin/
+captures/
+.externalNativeBuild/
+.cxx/
+local.properties
+
+# ----- Geheimnisse und Signierung: NIEMALS hochladen -----
+keystore.properties
+*.keystore
+*.jks
+*.p12
+*.pem
+.env
+
+# ----- Fertige App-Dateien (kommen als Release, nicht ins Repository) -----
+*.apk
+*.aab
+*.hprof
+
+# ----- Python -----
+__pycache__/
+*.pyc
+.venv/
+venv/
+
+# ----- Katalog-Pipeline: Ausgabe wird als GitHub-Release veroeffentlicht -----
+tools/catalog-builder/catalog.sqlite
+tools/catalog-builder/manifest.json
+tools/catalog-builder/coverage_report.md
+tools/catalog-builder/catalog-progress.json
+tools/catalog-builder/.catalog-build-*/
+tools/catalog-builder/.catalog-publish-*
+
+# ----- Datenbank-Dateien (gross), ausser dem kleinen Test-Fixture -----
+*.sqlite
+*.sqlite-journal
+*.sqlite-wal
+*.sqlite-shm
+!app/src/androidTest/assets/*.sqlite
+
+# ----- System- und Log-Dateien -----
+.DS_Store
+Thumbs.db
+*.log

@@ -1,0 +1,57 @@
+name: Build Catalog Pipeline
+
+on:
+  schedule:
+    - cron: '0 3 * * 0'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# The workflow updates the shared catalog-latest tag and release. Serialize runs
+# so a scheduled build cannot publish concurrently with a manual build.
+concurrency:
+  group: catalog-latest-release
+  cancel-in-progress: false
+
+jobs:
+  build-catalog:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: tools/catalog-builder/requirements.txt
+
+      - name: Install dependencies
+        run: python -m pip install -r tools/catalog-builder/requirements.txt
+
+      - name: Test schema, manifest, and fixture imports
+        run: python -m unittest discover -s tools/catalog-builder -p 'test_*.py' -v
+
+      - name: Build catalog database, manifest, and coverage report
+        run: python tools/catalog-builder/build_catalog.py
+
+      - name: Verify catalog artifacts before publishing
+        run: python tools/catalog-builder/verify_catalog_artifacts.py --output-dir tools/catalog-builder
+
+      - name: Publish catalog snapshot release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: catalog-latest
+          name: Catalog snapshot (latest)
+          body: |
+            Automatically generated TCG catalog snapshot.
+            See `coverage_report.md` for language coverage and unmatched set-list entries.
+          files: |
+            tools/catalog-builder/catalog.sqlite
+            tools/catalog-builder/manifest.json
+            tools/catalog-builder/coverage_report.md
+          overwrite_files: true
+          make_latest: false

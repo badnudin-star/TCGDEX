@@ -1,0 +1,23 @@
+# N-4 – Room-Migrationstestplan
+
+## Entscheidung zur v14-Basis
+
+Es liegt keine echte v14-Datenbankdatei im Projektarchiv vor. Die Instrumentationstests verwenden deshalb die vorhandene `app/schemas/.../AppDatabase/14.json` als rekonstruierte Schema-Fixture. Sie bildet den Stand vor `MIGRATION_14_15` ab: `cards.sortNumber`, `card_pokemon`, `pokemon_names` und die in 14→15 angelegten Indizes fehlen. Der Test fügt anschließend Beispieldaten ein und öffnet die Datei über `Room.databaseBuilder` mit derselben vollständigen Migrationskette wie die App. Das ist ein reproduzierbarer Schema-Migrationstest, ersetzt aber keinen zusätzlichen Test mit einer aus einer realen Altinstallation kopierten Datenbank.
+
+## Abgedeckte Tests
+
+- `testAppDatabaseMigration14To15`: erzeugt die v14-Fixture und validiert 14→15.
+- `testAppDatabaseMigration15To16`: validiert 15→16 und den Backfill des Update-Zeitstempels.
+- `testAppDatabaseMigration16To17`: validiert 16→17 und die Umwandlung von Kartentypen sowie Detail-/Sync-Schema.
+- `testRoomBuilderMigratesRealV14FixtureThroughLatestSchema`: öffnet v14 über die produktive komplette Migrationskette, prüft Sortierung und mehrere Pokémon-Zuordnungen.
+- `testV14OpenFailsWhenRequiredMigrationIsRemoved`: entfernt absichtlich 14→15 aus der Testkette und erwartet, dass Room das Öffnen der v14-Datenbank verweigert.
+- `testUserDatabaseMigration1To2`: prüft, dass ein vorhandener Sammlungseintrag mit seinen Feldern erhalten bleibt.
+- `testLegacyToV2EndToEndMigrationFixture`: prüft mindestens fünf Einträge, Sprache, dexId, Kategorien, Primärmarkierung, Idempotenz und Unverändertheit der Legacy-Quelle. Die Test-Fixture und ihr SharedPreferences-Flag sind isoliert und greifen nicht auf die produktive Legacy-Datenbank zu.
+
+## Ausführung
+
+```bash
+./gradlew connectedDebugAndroidTest
+```
+
+Abnahme erwartet: `BUILD SUCCESSFUL` und alle Tests in `DatabaseMigrationTest` grün. Die Tests wurden in der Arbeitsumgebung dieses Schritts nicht ausgeführt, weil der Gradle-Wrapper die Distribution `gradle-8.7-bin.zip` von `services.gradle.org` laden müsste und DNS dort mit `UnknownHostException` scheitert. Daher ist der Status bis zur Ausführung auf einem Android-Gerät/Emulator **implementiert, aber nicht ausgeführt**.
