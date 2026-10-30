@@ -464,7 +464,7 @@ def generate_manifest(db_path: str, manifest_path: str, report_path: str, schema
     coverage = coverage or {language: {"sets": 0, "cards": 0, "coveragePercent": 0} for language in LANGUAGES}
     manifest = {"version": "2.0.0", "schemaVersion": schema_version, "sha256": digest.hexdigest(),
                 "size": size, "builtAt": int(time.time() * 1000),
-                "url": "https://github.com/pokemontcg/sammlung/releases/download/catalog-latest/catalog.sqlite",
+                "url": "https://github.com/badnudin-star/TCGDEX/releases/download/catalog-latest/catalog.sqlite",
                 "coverage": coverage}
     with open(manifest_path, "w", encoding="utf-8") as handle:
         json.dump(manifest, handle, indent=2, ensure_ascii=False)

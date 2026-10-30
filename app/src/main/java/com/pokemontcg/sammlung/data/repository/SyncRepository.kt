@@ -29,7 +29,7 @@ class SyncRepository(
     companion object {
         // The release workflow updates this fixed catalog snapshot tag.
         const val CATALOG_MANIFEST_URL =
-            "https://github.com/pokemontcg/sammlung/releases/download/catalog-latest/manifest.json"
+            "https://github.com/badnudin-star/TCGDEX/releases/download/catalog-latest/manifest.json"
     }
 
     fun hasNetworkConnection(): Boolean {
