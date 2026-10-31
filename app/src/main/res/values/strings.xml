@@ -135,6 +135,8 @@
     <string name="diag_sources_title">Quellenbericht</string>
     <string name="diag_sources_desc">Status und Vollständigkeit der Datenquellen.</string>
     <string name="diag_sources_empty">Noch kein Quellenbericht vorhanden.</string>
+    <string name="diag_catalog_update_requires_app_update">Katalog-Update benötigt App-Update (Manifest-Schema %1$d, App-Schema %2$d).</string>
+    <string name="diag_catalog_version">Installierte Katalogversion: %1$s</string>
     <string name="btn_share_log">Diagnose-Log teilen</string>
     <string name="btn_share_trade_list">Tauschliste teilen</string>
 
@@ -256,6 +258,8 @@
     <string name="ui_aktive_quelle_f_r_mehrsprachige_kart_2e291e">Aktive Quelle für mehrsprachige Kartendaten, Sets und Cardmarket-Preisdaten. Kartenbilder werden direkt vom TCGdex-CDN geladen und nicht gespiegelt.</string>
     <string name="ui_pok_api_48d84a">• PokéAPI</string>
     <string name="ui_erg_nzende_quelle_f_r_pok_mon_spezie_282151">Ergänzende Quelle für Pokémon-Spezies und Pokédex-Namen. Die Software des offiziellen PokéAPI-Repositories ist BSD-3-Clause-lizenziert; für sämtliche API-Inhalte wird hier keine pauschale CC0-Lizenz behauptet.</string>
+    <string name="ui_bulbapedia_catalog">• Bulbapedia (nur Katalog-Pipeline)</string>
+    <string name="ui_bulbapedia_license">Serieller Abgleich von Set-Listen beim Katalog-Build. Die Inhalte stehen unter Creative Commons Attribution-NonCommercial-ShareAlike 2.5 (CC BY-NC-SA 2.5); die App lädt zur Laufzeit keine Bulbapedia-Inhalte.</string>
     <string name="ui_haftungsausschluss_767c5a">Haftungsausschluss:</string>
     <string name="ui_ok_9ce3bd">OK</string>
     <string name="ui_gesammelte_karten_be34ab">Gesammelte Karten</string>
@@ -341,15 +345,17 @@
     <string name="ui_sync_progress_default">Kartendaten werden aktualisiert …</string>
     <string name="ui_sync_waiting_network">Warten auf Netzwerkverbindung …</string>
     <string name="ui_sync_unit_progress">Synchronisiere %1$s (%2$d/%3$d) …</string>
-    <string name="ui_sync_unit_snapshot">Startkatalog</string>
+    <string name="ui_sync_unit_snapshot">Katalog-Update</string>
     <string name="ui_sync_unit_names">Pokémon-Namen</string>
-    <string name="ui_sync_unit_catalog">Kartendaten</string>
+    <string name="ui_sync_unit_catalog">Startkatalog</string>
     <string name="ui_sync_unit_prices">Preise</string>
     <string name="ui_sync_partial_failure">Update teilweise fehlgeschlagen. Fortschritt bleibt gespeichert; erneuter Versuch ist geplant.</string>
     <string name="ui_sync_failed">Update fehlgeschlagen. Bitte später erneut versuchen.</string>
     <string name="ui_sync_catalog_downloading">Katalog wird heruntergeladen und geprüft …</string>
     <string name="ui_sync_catalog_updated">Katalog aktualisiert</string>
     <string name="ui_sync_catalog_current">Katalog ist aktuell</string>
+    <string name="ui_sync_catalog_manifest_disabled">Kein Katalog-Manifest konfiguriert</string>
+    <string name="ui_sync_catalog_requires_app_update">Katalog-Update benötigt App-Update</string>
     <string name="ui_sync_progress_percent">%1$d %%</string>
     <string name="ui_notification_rationale">Die App verwendet Benachrichtigungen, um dich über den Fortschritt der Hintergrund-Datenbankaktualisierung und künftige Preisalarme deiner Sammlung zu informieren.</string>
     <string name="ui_diagnostic_running">Prüfung läuft …</string>

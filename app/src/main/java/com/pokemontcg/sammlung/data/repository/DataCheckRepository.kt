@@ -29,7 +29,10 @@ data class SystemDataMetrics(
     val cardsByLanguage: Map<String, Int> = emptyMap(),
     val lastUpdateAt: Long = 0L,
     val lastSourceCheckAt: Long = 0L,
-    val migrationStatus: String = "Unbekannt"
+    val migrationStatus: String = "Unbekannt",
+    val catalogRequiresAppUpdate: Boolean = false,
+    val catalogManifestSchemaVersion: Int = -1,
+    val catalogInstalledVersion: String? = null
 )
 
 class DataCheckRepository(
@@ -59,6 +62,9 @@ class DataCheckRepository(
         val lastSourceCheckAt = appDb.sourceAuditDao().getSourceAuditsOnce().maxOfOrNull { it.checkedAt } ?: 0L
         val migrationDone = context.getSharedPreferences("user_migration_prefs", Context.MODE_PRIVATE)
             .getBoolean("user_cards_v1_migrated", false)
+        val catalogRequiresAppUpdate = preferencesRepository.catalogRequiresAppUpdateFlow.first()
+        val catalogManifestSchemaVersion = preferencesRepository.catalogManifestSchemaVersionFlow.first()
+        val catalogInstalledVersion = preferencesRepository.catalogInstalledVersionFlow.first()
 
         val userCards = collectionRepository.getAllUserCardsOnce()
         val userCardsCount = userCards.sumOf { it.quantity }
@@ -84,7 +90,10 @@ class DataCheckRepository(
             cardsByLanguage = cardsByLanguage,
             lastUpdateAt = lastUpdateAt,
             lastSourceCheckAt = lastSourceCheckAt,
-            migrationStatus = if (migrationDone) "Abgeschlossen" else "Nicht bestätigt"
+            migrationStatus = if (migrationDone) "Abgeschlossen" else "Nicht bestätigt",
+            catalogRequiresAppUpdate = catalogRequiresAppUpdate,
+            catalogManifestSchemaVersion = catalogManifestSchemaVersion,
+            catalogInstalledVersion = catalogInstalledVersion
         )
     }
 

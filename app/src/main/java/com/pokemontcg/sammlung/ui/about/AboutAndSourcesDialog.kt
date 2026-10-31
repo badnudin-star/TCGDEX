@@ -42,6 +42,9 @@ fun AboutAndSourcesDialog(
 
                     Text(stringResource(R.string.ui_pok_api_48d84a), fontWeight = FontWeight.Bold)
                     Text(stringResource(R.string.ui_erg_nzende_quelle_f_r_pok_mon_spezie_282151), style = MaterialTheme.typography.bodySmall)
+
+                    Text(stringResource(R.string.ui_bulbapedia_catalog), fontWeight = FontWeight.Bold)
+                    Text(stringResource(R.string.ui_bulbapedia_license), style = MaterialTheme.typography.bodySmall)
                 }
 
                 HorizontalDivider()

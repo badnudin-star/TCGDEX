@@ -25,9 +25,11 @@ Der Katalog (Sets, Karten, Namen in vielen Sprachen) wird nicht in der App gebau
 - Automatisch: GitHub Action "Build Catalog Pipeline" (jeden Sonntag und per Hand)
 - Ergebnis: Release `catalog-latest` mit `catalog.sqlite` und `manifest.json`
 
-Die App lädt `manifest.json` von dieser Release-Adresse. Die Adresse steht an zwei Stellen und muss auf dieses Repository zeigen (`NAME/REPO` ersetzen):
-- `app/src/main/java/com/pokemontcg/sammlung/data/repository/SyncRepository.kt` (`CATALOG_MANIFEST_URL`)
-- `tools/catalog-builder/build_catalog.py` (Feld `url` im Manifest)
+Die App lädt `manifest.json` von dieser Release-Adresse. Die URL wird als `BuildConfig.CATALOG_MANIFEST_URL` aus `app/build.gradle.kts` gesetzt und kann beim Build überschrieben werden:
+- Standard: `https://github.com/badnudin-star/TCGDEX/releases/download/catalog-latest/manifest.json`
+- Eigene URL: `./gradlew assembleDebug -PcatalogManifestUrl=https://…/manifest.json`
+- Leer (`-PcatalogManifestUrl=`) deaktiviert den Remote-Katalog; die App nutzt dann nur den lokalen Startkatalog.
+- Die Download-URL im Manifest wird weiterhin von `tools/catalog-builder/build_catalog.py` erzeugt.
 
 ## Dokumentation
 Siehe Ordner `docs/`, Quellen und Lizenzen in `docs/SOURCES.md`.

@@ -231,6 +231,7 @@ class TestCatalogBuilder(unittest.TestCase):
         coverage = {lang: {"sets": 0, "cards": 0, "coveragePercent": None} for lang in LANGUAGES}
         manifest = generate_manifest(db_file, manifest_file, report_file, 17, coverage)
         self.assertEqual(manifest["schemaVersion"], 17)
+        self.assertRegex(manifest["version"], r"^\d{4}\.\d{2}\.\d{2}\.\d{6}\.\d{3}$")
         self.assertEqual(manifest["size"], os.path.getsize(db_file))
         with open(db_file, "rb") as handle:
             expected_hash = hashlib.sha256(handle.read()).hexdigest()

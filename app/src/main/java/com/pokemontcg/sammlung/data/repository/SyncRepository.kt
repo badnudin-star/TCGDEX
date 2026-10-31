@@ -7,6 +7,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import com.pokemontcg.sammlung.BuildConfig
 import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.api.ApiService
 import com.pokemontcg.sammlung.data.importer.CatalogImporter
@@ -25,12 +26,6 @@ class SyncRepository(
 
     private val workManager = WorkManager.getInstance(context.applicationContext)
     private val catalogImporter = CatalogImporter(context, db)
-
-    companion object {
-        // The release workflow updates this fixed catalog snapshot tag.
-        const val CATALOG_MANIFEST_URL =
-            "https://github.com/badnudin-star/TCGDEX/releases/download/catalog-latest/manifest.json"
-    }
 
     fun hasNetworkConnection(): Boolean {
         return try {
@@ -98,15 +93,24 @@ class SyncRepository(
         }
     }
 
-    suspend fun performResumableCatalogSync(
+    suspend fun importRemoteCatalog(
         protectedCardIds: Set<String> = emptySet(),
         protectedPokemonIds: Set<String> = emptySet(),
         onProgress: suspend (String, Int) -> Unit
     ): Boolean {
+        val manifestUrl = BuildConfig.CATALOG_MANIFEST_URL
+        if (manifestUrl.isBlank()) {
+            com.pokemontcg.sammlung.util.AppLogger.log(
+                "SyncRepository", "kein Katalog-Manifest konfiguriert"
+            )
+            onProgress(context.getString(R.string.ui_sync_catalog_manifest_disabled), 100)
+            return true
+        }
+
         onProgress(context.getString(R.string.ui_sync_catalog_downloading), 50)
         return when (
             val result = catalogImporter.importRemote(
-                CATALOG_MANIFEST_URL,
+                manifestUrl,
                 protectedCardIds,
                 protectedPokemonIds
             )
@@ -117,6 +121,15 @@ class SyncRepository(
             }
             CatalogImportResult.AlreadyUpToDate -> {
                 onProgress(context.getString(R.string.ui_sync_catalog_current), 100)
+                true
+            }
+            is CatalogImportResult.RequiresAppUpdate -> {
+                onProgress(context.getString(R.string.ui_sync_catalog_requires_app_update), 100)
+                com.pokemontcg.sammlung.util.AppLogger.log(
+                    "SyncRepository",
+                    "Katalog-Update benötigt App-Update (Schema ${result.remoteSchemaVersion} != ${result.appSchemaVersion})"
+                )
+                // Keep the rest of the sync running; diagnostics shows the blocking state.
                 true
             }
             is CatalogImportResult.Error -> {

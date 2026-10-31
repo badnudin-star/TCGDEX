@@ -8,6 +8,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.pokemontcg.sammlung.R
+import com.pokemontcg.sammlung.data.importer.CatalogImportResult
 import com.pokemontcg.sammlung.data.local.AppDatabase
 import com.pokemontcg.sammlung.data.local.dao.SyncCheckpointDao
 import com.pokemontcg.sammlung.data.local.user.UserDatabase
@@ -198,20 +199,26 @@ class ResumableCatalogWorker(
     ): Boolean {
         return when {
             unit == "snapshot" -> {
-                syncRepository.importStartCatalogIfNeeded()
-                true
-            }
-            unit == "names" -> syncRepository.ensurePokemonNamesLoaded()
-            unit == "catalog" -> {
                 val userCards = collectionRepository.getAllUserCardsOnce()
                 val wishlist = collectionRepository.getWishlistOnce()
                 val protectedCardIds = (userCards.map { it.cardId } + wishlist.map { it.cardId }).toSet()
                 val protectedPokemonIds = userCards.map { it.pokemonId }.toSet()
-                syncRepository.performResumableCatalogSync(
+                syncRepository.importRemoteCatalog(
                     protectedCardIds = protectedCardIds,
                     protectedPokemonIds = protectedPokemonIds
                 ) { message, percent ->
                     setProgress(workDataOf(KEY_PROGRESS_MESSAGE to message, KEY_PROGRESS_PERCENT to percent))
+                }
+            }
+            unit == "names" -> syncRepository.ensurePokemonNamesLoaded()
+            unit == "catalog" -> {
+                // Local starter-catalog fallback for first launch/offline. The remote
+                // manifest import is the first unit and never replaces user data.
+                when (val result = syncRepository.importStartCatalogIfNeeded()) {
+                    is CatalogImportResult.Success,
+                    CatalogImportResult.AlreadyUpToDate -> true
+                    is CatalogImportResult.RequiresAppUpdate -> true
+                    is CatalogImportResult.Error -> false
                 }
             }
             unit == "prices" -> {

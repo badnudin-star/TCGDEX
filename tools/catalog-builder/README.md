@@ -12,12 +12,14 @@ Die HTTP-Aufrufe verwenden einen eigenen User-Agent, Timeout, Backoff und höchs
 
 ## Lokal bauen
 
-Voraussetzungen: Python 3.11+ und Internetzugang zu den genannten APIs. Die Runtime-Abhängigkeiten sind auf `requests` begrenzt; die Tests verwenden Pythons eingebautes `unittest` und benötigen kein zusätzliches `pytest`-Paket.
+Voraussetzungen: Python 3.11+ und Internetzugang zu den genannten APIs. Die Runtime-Abhängigkeiten sind auf `requests` begrenzt; für die Tests wird zusätzlich `pytest` benötigt.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
-pip install -r tools/catalog-builder/requirements.txt
+pip install -r tools/catalog-builder/requirements-dev.txt
+python -m pytest tools/catalog-builder -q
+# alternativ ohne pytest:
 python -m unittest discover -s tools/catalog-builder -p 'test_*.py' -v
 python tools/catalog-builder/build_catalog.py
 ```
@@ -32,18 +34,19 @@ Die Ausgabe enthält `catalog.sqlite`, `manifest.json` und `coverage_report.md`.
 
 ## Start-Katalog für die App erzeugen
 
-Nach einem erfolgreichen Build:
+Nach einem erfolgreichen Build einen kompakten deutschen/englischen Startkatalog erzeugen:
 
 ```bash
-mkdir -p app/src/main/assets
-cp tools/catalog-builder/catalog.sqlite app/src/main/assets/start_catalog.sqlite
+python tools/catalog-builder/make_start_catalog.py \
+  --source tools/catalog-builder/catalog.sqlite \
+  --output app/src/main/assets/start_catalog.sqlite
 ```
 
-Danach die App neu bauen. Die Datei ist ein Build-Artefakt und sollte nur nach einem erfolgreichen Schema- und Coverage-Check aktualisiert werden. Fehlt `start_catalog.sqlite`, behandelt die App dies als optionalen Startkatalog und kann den normalen Sync fortsetzen.
+Das Skript kopiert die verifizierte Datenbank, behält nur `de`- und `en`-Karten sowie die zugehörigen Sets und Pokémon-Namen, prüft `PRAGMA integrity_check` und entfernt verwaiste Verknüpfungen. Danach die App neu bauen. Die Datei ist ein Build-Artefakt und sollte nur nach einem erfolgreichen Schema- und Coverage-Check aktualisiert werden. Fehlt `start_catalog.sqlite`, behandelt die App dies als optionalen Startkatalog und kann den normalen Sync fortsetzen.
 
 ## Automatisierter Build
 
-`.github/workflows/build-catalog.yml` läuft wöchentlich und manuell. Er führt die Offline-Tests aus, baut Datenbank und Berichte und veröffentlicht diese in der GitHub-Release `catalog-latest`. Der Manifest-Link verwendet `releases/download/catalog-latest/catalog.sqlite`, passend zum festen Release-Tag.
+`.github/workflows/catalog.yml` läuft wöchentlich und manuell. Er führt die Offline-Tests aus, baut Datenbank und Berichte und veröffentlicht diese in der GitHub-Release `catalog-latest`. Der Manifest-Link verwendet `releases/download/catalog-latest/catalog.sqlite`, passend zum festen Release-Tag.
 
 Der Workflow verwendet eine gemeinsame GitHub-Actions-Concurrency-Gruppe (`catalog-latest-release`) ohne Abbruch des laufenden Jobs. Dadurch werden geplante und manuelle Veröffentlichungen desselben Tags nicht parallel ausgeführt.
 

@@ -50,6 +50,11 @@ class AppPreferencesRepositoryTest {
         assertEquals(10, repository.priceAlertThresholdPercentFlow.first())
         assertEquals(1, repository.priceAlertWindowDaysFlow.first())
         assertEquals(0L, repository.priceAlertLastTimestampFlow.first())
+        assertEquals(null, repository.catalogEtagFlow.first())
+        assertEquals(null, repository.catalogInstalledVersionFlow.first())
+        assertEquals(-1, repository.catalogManifestSchemaVersionFlow.first())
+        assertEquals(false, repository.catalogRequiresAppUpdateFlow.first())
+        assertEquals(0L, repository.catalogLastCheckAtFlow.first())
     }
 
     @Test
@@ -82,6 +87,32 @@ class AppPreferencesRepositoryTest {
         assertEquals(7, repository.priceAlertWindowDaysFlow.first())
         assertEquals(123L, repository.priceAlertLastTimestampFlow.first())
         assertEquals(true, tempFile.exists())
+    }
+
+    @Test
+    fun testCatalogUpdateStatePersistsInDataStore() = runTest {
+        val tempFile = File.createTempFile("tcg-catalog-state", ".preferences_pb")
+        tempFile.delete()
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { tempFile }
+        )
+        val repository = AppPreferencesRepository(dataStore)
+
+        repository.setCatalogEtag("\"etag-1\"")
+        repository.setCatalogInstalledVersion("2026.10.31")
+        repository.setCatalogManifestSchemaVersion(17)
+        repository.setCatalogRequiresAppUpdate(true)
+        repository.setCatalogLastCheckAt(123456L)
+
+        assertEquals("\"etag-1\"", repository.catalogEtagFlow.first())
+        assertEquals("2026.10.31", repository.catalogInstalledVersionFlow.first())
+        assertEquals(17, repository.catalogManifestSchemaVersionFlow.first())
+        assertEquals(true, repository.catalogRequiresAppUpdateFlow.first())
+        assertEquals(123456L, repository.catalogLastCheckAtFlow.first())
+
+        repository.setCatalogEtag(null)
+        assertEquals(null, repository.catalogEtagFlow.first())
     }
 
     @Test

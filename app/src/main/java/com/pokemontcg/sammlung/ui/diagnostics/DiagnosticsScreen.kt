@@ -84,6 +84,20 @@ fun DiagnosticsScreen(
                         Text(stringResource(R.string.ui_diag_price_history_count, m.priceHistoryCount))
                         Text(stringResource(R.string.ui_diag_cards_by_language, m.cardsByLanguage.entries.joinToString { (language, count) -> "$language: $count" }.ifBlank { context.getString(R.string.ui_keine_karten) }))
                         Text(stringResource(R.string.ui_diag_db_versions, m.appDbVersion, m.userDbVersion))
+                        if (m.catalogRequiresAppUpdate) {
+                            Text(
+                                stringResource(
+                                    R.string.diag_catalog_update_requires_app_update,
+                                    m.catalogManifestSchemaVersion,
+                                    m.appDbVersion
+                                ),
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        } else {
+                            m.catalogInstalledVersion?.takeIf { it.isNotBlank() }?.let { version ->
+                                Text(stringResource(R.string.diag_catalog_version, version))
+                            }
+                        }
                         Text(stringResource(R.string.ui_diag_migration_status, m.migrationStatus))
                         Text(stringResource(R.string.ui_diag_last_update, formatTimestamp(m.lastUpdateAt, context)))
                         Text(stringResource(R.string.ui_diag_last_source_check, formatTimestamp(m.lastSourceCheckAt, context)))

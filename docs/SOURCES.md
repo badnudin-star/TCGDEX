@@ -19,6 +19,12 @@ Die App verwendet im Runtime-Code ausschließlich **TCGdex** und **PokéAPI** al
 - Lizenzhinweis: Das offizielle `PokeAPI/pokeapi`-Repository weist für seine Software eine BSD-3-Clause-Lizenz aus. Die API-Dokumentation erklärt die Nutzung als offen und kostenlos, belegt aber keine pauschale CC0-Lizenz für sämtliche bereitgestellten Inhalte. Daher wird hier keine CC0-Zusage für alle Daten gemacht.
 - Nutzung: Anfragen begrenzen und die offizielle Fair-Use-Policy beachten.
 
+## 3. Bulbapedia (nur Katalog-Pipeline)
+
+- Seite: <https://bulbapedia.bulbagarden.net/wiki/Bulbapedia:Copyrights>
+- Verwendung: ausschließlich beim Build des Katalogs für den seriellen Abgleich von Set-Listen. Die App selbst lädt zur Laufzeit keine Bulbapedia-Inhalte.
+- Lizenzhinweis: Bulbapedia-Inhalte stehen unter **Creative Commons Attribution-NonCommercial-ShareAlike 2.5 (CC BY-NC-SA 2.5)**, nicht unter CC BY-SA 4.0. Die Pipeline wird nicht für kommerzielle Zwecke eingesetzt.
+
 ## Marken- und Bildrechte
 
 Pokémon und Pokémon TCG sind Marken ihrer jeweiligen Rechteinhaber. Die Nutzung der APIs bedeutet keine Verbindung zu oder Unterstützung durch Nintendo oder The Pokémon Company. Die App speichert keine externen Kartenbilder als eigene Assets und verteilt sie nicht weiter; bei fehlenden oder nicht ladbaren Bildern erscheint ein lokaler Platzhalter.

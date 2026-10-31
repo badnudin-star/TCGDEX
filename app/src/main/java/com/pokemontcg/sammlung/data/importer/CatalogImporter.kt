@@ -5,8 +5,10 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.pokemontcg.sammlung.data.local.AppDatabase
+import com.pokemontcg.sammlung.data.preferences.AppPreferencesRepository
 import com.pokemontcg.sammlung.util.AppLogger
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.ByteArrayOutputStream
@@ -20,25 +22,81 @@ import java.net.URL
 import java.net.URI
 import java.security.MessageDigest
 
+data class CatalogCoverage(
+    val sets: Int,
+    val cards: Int,
+    val expectedCards: Int,
+    val coveragePercent: Double?
+)
+
 data class CatalogManifest(
     val version: String,
     val schemaVersion: Int,
     val sha256: String,
     val size: Long,
     val builtAt: Long,
-    val url: String = ""
+    val url: String = "",
+    val coverage: Map<String, CatalogCoverage> = emptyMap()
 )
 
 sealed class CatalogImportResult {
     data class Success(val importedSets: Int, val importedCards: Int, val manifest: CatalogManifest? = null) : CatalogImportResult()
     data class Error(val message: String) : CatalogImportResult()
+    data class RequiresAppUpdate(val remoteSchemaVersion: Int, val appSchemaVersion: Int) : CatalogImportResult()
     object AlreadyUpToDate : CatalogImportResult()
+}
+
+enum class CatalogUpdateAction {
+    DOWNLOAD,
+    USE_CACHED,
+    RETRY_WITHOUT_ETAG,
+    ALREADY_UP_TO_DATE,
+    REQUIRES_APP_UPDATE
+}
+
+/** Numeric version comparison so catalog versions such as 2026.10.31 sort correctly. */
+fun compareCatalogVersions(left: String, right: String): Int {
+    val leftParts = Regex("\\d+").findAll(left).mapNotNull { it.value.toLongOrNull() }.toList()
+    val rightParts = Regex("\\d+").findAll(right).mapNotNull { it.value.toLongOrNull() }.toList()
+    for (index in 0 until maxOf(leftParts.size, rightParts.size)) {
+        val comparison = (leftParts.getOrNull(index) ?: 0L)
+            .compareTo(rightParts.getOrNull(index) ?: 0L)
+        if (comparison != 0) return comparison
+    }
+    return 0
+}
+
+fun decideCatalogUpdate(
+    notModified: Boolean,
+    manifest: CatalogManifest?,
+    installedVersion: String?,
+    currentSchemaVersion: Int,
+    localCatalogUsable: Boolean
+): CatalogUpdateAction {
+    if (notModified) {
+        return if (localCatalogUsable) CatalogUpdateAction.USE_CACHED
+        else CatalogUpdateAction.RETRY_WITHOUT_ETAG
+    }
+    requireNotNull(manifest) { "Manifest is required for a non-304 response" }
+    if (manifest.schemaVersion != currentSchemaVersion) {
+        return CatalogUpdateAction.REQUIRES_APP_UPDATE
+    }
+    if (localCatalogUsable && installedVersion != null &&
+        compareCatalogVersions(manifest.version, installedVersion) <= 0
+    ) {
+        return CatalogUpdateAction.ALREADY_UP_TO_DATE
+    }
+    return CatalogUpdateAction.DOWNLOAD
 }
 
 class CatalogImporter(
     private val context: Context,
-    private val appDatabase: AppDatabase
+    private val appDatabase: AppDatabase,
+    preferencesRepository: AppPreferencesRepository? = null
 ) {
+    private val updateState: AppPreferencesRepository by lazy {
+        preferencesRepository ?: AppPreferencesRepository(context)
+    }
     private companion object {
         // Must match AppDatabase schema 17.json; change with a Room schema migration.
         const val EXPECTED_ROOM_IDENTITY_HASH = "545f4e1ec7d1f8ad7d5926ce320dabdb"
@@ -135,6 +193,7 @@ class CatalogImporter(
             return@withContext CatalogImportResult.Error("Manifest URL must be HTTPS")
         }
 
+        val checkedAt = System.currentTimeMillis()
         try {
             val connection = URL(manifestUrl).openConnection() as HttpURLConnection
             // Do not silently follow redirects: otherwise an HTTPS URL could downgrade to HTTP.
@@ -146,47 +205,54 @@ class CatalogImporter(
             // Always disconnect, including when responseCode/header/body reads throw.
             // Early returns from this block still execute the finally clause.
             val (manifestJson, newEtag) = try {
-                val etag = context.getSharedPreferences("catalog_importer_prefs", Context.MODE_PRIVATE)
-                    .getString("manifest_etag", null)
+                val etag = updateState.catalogEtagFlow.first()
                 if (!etag.isNullOrBlank()) {
                     connection.setRequestProperty("If-None-Match", etag)
                 }
 
                 val responseCode = connection.responseCode
                 if (responseCode == HttpURLConnection.HTTP_NOT_MODIFIED) {
-                    val preferences = context.getSharedPreferences("catalog_importer_prefs", Context.MODE_PRIVATE)
-                    val storedSchemaVersion = preferences.getInt("manifest_schema_version", -1)
+                    val storedSchemaVersion = updateState.catalogManifestSchemaVersionFlow.first()
                     val localDb = appDatabase.openHelper.writableDatabase
                     val localSetCount = localDb.queryLong("SELECT COUNT(*) FROM sets")
                     val localCardCount = localDb.queryLong("SELECT COUNT(*) FROM cards")
-                    if (isCachedCatalogUsable(
-                            storedSchemaVersion,
-                            CURRENT_CATALOG_SCHEMA_VERSION,
-                            localSetCount,
-                            localCardCount
-                        )
-                    ) {
-                        AppLogger.log("CatalogImporter", "Katalog-Manifest unverändert und lokaler Katalog vorhanden (304)")
-                        return@withContext CatalogImportResult.AlreadyUpToDate
-                    }
-
-                    // A persisted ETag is only a valid shortcut if this app version has
-                    // already imported the matching schema and the local catalog is present.
-                    // Clear stale metadata and retry once without If-None-Match.
-                    preferences.edit()
-                        .remove("manifest_etag")
-                        .remove("manifest_schema_version")
-                        .apply()
-                    AppLogger.log("CatalogImporter", "304 ohne passenden lokalen Katalog; ETag wird verworfen.")
-                    return@withContext if (allowUnconditionalRetry) {
-                        importRemoteInternal(
-                            manifestUrl = manifestUrl,
-                            allowUnconditionalRetry = false,
-                            protectedCardIds = protectedCardIds,
-                            protectedPokemonIds = protectedPokemonIds
-                        )
-                    } else {
-                        CatalogImportResult.Error("Manifest returned 304 without a usable local catalog")
+                    val cachedUsable = isCachedCatalogUsable(
+                        storedSchemaVersion,
+                        CURRENT_CATALOG_SCHEMA_VERSION,
+                        localSetCount,
+                        localCardCount
+                    )
+                    return@withContext when (decideCatalogUpdate(
+                        notModified = true,
+                        manifest = null,
+                        installedVersion = null,
+                        currentSchemaVersion = CURRENT_CATALOG_SCHEMA_VERSION,
+                        localCatalogUsable = cachedUsable
+                    )) {
+                        CatalogUpdateAction.USE_CACHED -> {
+                            updateState.setCatalogLastCheckAt(checkedAt)
+                            updateState.setCatalogRequiresAppUpdate(false)
+                            AppLogger.log("CatalogImporter", "Katalog-Manifest unverändert und lokaler Katalog vorhanden (304)")
+                            CatalogImportResult.AlreadyUpToDate
+                        }
+                        CatalogUpdateAction.RETRY_WITHOUT_ETAG -> {
+                            // A persisted ETag is only a valid shortcut if this app version has
+                            // already imported the matching schema and the local catalog is present.
+                            // Clear stale metadata and retry once without If-None-Match.
+                            updateState.setCatalogEtag(null)
+                            AppLogger.log("CatalogImporter", "304 ohne passenden lokalen Katalog; ETag wird verworfen.")
+                            if (allowUnconditionalRetry) {
+                                importRemoteInternal(
+                                    manifestUrl = manifestUrl,
+                                    allowUnconditionalRetry = false,
+                                    protectedCardIds = protectedCardIds,
+                                    protectedPokemonIds = protectedPokemonIds
+                                )
+                            } else {
+                                CatalogImportResult.Error("Manifest returned 304 without a usable local catalog")
+                            }
+                        }
+                        else -> CatalogImportResult.Error("Unexpected 304 update decision")
                     }
                 }
 
@@ -214,9 +280,44 @@ class CatalogImporter(
                 return@withContext CatalogImportResult.Error("Invalid manifest JSON")
             }
 
-            if (manifest.schemaVersion != CURRENT_CATALOG_SCHEMA_VERSION) {
-                AppLogger.log("CatalogImporter", "Katalog-Update benötigt App-Update (Schema ${manifest.schemaVersion} != $CURRENT_CATALOG_SCHEMA_VERSION)")
-                return@withContext CatalogImportResult.Error("Katalog-Update benötigt App-Update")
+            val installedVersion = updateState.catalogInstalledVersionFlow.first()
+            val localCatalogUsable = localCatalogUsable()
+            when (decideCatalogUpdate(
+                notModified = false,
+                manifest = manifest,
+                installedVersion = installedVersion,
+                currentSchemaVersion = CURRENT_CATALOG_SCHEMA_VERSION,
+                localCatalogUsable = localCatalogUsable
+            )) {
+                CatalogUpdateAction.REQUIRES_APP_UPDATE -> {
+                    updateState.setCatalogRequiresAppUpdate(true)
+                    updateState.setCatalogManifestSchemaVersion(manifest.schemaVersion)
+                    updateState.setCatalogLastCheckAt(checkedAt)
+                    AppLogger.log(
+                        "CatalogImporter",
+                        "Katalog-Update benötigt App-Update (Schema ${manifest.schemaVersion} != $CURRENT_CATALOG_SCHEMA_VERSION)"
+                    )
+                    return@withContext CatalogImportResult.RequiresAppUpdate(
+                        remoteSchemaVersion = manifest.schemaVersion,
+                        appSchemaVersion = CURRENT_CATALOG_SCHEMA_VERSION
+                    )
+                }
+                CatalogUpdateAction.ALREADY_UP_TO_DATE -> {
+                    updateState.setCatalogEtag(newEtag)
+                    updateState.setCatalogManifestSchemaVersion(manifest.schemaVersion)
+                    updateState.setCatalogRequiresAppUpdate(false)
+                    updateState.setCatalogLastCheckAt(checkedAt)
+                    AppLogger.log(
+                        "CatalogImporter",
+                        "Katalogversion ${manifest.version} ist nicht neuer als installiert ($installedVersion); Download übersprungen."
+                    )
+                    return@withContext CatalogImportResult.AlreadyUpToDate
+                }
+                CatalogUpdateAction.DOWNLOAD -> Unit
+                CatalogUpdateAction.USE_CACHED,
+                CatalogUpdateAction.RETRY_WITHOUT_ETAG -> {
+                    return@withContext CatalogImportResult.Error("Unexpected catalog update decision")
+                }
             }
 
             val cacheFile = File(context.cacheDir, "remote_catalog.sqlite")
@@ -244,28 +345,22 @@ class CatalogImporter(
                     downloadConn.disconnect()
                 }
 
-                if (cacheFile.length() != manifest.size) {
+                val validationError = validateDownloadedCatalog(cacheFile, manifest.size, manifest.sha256)
+                if (validationError != null) {
                     cacheFile.delete()
-                    AppLogger.log("CatalogImporter", "Katalog-Download Dateigröße abweichend!")
-                    return@withContext CatalogImportResult.Error("Size mismatch")
-                }
-
-                val downloadedSha = computeSha256(cacheFile)
-                if (!downloadedSha.equals(manifest.sha256, ignoreCase = true)) {
-                    cacheFile.delete()
-                    AppLogger.log("CatalogImporter", "Katalog-Download SHA-256 abweichend!")
-                    return@withContext CatalogImportResult.Error("SHA256 mismatch")
+                    AppLogger.log("CatalogImporter", "Katalog-Download ungültig: $validationError")
+                    return@withContext CatalogImportResult.Error(validationError)
                 }
 
                 val result = importCatalogFile(cacheFile, protectedCardIds, protectedPokemonIds)
                 cacheFile.delete()
 
-                if (result is CatalogImportResult.Success && !newEtag.isNullOrBlank()) {
-                    context.getSharedPreferences("catalog_importer_prefs", Context.MODE_PRIVATE)
-                        .edit()
-                        .putString("manifest_etag", newEtag)
-                        .putInt("manifest_schema_version", manifest.schemaVersion)
-                        .apply()
+                if (result is CatalogImportResult.Success) {
+                    updateState.setCatalogEtag(newEtag)
+                    updateState.setCatalogInstalledVersion(manifest.version)
+                    updateState.setCatalogManifestSchemaVersion(manifest.schemaVersion)
+                    updateState.setCatalogRequiresAppUpdate(false)
+                    updateState.setCatalogLastCheckAt(checkedAt)
                 }
 
                 result
@@ -599,6 +694,22 @@ class CatalogImporter(
             }
         }
 
+    private fun localCatalogUsable(): Boolean {
+        val localDb = appDatabase.openHelper.writableDatabase
+        return localDb.queryLong("SELECT COUNT(*) FROM sets") > 0L &&
+            localDb.queryLong("SELECT COUNT(*) FROM cards") > 0L
+    }
+
+    internal fun validateDownloadedCatalog(
+        file: File,
+        expectedSize: Long,
+        expectedSha256: String
+    ): String? {
+        if (!file.isFile || file.length() != expectedSize) return "Size mismatch"
+        if (!computeSha256(file).equals(expectedSha256, ignoreCase = true)) return "SHA256 mismatch"
+        return null
+    }
+
     internal fun isCachedCatalogUsable(
         storedSchemaVersion: Int,
         expectedSchemaVersion: Int,
@@ -627,8 +738,37 @@ class CatalogImporter(
         val url = requiredString(obj, "url")
             .takeIf(::isValidHttpsUrl)
             ?: throw IllegalArgumentException("Manifest URL must be an absolute HTTPS URL")
+        val coverage = obj.get("coverage")?.let(::parseCoverage) ?: emptyMap()
 
-        return CatalogManifest(version, schemaVersion, sha256, size, builtAt, url)
+        return CatalogManifest(version, schemaVersion, sha256, size, builtAt, url, coverage)
+    }
+
+    private fun parseCoverage(value: com.google.gson.JsonElement): Map<String, CatalogCoverage> {
+        if (!value.isJsonObject) {
+            throw IllegalArgumentException("Manifest coverage must be an object")
+        }
+        return value.asJsonObject.entrySet().associate { (language, element) ->
+            if (!element.isJsonObject) {
+                throw IllegalArgumentException("Manifest coverage '$language' must be an object")
+            }
+            val item = element.asJsonObject
+            val sets = requiredLong(item, "sets")
+                .takeIf { it in 0L..Int.MAX_VALUE.toLong() }?.toInt()
+                ?: throw IllegalArgumentException("Invalid coverage sets for '$language'")
+            val cards = requiredLong(item, "cards")
+                .takeIf { it in 0L..Int.MAX_VALUE.toLong() }?.toInt()
+                ?: throw IllegalArgumentException("Invalid coverage cards for '$language'")
+            val expectedCards = requiredLong(item, "expectedCards")
+                .takeIf { it in 0L..Int.MAX_VALUE.toLong() }?.toInt()
+                ?: throw IllegalArgumentException("Invalid coverage expectedCards for '$language'")
+            val percentElement = item.get("coveragePercent")
+            val percent = when {
+                percentElement == null || percentElement.isJsonNull -> null
+                percentElement.isJsonPrimitive && percentElement.asJsonPrimitive.isNumber -> percentElement.asDouble
+                else -> throw IllegalArgumentException("Invalid coveragePercent for '$language'")
+            }
+            language to CatalogCoverage(sets, cards, expectedCards, percent)
+        }
     }
 
     private fun requiredString(obj: JsonObject, field: String): String {

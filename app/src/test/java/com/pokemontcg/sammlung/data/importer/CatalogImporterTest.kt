@@ -168,4 +168,117 @@ class CatalogImporterTest {
         // "hello world" SHA-256 = b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9
         assertEquals("b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9", hash)
     }
+
+    @Test
+    fun testParseManifestJsonWithCoverage() {
+        val importer = CatalogImporter(
+            Mockito.mock(Context::class.java),
+            Mockito.mock(AppDatabase::class.java)
+        )
+        val json = """
+            {
+                "version": "2026.10.31",
+                "schemaVersion": 17,
+                "sha256": "${"a".repeat(64)}",
+                "size": 2048,
+                "builtAt": 1700000000000,
+                "url": "https://example.com/catalog.sqlite",
+                "coverage": {
+                    "de": {"sets": 12, "cards": 900, "expectedCards": 1000, "coveragePercent": 90.0},
+                    "en": {"sets": 12, "cards": 950, "expectedCards": 1000, "coveragePercent": 95.0}
+                }
+            }
+        """.trimIndent()
+
+        val manifest = importer.parseManifestJson(json)
+
+        assertEquals(2, manifest.coverage.size)
+        assertEquals(900, manifest.coverage.getValue("de").cards)
+        assertEquals(90.0, manifest.coverage.getValue("de").coveragePercent!!, 0.001)
+        assertEquals(1000, manifest.coverage.getValue("en").expectedCards)
+    }
+
+    @Test
+    fun testParseManifestRejectsMalformedCoverage() {
+        val importer = CatalogImporter(
+            Mockito.mock(Context::class.java),
+            Mockito.mock(AppDatabase::class.java)
+        )
+        val malformed = listOf(
+            """{"version":"1","schemaVersion":17,"sha256":"${"a".repeat(64)}","size":10,"builtAt":1,"url":"https://example.com/c.sqlite","coverage":[]}""",
+            """{"version":"1","schemaVersion":17,"sha256":"${"a".repeat(64)}","size":10,"builtAt":1,"url":"https://example.com/c.sqlite","coverage":{"de":[]}}""",
+            """{"version":"1","schemaVersion":17,"sha256":"${"a".repeat(64)}","size":10,"builtAt":1,"url":"https://example.com/c.sqlite","coverage":{"de":{"sets":1,"cards":2,"expectedCards":3,"coveragePercent":"high"}}}"""
+        )
+        malformed.forEach { json ->
+            try {
+                importer.parseManifestJson(json)
+                fail("Malformed coverage must be rejected: $json")
+            } catch (expected: IllegalArgumentException) {
+                assertTrue(expected.message?.isNotBlank() == true)
+            }
+        }
+    }
+
+    @Test
+    fun testVersionComparisonHandlesCalendarAndSemanticVersions() {
+        assertTrue(compareCatalogVersions("2.0.10", "2.0.9") > 0)
+        assertTrue(compareCatalogVersions("2026.10.31", "2026.9.30") > 0)
+        assertEquals(0, compareCatalogVersions("v2.0", "2.0.0"))
+        assertTrue(compareCatalogVersions("1.9.9", "2.0.0") < 0)
+    }
+
+    @Test
+    fun testCatalogUpdatePolicyCovers304AndVersionSkip() {
+        val manifest = CatalogManifest(
+            version = "2026.10.31",
+            schemaVersion = 17,
+            sha256 = "a".repeat(64),
+            size = 10,
+            builtAt = 1,
+            url = "https://example.com/catalog.sqlite"
+        )
+
+        assertEquals(
+            CatalogUpdateAction.USE_CACHED,
+            decideCatalogUpdate(true, null, null, 17, true)
+        )
+        assertEquals(
+            CatalogUpdateAction.RETRY_WITHOUT_ETAG,
+            decideCatalogUpdate(true, null, null, 17, false)
+        )
+        assertEquals(
+            CatalogUpdateAction.REQUIRES_APP_UPDATE,
+            decideCatalogUpdate(false, manifest.copy(schemaVersion = 18), "2026.1.1", 17, true)
+        )
+        assertEquals(
+            CatalogUpdateAction.ALREADY_UP_TO_DATE,
+            decideCatalogUpdate(false, manifest, "2026.10.31", 17, true)
+        )
+        assertEquals(
+            CatalogUpdateAction.DOWNLOAD,
+            decideCatalogUpdate(false, manifest, "2026.10.30", 17, true)
+        )
+        assertEquals(
+            CatalogUpdateAction.DOWNLOAD,
+            decideCatalogUpdate(false, manifest, "2026.10.31", 17, false)
+        )
+    }
+
+    @Test
+    fun testValidateDownloadedCatalogRejectsSizeAndShaMismatch() {
+        val importer = CatalogImporter(
+            Mockito.mock(Context::class.java),
+            Mockito.mock(AppDatabase::class.java)
+        )
+        val file = File.createTempFile("catalog_validation", ".sqlite")
+        try {
+            file.writeText("hello world")
+            val expectedSha = importer.computeSha256(file)
+            assertEquals(null, importer.validateDownloadedCatalog(file, file.length(), expectedSha))
+            assertEquals("Size mismatch", importer.validateDownloadedCatalog(file, file.length() + 1, expectedSha))
+            assertEquals("SHA256 mismatch", importer.validateDownloadedCatalog(file, file.length(), "b".repeat(64)))
+        } finally {
+            file.delete()
+        }
+    }
 }

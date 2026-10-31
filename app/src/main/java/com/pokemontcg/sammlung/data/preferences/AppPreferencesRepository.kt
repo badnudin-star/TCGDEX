@@ -35,6 +35,11 @@ class AppPreferencesRepository(
         val KEY_PRICE_ALERT_WINDOW_DAYS = intPreferencesKey("price_alert_window_days")
         val KEY_PRICE_ALERT_LAST_TIMESTAMP = longPreferencesKey("price_alert_last_timestamp")
         val KEY_LAST_DATA_CHECK_RESULT = stringPreferencesKey("last_data_check_result")
+        val KEY_CATALOG_ETAG = stringPreferencesKey("catalog_etag")
+        val KEY_CATALOG_INSTALLED_VERSION = stringPreferencesKey("catalog_installed_version")
+        val KEY_CATALOG_MANIFEST_SCHEMA_VERSION = intPreferencesKey("catalog_manifest_schema_version")
+        val KEY_CATALOG_REQUIRES_APP_UPDATE = booleanPreferencesKey("catalog_requires_app_update")
+        val KEY_CATALOG_LAST_CHECK_AT = longPreferencesKey("catalog_last_check_at")
     }
 
     val wifiOnlyFlow: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -63,6 +68,26 @@ class AppPreferencesRepository(
 
     val lastDataCheckResultFlow: Flow<String?> = dataStore.data.map { prefs ->
         prefs[KEY_LAST_DATA_CHECK_RESULT]
+    }
+
+    val catalogEtagFlow: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_ETAG]
+    }
+
+    val catalogInstalledVersionFlow: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_INSTALLED_VERSION]
+    }
+
+    val catalogManifestSchemaVersionFlow: Flow<Int> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_MANIFEST_SCHEMA_VERSION] ?: -1
+    }
+
+    val catalogRequiresAppUpdateFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_REQUIRES_APP_UPDATE] ?: false
+    }
+
+    val catalogLastCheckAtFlow: Flow<Long> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_LAST_CHECK_AT] ?: 0L
     }
 
     val priceAlertsEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -121,6 +146,30 @@ class AppPreferencesRepository(
 
     suspend fun setLastDataCheckResult(result: String) {
         dataStore.edit { it[KEY_LAST_DATA_CHECK_RESULT] = result }
+    }
+
+    suspend fun setCatalogEtag(etag: String?) {
+        dataStore.edit { prefs ->
+            if (etag.isNullOrBlank()) prefs.remove(KEY_CATALOG_ETAG) else prefs[KEY_CATALOG_ETAG] = etag
+        }
+    }
+
+    suspend fun setCatalogInstalledVersion(version: String) {
+        if (version.isNotBlank()) {
+            dataStore.edit { it[KEY_CATALOG_INSTALLED_VERSION] = version }
+        }
+    }
+
+    suspend fun setCatalogManifestSchemaVersion(schemaVersion: Int) {
+        dataStore.edit { it[KEY_CATALOG_MANIFEST_SCHEMA_VERSION] = schemaVersion }
+    }
+
+    suspend fun setCatalogRequiresAppUpdate(required: Boolean) {
+        dataStore.edit { it[KEY_CATALOG_REQUIRES_APP_UPDATE] = required }
+    }
+
+    suspend fun setCatalogLastCheckAt(timestamp: Long) {
+        dataStore.edit { it[KEY_CATALOG_LAST_CHECK_AT] = timestamp.coerceAtLeast(0L) }
     }
 
     suspend fun setPriceAlertsEnabled(enabled: Boolean) {

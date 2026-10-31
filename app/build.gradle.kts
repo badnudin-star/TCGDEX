@@ -14,6 +14,11 @@ if (keystorePropertiesFile.exists()) {
     keystoreProperties.load(FileInputStream(keystorePropertiesFile))
 }
 
+// Override with -PcatalogManifestUrl=...; an empty value disables remote catalog updates.
+val catalogManifestUrl = providers.gradleProperty("catalogManifestUrl")
+    .orElse("https://github.com/badnudin-star/TCGDEX/releases/download/catalog-latest/manifest.json")
+    .get()
+
 android {
     namespace = "com.pokemontcg.sammlung"
     compileSdk = 35
@@ -26,7 +31,11 @@ android {
         versionName = "2.0.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
-        buildConfigField("String", "CATALOG_MANIFEST_URL", "\"\"")
+        buildConfigField(
+            "String",
+            "CATALOG_MANIFEST_URL",
+            "\"${catalogManifestUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
     }
 
     sourceSets {

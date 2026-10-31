@@ -35,7 +35,7 @@ jobs:
         run: python -m unittest discover -s tools/catalog-builder -p 'test_*.py' -v
 
       - name: Check Python syntax
-        run: python -m py_compile tools/catalog-builder/build_catalog.py tools/catalog-builder/test_build_catalog.py tools/catalog-builder/verify_catalog_artifacts.py tools/verify_migration_16_17.py tools/check_migration_source.py tools/test_check_migration_source.py scripts/accessibility-check.py
+        run: python -m py_compile tools/catalog-builder/build_catalog.py tools/catalog-builder/test_build_catalog.py tools/catalog-builder/verify_catalog_artifacts.py tools/catalog-builder/make_start_catalog.py tools/verify_migration_16_17.py tools/check_migration_source.py tools/test_check_migration_source.py scripts/accessibility-check.py
 
       - name: Test production migration source guard
         run: python -m unittest tools.test_check_migration_source -v
