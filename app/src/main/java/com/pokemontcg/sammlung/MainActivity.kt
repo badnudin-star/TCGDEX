@@ -312,15 +312,12 @@ class MainActivity : ComponentActivity() {
                                     selectedScannedCard = null
                                     scope.launch {
                                         val matches = runCatching {
-                                            if (detectedNumber.isNullOrBlank()) {
-                                                catalogRepo.getCardsByOcrText(rawOcrText)
-                                            } else {
-                                                // A misread number must not dead-end the scan; try the
-                                                // bounded OCR name/set fallback before reporting no match.
-                                                catalogRepo.getCardsByNumber(detectedNumber).ifEmpty {
-                                                    catalogRepo.getCardsByOcrText(rawOcrText)
-                                                }
-                                            }
+                                            resolveScannerMatches(
+                                                detectedNumber = detectedNumber,
+                                                rawOcrText = rawOcrText,
+                                                lookupByNumber = catalogRepo::getCardsByNumber,
+                                                lookupByOcrText = catalogRepo::getCardsByOcrText
+                                            )
                                         }.getOrElse { emptyList() }
                                         if (!isCurrentScannerRequest(
                                                 currentRoute = navController.currentDestination?.route,
