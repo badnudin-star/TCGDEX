@@ -23,6 +23,7 @@ import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.model.SetSortOption
 import com.pokemontcg.sammlung.data.model.computeSetProgress
+import com.pokemontcg.sammlung.data.model.ownedCardIdsBySet
 import com.pokemontcg.sammlung.data.model.sortSetProgress
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -31,6 +32,8 @@ fun SetProgressScreen(
     sets: List<SetEntity>,
     userCards: List<UserCardEntityV2>,
     cardsMap: Map<String, CardEntity>,
+    catalogCardCountBySet: Map<String, Int>,
+    isLoading: Boolean,
     onBackClick: () -> Unit
 ) {
     var selectedLanguage by remember { mutableStateOf("Alle") }
@@ -42,28 +45,13 @@ fun SetProgressScreen(
         listOf("Alle") + langs
     }
 
-    val filteredUserCards = remember(userCards, selectedLanguage) {
-        if (selectedLanguage == "Alle") userCards
-        else userCards.filter { it.language == selectedLanguage }
+    val ownedBySet = remember(userCards, cardsMap, selectedLanguage) {
+        val language = if (selectedLanguage == "Alle") null else selectedLanguage
+        ownedCardIdsBySet(userCards, cardsMap, language)
     }
 
-    val ownedCardIdsBySet = remember(filteredUserCards, cardsMap) {
-        val map = mutableMapOf<String, MutableSet<String>>()
-        for (uc in filteredUserCards) {
-            val card = cardsMap[uc.cardId]
-            if (card != null) {
-                map.getOrPut(card.setId) { mutableSetOf() }.add(uc.cardId)
-            }
-        }
-        map
-    }
-
-    val catalogCardCountBySet = remember(cardsMap) {
-        cardsMap.values.groupBy { it.setId }.mapValues { it.value.size }
-    }
-
-    val progressList = remember(ownedCardIdsBySet, catalogCardCountBySet, sets, currentSort) {
-        val computed = computeSetProgress(ownedCardIdsBySet, catalogCardCountBySet, sets)
+    val progressList = remember(ownedBySet, catalogCardCountBySet, sets, currentSort) {
+        val computed = computeSetProgress(ownedBySet, catalogCardCountBySet, sets)
         sortSetProgress(computed, currentSort)
     }
 
@@ -136,7 +124,11 @@ fun SetProgressScreen(
                 }
             }
 
-            if (progressList.isEmpty()) {
+            if (isLoading) {
+                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
+            } else if (progressList.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(stringResource(R.string.ui_keine_erweiterungen_vorhanden_0544ce))
                 }

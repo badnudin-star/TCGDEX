@@ -8,6 +8,7 @@ import com.pokemontcg.sammlung.data.local.entities.PokemonNameEntity
 import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.entities.SourceAuditEntity
 import com.pokemontcg.sammlung.data.local.user.CardCategory
+import com.pokemontcg.sammlung.data.model.batchCardIds
 import com.pokemontcg.sammlung.ui.cards.extractOcrSearchTokens
 import kotlinx.coroutines.flow.Flow
 
@@ -72,6 +73,12 @@ class CatalogRepository(private val db: AppDatabase) {
 
     suspend fun getCardsByIds(cardIds: List<String>): List<CardEntity> =
         if (cardIds.isEmpty()) emptyList() else db.cardDao().getCardsByIds(cardIds)
+
+    suspend fun getCardsByIdsBatched(cardIds: List<String>, batchSize: Int = 500): List<CardEntity> =
+        batchCardIds(cardIds, batchSize).flatMap { batch -> db.cardDao().getCardsByIds(batch) }
+
+    suspend fun getCardCountsBySet(): Map<String, Int> =
+        db.cardDao().getCardCountsBySet().associate { it.setId to it.count }
 
     suspend fun getAllCardIds(): Set<String> =
         db.cardDao().getAllCardsOnce().map { it.id }.toSet()

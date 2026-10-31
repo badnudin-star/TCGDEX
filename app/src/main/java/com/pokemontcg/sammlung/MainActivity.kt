@@ -52,6 +52,7 @@ import com.pokemontcg.sammlung.ui.diagnostics.DiagnosticsScreen
 import com.pokemontcg.sammlung.ui.main.MainScreen
 import com.pokemontcg.sammlung.ui.main.MainViewModel
 import com.pokemontcg.sammlung.ui.sets.SetProgressScreen
+import com.pokemontcg.sammlung.ui.sets.SetProgressViewModel
 import com.pokemontcg.sammlung.ui.settings.SettingsScreen
 import com.pokemontcg.sammlung.ui.settings.SettingsViewModel
 import com.pokemontcg.sammlung.ui.theme.TCGSammlungTheme
@@ -86,7 +87,6 @@ class MainActivity : ComponentActivity() {
                     val scope = rememberCoroutineScope()
 
                     var wishlist by remember { mutableStateOf<List<WishlistEntity>>(emptyList()) }
-                    var userCards by remember { mutableStateOf<List<UserCardEntityV2>>(emptyList()) }
                     var cardMap by remember { mutableStateOf<Map<String, CardEntity>>(emptyMap()) }
                     var allSets by remember { mutableStateOf<List<SetEntity>>(emptyList()) }
                     var showAboutDialog by rememberSaveable { mutableStateOf(false) }
@@ -182,12 +182,6 @@ class MainActivity : ComponentActivity() {
                         val wifi = prefRepo.wifiOnlyFlow.first()
                         val hour = prefRepo.scheduledUpdateHourFlow.first()
                         UpdateScheduler.schedulePeriodicSync(applicationContext, wifi, hour)
-                    }
-
-                    LaunchedEffect(Unit) {
-                        collectionRepo.getAllUserCards().collect { list ->
-                            userCards = list
-                        }
                     }
 
                     LaunchedEffect(Unit) {
@@ -355,10 +349,16 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("sets") {
+                            val setProgressViewModel: SetProgressViewModel = viewModel(
+                                factory = SetProgressViewModel.Factory(catalogRepo, collectionRepo)
+                            )
+                            val setProgressState by setProgressViewModel.uiState.collectAsState()
                             SetProgressScreen(
-                                sets = allSets,
-                                userCards = userCards,
-                                cardsMap = cardMap,
+                                sets = setProgressState.sets,
+                                userCards = setProgressState.userCards,
+                                cardsMap = setProgressState.cardsMap,
+                                catalogCardCountBySet = setProgressState.catalogCardCountBySet,
+                                isLoading = setProgressState.isLoading,
                                 onBackClick = { navController.popBackStack() }
                             )
                         }

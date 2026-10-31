@@ -88,6 +88,8 @@ interface CardDao {
     suspend fun fillMissingSetReleaseDate(setId: String, releaseDate: String)
     @Query("SELECT * FROM cards WHERE id IN (:cardIds)")
     suspend fun getCardsByIds(cardIds: List<String>): List<CardEntity>
+    @Query("SELECT setId, COUNT(*) AS count FROM cards GROUP BY setId")
+    suspend fun getCardCountsBySet(): List<SetCardCount>
     @Query("SELECT * FROM cards WHERE setId = :setId ORDER BY COALESCE(setReleaseDate, '') DESC, setName COLLATE NOCASE ASC, sortNumber ASC, number COLLATE NOCASE ASC")
     suspend fun getCardsForSetOnce(setId: String): List<CardEntity>
     @Query("SELECT * FROM cards WHERE imageUrl IS NULL OR imageUrl = ''")
@@ -125,6 +127,8 @@ interface PokemonNameDao {
 }
 
 data class SetIdName(val setId: String, val setName: String, val releaseDate: String = "")
+
+data class SetCardCount(val setId: String, val count: Int)
 
 @Dao
 interface UserCardDao {
