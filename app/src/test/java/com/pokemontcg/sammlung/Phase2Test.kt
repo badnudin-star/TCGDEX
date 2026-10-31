@@ -4,6 +4,7 @@ import com.pokemontcg.sammlung.data.local.entities.CardPokemonEntity
 import com.pokemontcg.sammlung.worker.ResumableCatalogWorker
 import com.pokemontcg.sammlung.util.AppLogger
 import com.pokemontcg.sammlung.util.PriceFormatter
+import com.pokemontcg.sammlung.util.PriceLabels
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
@@ -11,24 +12,32 @@ import org.junit.Test
 
 class Phase2Test {
 
+    private val labels = PriceLabels(
+        noPrice = "Kein Preis verfügbar",
+        sourceName = "Cardmarket",
+        priceType = "Trend",
+        dateLabel = "Stand"
+    )
+
     @Test
     fun testPriceFormatterMissingPriceText() {
-        val missingPriceTextNull = PriceFormatter.formatPrice(null)
-        val missingPriceTextZero = PriceFormatter.formatPrice(0.0)
+        val missingPriceTextNull = PriceFormatter.formatPrice(null, labels)
+        val missingPriceTextZero = PriceFormatter.formatPrice(0.0, labels)
 
         assertEquals("Kein Preis verfügbar", missingPriceTextNull)
         assertEquals("Kein Preis verfügbar", missingPriceTextZero)
+        assertEquals("Kein Preis verfügbar", PriceFormatter.formatPriceShort(null, labels.noPrice))
     }
 
     @Test
     fun testPriceFormatterValidPrice() {
-        val formatted = PriceFormatter.formatPrice(12.50, sourceName = "Cardmarket", dateString = "25.10.2026")
+        val formatted = PriceFormatter.formatPrice(12.50, labels, dateString = "25.10.2026")
         assertNotNull(formatted)
         assertTrue(formatted.contains("12,50 €"))
         assertTrue(formatted.contains("Cardmarket"))
         assertTrue(formatted.contains("25.10.2026"))
 
-        val shortFormatted = PriceFormatter.formatPriceShort(12.50)
+        val shortFormatted = PriceFormatter.formatPriceShort(12.50, labels.noPrice)
         assertEquals("12,50 €", shortFormatted)
     }
 

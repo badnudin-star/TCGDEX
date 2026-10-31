@@ -1,5 +1,6 @@
 package com.pokemontcg.sammlung.data.export
 
+import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.WishlistEntity
 import org.junit.Assert.assertEquals
@@ -137,8 +138,8 @@ class CollectionExporterTest {
         try {
             CollectionExporter.parseExportJson(jsonFuture)
             org.junit.Assert.fail("Sollte Exception werfen bei schemaVersion > 2")
-        } catch (e: IllegalArgumentException) {
-            assertTrue(e.message?.contains("neueren App-Version") == true)
+        } catch (e: CollectionExportException) {
+            assertEquals(R.string.import_error_newer_version, e.messageRes)
         }
     }
 
@@ -148,8 +149,8 @@ class CollectionExporterTest {
         try {
             CollectionExporter.parseExportJson(badContent)
             org.junit.Assert.fail("Sollte Exception werfen bei ungültigem Format")
-        } catch (e: IllegalArgumentException) {
-            assertTrue(e.message?.contains("Ungültiges Dateiformat") == true)
+        } catch (e: CollectionExportException) {
+            assertEquals(R.string.import_error_invalid_format, e.messageRes)
         }
     }
 
@@ -160,8 +161,8 @@ class CollectionExporterTest {
         try {
             CollectionExporter.parseExportJson(missingItems)
             org.junit.Assert.fail("Sollte Exception bei fehlenden Pflichtfeldern werfen")
-        } catch (e: IllegalArgumentException) {
-            assertTrue(e.message?.contains("Ungültiges Dateiformat") == true)
+        } catch (e: CollectionExportException) {
+            assertEquals(R.string.import_error_invalid_format, e.messageRes)
         }
     }
 

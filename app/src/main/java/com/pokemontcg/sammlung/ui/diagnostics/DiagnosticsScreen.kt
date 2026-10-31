@@ -98,7 +98,12 @@ fun DiagnosticsScreen(
                                 Text(stringResource(R.string.diag_catalog_version, version))
                             }
                         }
-                        Text(stringResource(R.string.ui_diag_migration_status, m.migrationStatus))
+                        Text(
+                            stringResource(
+                                R.string.ui_diag_migration_status,
+                                m.migrationStatus ?: stringResource(R.string.diag_migration_unknown)
+                            )
+                        )
                         Text(stringResource(R.string.ui_diag_last_update, formatTimestamp(m.lastUpdateAt, context)))
                         Text(stringResource(R.string.ui_diag_last_source_check, formatTimestamp(m.lastSourceCheckAt, context)))
                     } ?: CircularProgressIndicator()
@@ -163,9 +168,12 @@ fun DiagnosticsScreen(
                                 isChecking = false
                                 lastCheckResult = dataCheckRepository.getLastDataCheckResult()
                                 integrityStatus = if (appOk && userOk) {
-                                    "✓ Beide Datenbanken sind intakt. Unzugeordnet: ${newMetrics.unassignedUserCardsCount}"
+                                    context.getString(
+                                        R.string.diag_integrity_ok,
+                                        newMetrics.unassignedUserCardsCount
+                                    )
                                 } else {
-                                    "⚠ Integritätsprüfung meldet Fehler!"
+                                    context.getString(R.string.diag_integrity_failed)
                                 }
                                 AppLogger.log("Diagnostics", "Integritätsprüfung ausgeführt: AppDB=$appOk, UserDB=$userOk")
                             }

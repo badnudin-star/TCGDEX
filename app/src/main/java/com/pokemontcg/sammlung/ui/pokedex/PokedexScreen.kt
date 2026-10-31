@@ -55,7 +55,15 @@ fun PokedexScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Column(modifier = Modifier.weight(1f)) {
-                                    Text(stringResource(R.string.ui_generation_title_region, genInfo.name, genInfo.region), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                    Text(
+                                        stringResource(
+                                            R.string.ui_generation_title_region,
+                                            stringResource(genInfo.nameRes),
+                                            stringResource(genInfo.regionRes)
+                                        ),
+                                        fontWeight = FontWeight.Bold,
+                                        style = MaterialTheme.typography.titleMedium
+                                    )
                                     Text(stringResource(R.string.generation_collected_progress, section.collectedCount, section.totalCount), style = MaterialTheme.typography.labelMedium)
                                 }
                                 Text(if (isCollapsed) "▶" else "▼", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold)

@@ -432,4 +432,68 @@
     <string name="ui_scanner_add_to_collection">Zur Sammlung hinzufügen</string>
     <string name="ui_close">Schließen</string>
     <string name="ui_cancel">Abbrechen</string>
+
+    <!-- T13: user-visible texts moved out of Kotlin sources -->
+    <string name="diag_integrity_ok">✓ Beide Datenbanken sind intakt. Unzugeordnet: %1$d</string>
+    <string name="diag_integrity_failed">⚠ Integritätsprüfung meldet Fehler!</string>
+    <string name="diag_migration_done">Abgeschlossen</string>
+    <string name="diag_migration_pending">Nicht bestätigt</string>
+    <string name="diag_migration_unknown">Unbekannt</string>
+    <string name="diag_language_unknown">unbekannt</string>
+
+    <string name="sync_error_unit_failed">Fehler bei Ausführung von %1$s</string>
+
+    <string name="log_share_subject">TCG Sammlung Diagnose-Log</string>
+    <plurals name="log_share_text">
+        <item quantity="one">Diagnose-Log der TCG Sammlung App (%1$d Zeile).</item>
+        <item quantity="other">Diagnose-Log der TCG Sammlung App (%1$d Zeilen).</item>
+    </plurals>
+    <string name="log_share_chooser">Log teilen</string>
+
+    <string name="migration_error_duplicate_pairs">Legacy-Daten enthalten doppelte (cardId, pokemonId)-Paare. Es wurde nichts migriert; bitte Legacy-Export sichern.</string>
+    <string name="migration_error_verification">Verifikation fehlgeschlagen: Legacy-Zeilen=%1$d, Zielzeilen=%2$d, Paare=%3$d/%4$d</string>
+    <string name="migration_error_unknown">Unbekannter Migrationsfehler</string>
+    <string name="migration_error_no_legacy_db">Keine Legacy-Datenbank gefunden</string>
+    <string name="migration_error_detail">Migration fehlgeschlagen: %1$s</string>
+
+    <string name="import_error_invalid_format">Ungültiges Dateiformat</string>
+    <string name="import_error_newer_version">Datei stammt aus einer neueren App-Version</string>
+    <string name="import_msg_failed_detail">Import fehlgeschlagen: %1$s</string>
+
+    <string name="price_no_price">Kein Preis verfügbar</string>
+    <string name="price_source_cardmarket">Cardmarket</string>
+    <string name="price_type_trend">Trend</string>
+    <string name="price_date_label">Stand</string>
+
+    <string name="generation_name_1">Generation 1</string>
+    <string name="generation_name_2">Generation 2</string>
+    <string name="generation_name_3">Generation 3</string>
+    <string name="generation_name_4">Generation 4</string>
+    <string name="generation_name_5">Generation 5</string>
+    <string name="generation_name_6">Generation 6</string>
+    <string name="generation_name_7">Generation 7</string>
+    <string name="generation_name_8">Generation 8</string>
+    <string name="generation_name_9">Generation 9</string>
+    <string name="generation_name_10">Weitere</string>
+    <string name="generation_region_kanto">Kanto</string>
+    <string name="generation_region_johto">Johto</string>
+    <string name="generation_region_hoenn">Hoenn</string>
+    <string name="generation_region_sinnoh">Sinnoh</string>
+    <string name="generation_region_einall">Einall</string>
+    <string name="generation_region_kalos">Kalos</string>
+    <string name="generation_region_alola">Alola</string>
+    <string name="generation_region_galar">Galar</string>
+    <string name="generation_region_paldea">Paldea</string>
+    <string name="generation_region_special_formats">Sonderformate</string>
+
+    <string name="trade_list_title">🎴 Meine Doppelte- &amp; Tauschliste (TCG Sammlung)</string>
+    <string name="trade_list_empty">Derzeit keine doppelten Karten in der Sammlung.</string>
+    <string name="trade_list_unknown_set">Unbekanntes Set</string>
+    <string name="trade_list_set_label">Set</string>
+    <string name="trade_list_available_label">Verfügbar zum Tauschen</string>
+    <string name="trade_list_condition_label">Zustand</string>
+    <string name="trade_list_default_condition">Near Mint</string>
+    <string name="trade_list_price_label">Richtpreis</string>
+    <string name="trade_list_footer">Erstellt mit TCG Sammlung App.</string>
+    <string name="trade_list_share_chooser">Tauschliste teilen</string>
 </resources>

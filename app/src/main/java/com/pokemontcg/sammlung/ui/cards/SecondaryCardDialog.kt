@@ -12,6 +12,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -29,6 +30,7 @@ fun SecondaryCardDialog(
     onRemoveCard: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var searchQuery by remember { mutableStateOf("") }
     val filteredCards = remember(cards, searchQuery) {
         val queryTokens = searchQuery.trim().lowercase(Locale.ROOT).split(Regex("\\s+")).filter { it.isNotBlank() }
@@ -103,7 +105,7 @@ fun SecondaryCardDialog(
                                     }
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(
-                                            PriceFormatter.formatPriceShort(card.marketPrice),
+                                            PriceFormatter.formatPriceShort(context, card.marketPrice),
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary
                                         )

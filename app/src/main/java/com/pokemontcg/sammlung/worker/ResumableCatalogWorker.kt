@@ -141,7 +141,10 @@ class ResumableCatalogWorker(
                         state = "FAILED",
                         attempts = attempts + 1,
                         updatedAt = System.currentTimeMillis(),
-                        error = "Fehler bei Ausführung von $unit"
+                        error = applicationContext.getString(
+                            R.string.sync_error_unit_failed,
+                            unitLabel(unit)
+                        )
                     )
                 )
             }

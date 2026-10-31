@@ -42,7 +42,10 @@ class Phase3DataCheckTest {
 
     @Test
     fun testCardsCountedByLanguageCaseInsensitively() {
-        val counts = DataCheckCalculations.countCardsByLanguage(listOf("de", "DE", "en", "", "en"))
+        val counts = DataCheckCalculations.countCardsByLanguage(
+            listOf("de", "DE", "en", "", "en"),
+            "unbekannt"
+        )
         assertEquals(2, counts["de"])
         assertEquals(2, counts["en"])
         assertEquals(1, counts["unbekannt"])

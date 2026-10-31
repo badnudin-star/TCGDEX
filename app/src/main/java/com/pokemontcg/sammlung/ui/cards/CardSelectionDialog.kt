@@ -10,6 +10,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -36,6 +37,7 @@ fun CardSelectionDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
+    val context = LocalContext.current
     var primary by remember { mutableStateOf(isPrimary) }
     var selectedCategory by remember { mutableStateOf(category) }
     var quantity by remember { mutableIntStateOf(initialQuantity.coerceAtLeast(1)) }
@@ -89,7 +91,7 @@ fun CardSelectionDialog(
                 Text(card.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
                 Text(stringResource(R.string.ui_card_set_number, card.setName, card.number))
                 Text(
-                    PriceFormatter.formatPrice(card.marketPrice, dateString = card.setReleaseDate),
+                    PriceFormatter.formatPrice(context, card.marketPrice, dateString = card.setReleaseDate),
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )

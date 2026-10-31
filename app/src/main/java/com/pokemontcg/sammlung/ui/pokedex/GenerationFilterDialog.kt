@@ -49,7 +49,14 @@ fun GenerationFilterDialog(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text(stringResource(R.string.ui_generation_title_region, gen.name, gen.region), fontWeight = FontWeight.Bold)
+                            Text(
+                                stringResource(
+                                    R.string.ui_generation_title_region,
+                                    stringResource(gen.nameRes),
+                                    stringResource(gen.regionRes)
+                                ),
+                                fontWeight = FontWeight.Bold
+                            )
                             Text(stringResource(R.string.generation_dex_range, gen.startDex.toString(), if (gen.endDex == Int.MAX_VALUE) "∞" else gen.endDex.toString()), style = MaterialTheme.typography.labelSmall)
                         }
                         Switch(

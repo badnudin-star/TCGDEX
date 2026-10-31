@@ -1,5 +1,6 @@
 package com.pokemontcg.sammlung.data.model
 
+import com.pokemontcg.sammlung.R
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -42,14 +43,14 @@ class GenerationModelTest {
     @Test
     fun testGenerationInfo() {
         val gen1 = GenerationModel.getGenerationInfo(1)
-        assertEquals("Generation 1", gen1.name)
-        assertEquals("Kanto", gen1.region)
+        assertEquals(R.string.generation_name_1, gen1.nameRes)
+        assertEquals(R.string.generation_region_kanto, gen1.regionRes)
 
         val gen9 = GenerationModel.getGenerationInfo(9)
-        assertEquals("Generation 9", gen9.name)
-        assertEquals("Paldea", gen9.region)
+        assertEquals(R.string.generation_name_9, gen9.nameRes)
+        assertEquals(R.string.generation_region_paldea, gen9.regionRes)
 
         val gen10 = GenerationModel.getGenerationInfo(10)
-        assertEquals("Weitere", gen10.name)
+        assertEquals(R.string.generation_name_10, gen10.nameRes)
     }
 }

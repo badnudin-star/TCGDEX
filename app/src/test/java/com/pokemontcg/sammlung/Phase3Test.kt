@@ -1,6 +1,7 @@
 package com.pokemontcg.sammlung
 
 import com.pokemontcg.sammlung.data.export.TradeListExporter
+import com.pokemontcg.sammlung.data.export.TradeListLabels
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import org.junit.Assert.assertEquals
@@ -44,7 +45,20 @@ class Phase3Test {
             )
         )
 
-        val tradeText = TradeListExporter.generateTradeListText(duplicates, cardDetails)
+        val labels = TradeListLabels(
+            title = "🎴 Meine Doppelte- & Tauschliste (TCG Sammlung)",
+            empty = "Derzeit keine doppelten Karten in der Sammlung.",
+            unknownSet = "Unbekanntes Set",
+            setLabel = "Set",
+            availableLabel = "Verfügbar zum Tauschen",
+            conditionLabel = "Zustand",
+            defaultCondition = "Near Mint",
+            priceLabel = "Richtpreis",
+            footer = "Erstellt mit TCG Sammlung App.",
+            noPriceText = "Kein Preis verfügbar"
+        )
+
+        val tradeText = TradeListExporter.generateTradeListText(duplicates, cardDetails, labels)
         assertNotNull(tradeText)
         assertTrue(tradeText.contains("Pikachu"))
         assertTrue(tradeText.contains("XY Base"))

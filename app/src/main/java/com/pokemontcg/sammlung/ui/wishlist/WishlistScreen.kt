@@ -15,6 +15,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
@@ -56,6 +57,7 @@ fun WishlistScreen(
 ) {
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
 
     var currentSort by remember { mutableStateOf(WishlistSortOption.ADDED_DESC) }
     var showSortMenu by remember { mutableStateOf(false) }
@@ -219,13 +221,13 @@ fun WishlistScreen(
                                             Text(stringResource(R.string.ui_card_set_number_compact, card.setName, card.number), style = MaterialTheme.typography.bodySmall)
                                         }
                                         Text(
-                                            PriceFormatter.formatPriceShort(marketPrice),
+                                            PriceFormatter.formatPriceShort(context, marketPrice),
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary
                                         )
                                         if (wish.targetPrice != null) {
                                             Text(
-                                                stringResource(R.string.ui_wishlist_target_price, PriceFormatter.formatPriceShort(wish.targetPrice)),
+                                                stringResource(R.string.ui_wishlist_target_price, PriceFormatter.formatPriceShort(context, wish.targetPrice)),
                                                 style = MaterialTheme.typography.labelSmall,
                                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                                             )

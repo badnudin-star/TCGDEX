@@ -17,6 +17,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.export.CollectionExportData
+import com.pokemontcg.sammlung.data.export.CollectionExportException
 import com.pokemontcg.sammlung.data.export.CollectionExporter
 import com.pokemontcg.sammlung.data.export.ImportPreview
 import com.pokemontcg.sammlung.data.repository.CatalogRepository
@@ -58,6 +59,16 @@ fun SettingsScreen(
     val msgExportFailed = stringResource(R.string.export_msg_failed)
     val msgImportFailed = stringResource(R.string.import_msg_failed)
 
+    fun exportFailureMessage(error: Exception): String =
+        error.message?.takeIf { it.isNotBlank() }
+            ?.let { context.getString(R.string.ui_export_failed, it) }
+            ?: msgExportFailed
+
+    fun importFailureMessage(error: Exception): String =
+        error.message?.takeIf { it.isNotBlank() }
+            ?.let { context.getString(R.string.import_msg_failed_detail, it) }
+            ?: msgImportFailed
+
     val exportJsonLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/json")
     ) { uri ->
@@ -79,7 +90,7 @@ fun SettingsScreen(
                     }
                 } catch (e: Exception) {
                     AppLogger.log("SettingsScreen", context.getString(R.string.ui_settings_export_error_json, e.message.orEmpty()))
-                    withContext(Dispatchers.Main) { statusDialogMessage = e.message ?: msgExportFailed }
+                    withContext(Dispatchers.Main) { statusDialogMessage = exportFailureMessage(e) }
                 }
             }
         }
@@ -107,7 +118,7 @@ fun SettingsScreen(
                     }
                 } catch (e: Exception) {
                     AppLogger.log("SettingsScreen", context.getString(R.string.ui_settings_export_error_csv, e.message.orEmpty()))
-                    withContext(Dispatchers.Main) { statusDialogMessage = e.message ?: msgExportFailed }
+                    withContext(Dispatchers.Main) { statusDialogMessage = exportFailureMessage(e) }
                 }
             }
         }
@@ -129,11 +140,13 @@ fun SettingsScreen(
                         pendingImportData = exportData
                         pendingImportPreview = preview
                     }
-                } catch (e: IllegalArgumentException) {
-                    withContext(Dispatchers.Main) { statusDialogMessage = e.message }
+                } catch (e: CollectionExportException) {
+                    withContext(Dispatchers.Main) {
+                        statusDialogMessage = context.getString(e.messageRes, *e.formatArgs)
+                    }
                 } catch (e: Exception) {
                     AppLogger.log("SettingsScreen", context.getString(R.string.ui_settings_import_error, e.message.orEmpty()))
-                    withContext(Dispatchers.Main) { statusDialogMessage = e.message ?: msgImportFailed }
+                    withContext(Dispatchers.Main) { statusDialogMessage = importFailureMessage(e) }
                 }
             }
         }
@@ -165,7 +178,7 @@ fun SettingsScreen(
                     } catch (e: Exception) {
                         AppLogger.log("SettingsScreen", context.getString(R.string.ui_settings_import_execution_error, e.message.orEmpty()))
                         withContext(Dispatchers.Main) {
-                            statusDialogMessage = e.message ?: msgImportFailed
+                            statusDialogMessage = importFailureMessage(e)
                         }
                     }
                 }

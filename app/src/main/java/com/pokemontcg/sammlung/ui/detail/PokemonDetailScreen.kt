@@ -21,6 +21,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
@@ -49,6 +50,7 @@ fun PokemonDetailScreen(
     onToggleWishlist: (CardEntity) -> Unit,
     onClassificationChange: (String) -> Unit
 ) {
+    val context = LocalContext.current
     var showPrimaryDialog by remember { mutableStateOf(false) }
     var showSecondaryDialog by remember { mutableStateOf(false) }
     var selectedCardForEdit by remember { mutableStateOf<CardEntity?>(null) }
@@ -119,7 +121,7 @@ fun PokemonDetailScreen(
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(stringResource(R.string.ui_wert_der_ausgew_hlten_karten_6abd48), style = MaterialTheme.typography.titleMedium)
-                    Text(PriceFormatter.formatPrice(totalPrice), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    Text(PriceFormatter.formatPrice(context, totalPrice), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(stringResource(R.string.ui_prim_rkarte_und_alle_weiteren_karten_80d843), style = MaterialTheme.typography.bodySmall)
                 }
             }
@@ -128,7 +130,11 @@ fun PokemonDetailScreen(
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.ui_kategorie_f_r_die_bersicht_c2c26d), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        listOf("Common" to "Common", "Fullart" to "Full Art", "NONE" to "Ohne Kategorie").forEach { (typeKey, label) ->
+                        listOf(
+                            "Common" to stringResource(R.string.main_filter_common),
+                            "Fullart" to stringResource(R.string.main_filter_fullart),
+                            "NONE" to stringResource(R.string.main_filter_none)
+                        ).forEach { (typeKey, label) ->
                             FilterChip(
                                 selected = pokemon.cardType.name.equals(typeKey, ignoreCase = true),
                                 onClick = { onClassificationChange(typeKey) },
@@ -168,7 +174,7 @@ fun PokemonDetailScreen(
                             Column(Modifier.weight(1f)) {
                                 Text(primaryCard.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                                 Text(stringResource(R.string.ui_card_set_number_hash, primaryCard.setName, primaryCard.number), style = MaterialTheme.typography.bodySmall)
-                                Text(PriceFormatter.formatPriceShort(primaryCard.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                Text(PriceFormatter.formatPriceShort(context, primaryCard.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }
                             val isWishlisted = primaryCard.id in wishlistCardIds
                             IconButton(onClick = { onToggleWishlist(primaryCard) }) {
@@ -223,7 +229,7 @@ fun PokemonDetailScreen(
                                 Column(Modifier.weight(1f)) {
                                     Text(card.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                                     Text(stringResource(R.string.ui_card_set_number_compact, card.setName, card.number), style = MaterialTheme.typography.bodySmall)
-                                    Text(PriceFormatter.formatPriceShort(card.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                    Text(PriceFormatter.formatPriceShort(context, card.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                 }
                                 val isWishlisted = card.id in wishlistCardIds
                                 IconButton(onClick = { onToggleWishlist(card) }) {

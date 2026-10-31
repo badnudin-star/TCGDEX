@@ -123,7 +123,7 @@ class MainActivity : ComponentActivity() {
                                     .onSuccess { csv ->
                                         runCatching {
                                             contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(csv) }
-                                                ?: error("Datei konnte nicht geöffnet werden")
+                                                ?: error(getString(R.string.ui_file_open_error))
                                         }.onSuccess {
                                             Toast.makeText(applicationContext, getString(R.string.ui_legacy_export_created), Toast.LENGTH_LONG).show()
                                         }.onFailure { error ->

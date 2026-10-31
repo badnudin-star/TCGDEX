@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder
 import com.google.gson.JsonParser
 import androidx.room.withTransaction
 import com.pokemontcg.sammlung.BuildConfig
+import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.local.user.UserCardDaoV2
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.UserDatabase
@@ -93,7 +94,7 @@ object CollectionExporter {
         val clean = if (content.startsWith("\uFEFF")) content.substring(1) else content
         val trimmed = clean.trim()
         if (trimmed.isEmpty()) {
-            throw IllegalArgumentException("Ungültiges Dateiformat")
+            throw CollectionExportException(R.string.import_error_invalid_format)
         }
 
         if (trimmed.startsWith("{")) {
@@ -101,11 +102,11 @@ object CollectionExporter {
                 val jsonObject = JsonParser.parseString(trimmed).asJsonObject
                 val schemaVersion = if (jsonObject.has("schemaVersion")) jsonObject.get("schemaVersion").asInt else 1
                 if (schemaVersion > 2) {
-                    throw IllegalArgumentException("Datei stammt aus einer neueren App-Version")
+                    throw CollectionExportException(R.string.import_error_newer_version)
                 }
-                if (schemaVersion < 1) throw IllegalArgumentException("Ungültiges Dateiformat")
+                if (schemaVersion < 1) throw CollectionExportException(R.string.import_error_invalid_format)
                 if (!jsonObject.has("items") || !jsonObject.get("items").isJsonArray) {
-                    throw IllegalArgumentException("Ungültiges Dateiformat")
+                    throw CollectionExportException(R.string.import_error_invalid_format)
                 }
                 val data = gson.fromJson(trimmed, CollectionExportData::class.java)
                 if (data != null) {
@@ -168,7 +169,7 @@ object CollectionExporter {
         val records = parseCsvRecords(csvContent.removePrefix("\uFEFF"))
             .filter { row -> row.any { it.isNotBlank() } }
         if (records.isEmpty()) {
-            throw IllegalArgumentException("Ungültiges Dateiformat")
+            throw CollectionExportException(R.string.import_error_invalid_format)
         }
 
         val headerCols = records.first().map { it.trim().lowercase() }
@@ -176,7 +177,7 @@ object CollectionExporter {
         val cardIdIdx = headerCols.indexOf("cardid")
         val requiredHeaders = listOf("cardid", "language", "quantity", "condition", "category", "isprimary", "pokemondexid", "notes", "addedat")
         if (requiredHeaders.any { it !in headerCols }) {
-            throw IllegalArgumentException("Ungültiges Dateiformat")
+            throw CollectionExportException(R.string.import_error_invalid_format)
         }
 
         val langIdx = headerCols.indexOf("language")
@@ -191,10 +192,10 @@ object CollectionExporter {
         val items = mutableListOf<ExportedUserCardItem>()
 
         for (cols in records.drop(1)) {
-            if (cols.size != headerCols.size) throw IllegalArgumentException("Ungültiges Dateiformat")
+            if (cols.size != headerCols.size) throw CollectionExportException(R.string.import_error_invalid_format)
 
             val cardId = cols[cardIdIdx].trim()
-            if (cardId.isBlank()) throw IllegalArgumentException("Ungültiges Dateiformat")
+            if (cardId.isBlank()) throw CollectionExportException(R.string.import_error_invalid_format)
 
             val language = if (langIdx != -1 && langIdx < cols.size) cols[langIdx].trim() else ""
             val quantity = if (qtyIdx != -1 && qtyIdx < cols.size) cols[qtyIdx].trim().toIntOrNull() ?: 0 else 0
@@ -222,7 +223,7 @@ object CollectionExporter {
         }
 
         if (items.isEmpty()) {
-            throw IllegalArgumentException("Ungültiges Dateiformat")
+            throw CollectionExportException(R.string.import_error_invalid_format)
         }
 
         val data = CollectionExportData(
@@ -265,24 +266,24 @@ object CollectionExporter {
             }
             i++
         }
-        if (inQuotes) throw IllegalArgumentException("Ungültiges Dateiformat")
+        if (inQuotes) throw CollectionExportException(R.string.import_error_invalid_format)
         row.add(current.toString())
         if (row.any { it.isNotEmpty() }) result.add(row)
         return result
     }
 
     private fun validateExportData(data: CollectionExportData) {
-        if (data.schemaVersion > 2) throw IllegalArgumentException("Datei stammt aus einer neueren App-Version")
-        if (data.schemaVersion < 1) throw IllegalArgumentException("Ungültiges Dateiformat")
+        if (data.schemaVersion > 2) throw CollectionExportException(R.string.import_error_newer_version)
+        if (data.schemaVersion < 1) throw CollectionExportException(R.string.import_error_invalid_format)
         data.items.forEach { item ->
             if (item.cardId.isBlank() || item.language.isBlank() || item.quantity < 1 || item.pokemonDexId < 0 || item.addedAt < 0 ||
                 item.category !in CardCategory.entries.map { it.name } ||
                 (item.condition != null && item.condition !in CardCondition.entries.map { it.name })
-            ) throw IllegalArgumentException("Ungültiges Dateiformat")
+            ) throw CollectionExportException(R.string.import_error_invalid_format)
         }
         data.wishlist.forEach { wish ->
             if (wish.cardId.isBlank() || wish.addedAt < 0 || (wish.targetPrice != null && wish.targetPrice < 0)) {
-                throw IllegalArgumentException("Ungültiges Dateiformat")
+                throw CollectionExportException(R.string.import_error_invalid_format)
             }
         }
     }

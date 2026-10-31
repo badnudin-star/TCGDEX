@@ -1,5 +1,6 @@
 package com.pokemontcg.sammlung.data.repository
 
+import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.local.AppDatabase
 import com.pokemontcg.sammlung.data.local.entities.SourceAuditEntity
 import com.pokemontcg.sammlung.data.local.user.UserDatabase
@@ -29,7 +30,7 @@ data class SystemDataMetrics(
     val cardsByLanguage: Map<String, Int> = emptyMap(),
     val lastUpdateAt: Long = 0L,
     val lastSourceCheckAt: Long = 0L,
-    val migrationStatus: String = "Unbekannt",
+    val migrationStatus: String? = null,
     val catalogRequiresAppUpdate: Boolean = false,
     val catalogManifestSchemaVersion: Int = -1,
     val catalogInstalledVersion: String? = null
@@ -57,7 +58,10 @@ class DataCheckRepository(
         val catalogCards = totalCards
         val cardsWithoutImages = allCards.count { it.imageUrl.isNullOrBlank() }
         val cardsWithoutPrice = allCards.count { it.marketPrice == null || it.marketPrice <= 0.0 }
-        val cardsByLanguage = DataCheckCalculations.countCardsByLanguage(allCards.map { it.language })
+        val cardsByLanguage = DataCheckCalculations.countCardsByLanguage(
+            allCards.map { it.language },
+            context.getString(R.string.diag_language_unknown)
+        )
         val lastUpdateAt = appDb.lastUpdateDao().getLastUpdate()?.lastUpdateTimestamp ?: 0L
         val lastSourceCheckAt = appDb.sourceAuditDao().getSourceAuditsOnce().maxOfOrNull { it.checkedAt } ?: 0L
         val migrationDone = context.getSharedPreferences("user_migration_prefs", Context.MODE_PRIVATE)
@@ -90,7 +94,9 @@ class DataCheckRepository(
             cardsByLanguage = cardsByLanguage,
             lastUpdateAt = lastUpdateAt,
             lastSourceCheckAt = lastSourceCheckAt,
-            migrationStatus = if (migrationDone) "Abgeschlossen" else "Nicht bestätigt",
+            migrationStatus = context.getString(
+                if (migrationDone) R.string.diag_migration_done else R.string.diag_migration_pending
+            ),
             catalogRequiresAppUpdate = catalogRequiresAppUpdate,
             catalogManifestSchemaVersion = catalogManifestSchemaVersion,
             catalogInstalledVersion = catalogInstalledVersion

@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.util.Log
 import androidx.core.content.FileProvider
+import com.pokemontcg.sammlung.R
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -53,12 +54,22 @@ object AppLogger {
 
         val intent = Intent(Intent.ACTION_SEND).apply {
             type = "text/plain"
-            putExtra(Intent.EXTRA_SUBJECT, "TCG Sammlung Diagnose-Log")
-            putExtra(Intent.EXTRA_TEXT, "Diagnose-Log der TCG Sammlung App (${getLogLines().size} Zeilen).")
+            putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.log_share_subject))
+            val logLineCount = getLogLines().size
+            putExtra(
+                Intent.EXTRA_TEXT,
+                context.resources.getQuantityString(
+                    R.plurals.log_share_text,
+                    logLineCount,
+                    logLineCount
+                )
+            )
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
 
-        context.startActivity(Intent.createChooser(intent, "Log teilen"))
+        context.startActivity(
+            Intent.createChooser(intent, context.getString(R.string.log_share_chooser))
+        )
     }
 }

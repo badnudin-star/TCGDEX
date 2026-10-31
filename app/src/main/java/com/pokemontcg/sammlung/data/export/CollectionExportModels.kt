@@ -1,7 +1,13 @@
 package com.pokemontcg.sammlung.data.export
 
+import androidx.annotation.StringRes
 import com.google.gson.annotations.SerializedName
 import com.pokemontcg.sammlung.BuildConfig
+
+class CollectionExportException(
+    @StringRes val messageRes: Int,
+    vararg val formatArgs: Any
+) : IllegalArgumentException()
 
 data class CollectionExportData(
     @SerializedName("schemaVersion") val schemaVersion: Int = 2,

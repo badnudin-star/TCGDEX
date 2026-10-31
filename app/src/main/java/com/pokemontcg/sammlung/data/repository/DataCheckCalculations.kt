@@ -5,8 +5,11 @@ object DataCheckCalculations {
     fun countUnassigned(userCardIds: Iterable<String>, catalogCardIds: Set<String>): Int =
         userCardIds.count { it !in catalogCardIds }
 
-    fun countCardsByLanguage(languages: Iterable<String>): Map<String, Int> =
-        languages.groupingBy { it.ifBlank { "unbekannt" }.lowercase() }
+    fun countCardsByLanguage(
+        languages: Iterable<String>,
+        unknownLabel: String
+    ): Map<String, Int> =
+        languages.groupingBy { it.ifBlank { unknownLabel }.lowercase() }
             .eachCount()
             .toSortedMap()
 }

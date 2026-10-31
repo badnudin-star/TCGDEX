@@ -1,9 +1,12 @@
 package com.pokemontcg.sammlung.data.model
 
+import androidx.annotation.StringRes
+import com.pokemontcg.sammlung.R
+
 data class PokemonGeneration(
     val id: Int,
-    val name: String,
-    val region: String,
+    @StringRes val nameRes: Int,
+    @StringRes val regionRes: Int,
     val startDex: Int,
     val endDex: Int
 )
@@ -11,16 +14,16 @@ data class PokemonGeneration(
 object GenerationModel {
 
     val GENERATIONS = listOf(
-        PokemonGeneration(1, "Generation 1", "Kanto", 1, 151),
-        PokemonGeneration(2, "Generation 2", "Johto", 152, 251),
-        PokemonGeneration(3, "Generation 3", "Hoenn", 252, 386),
-        PokemonGeneration(4, "Generation 4", "Sinnoh", 387, 493),
-        PokemonGeneration(5, "Generation 5", "Einall", 494, 649),
-        PokemonGeneration(6, "Generation 6", "Kalos", 650, 721),
-        PokemonGeneration(7, "Generation 7", "Alola", 722, 809),
-        PokemonGeneration(8, "Generation 8", "Galar", 810, 905),
-        PokemonGeneration(9, "Generation 9", "Paldea", 906, 1025),
-        PokemonGeneration(10, "Weitere", "Sonderformate", 1026, Int.MAX_VALUE)
+        PokemonGeneration(1, R.string.generation_name_1, R.string.generation_region_kanto, 1, 151),
+        PokemonGeneration(2, R.string.generation_name_2, R.string.generation_region_johto, 152, 251),
+        PokemonGeneration(3, R.string.generation_name_3, R.string.generation_region_hoenn, 252, 386),
+        PokemonGeneration(4, R.string.generation_name_4, R.string.generation_region_sinnoh, 387, 493),
+        PokemonGeneration(5, R.string.generation_name_5, R.string.generation_region_einall, 494, 649),
+        PokemonGeneration(6, R.string.generation_name_6, R.string.generation_region_kalos, 650, 721),
+        PokemonGeneration(7, R.string.generation_name_7, R.string.generation_region_alola, 722, 809),
+        PokemonGeneration(8, R.string.generation_name_8, R.string.generation_region_galar, 810, 905),
+        PokemonGeneration(9, R.string.generation_name_9, R.string.generation_region_paldea, 906, 1025),
+        PokemonGeneration(10, R.string.generation_name_10, R.string.generation_region_special_formats, 1026, Int.MAX_VALUE)
     )
 
     fun generationOf(dexId: Int): Int {

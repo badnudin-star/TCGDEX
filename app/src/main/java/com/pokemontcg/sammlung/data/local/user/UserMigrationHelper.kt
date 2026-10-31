@@ -2,6 +2,7 @@ package com.pokemontcg.sammlung.data.local.user
 
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.local.AppDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -149,7 +150,7 @@ object UserMigrationHelper {
             val expectedPairs = legacyUserCards.map { it.cardId to it.pokemonId }
             if (expectedPairs.toSet().size != legacyCardsCount) {
                 return@withContext MigrationResult.Error(
-                    "Legacy-Daten enthalten doppelte (cardId, pokemonId)-Paare. Es wurde nichts migriert; bitte Legacy-Export sichern."
+                    context.getString(R.string.migration_error_duplicate_pairs)
                 )
             }
             val expectedPairSet = expectedPairs.toSet()
@@ -168,8 +169,13 @@ object UserMigrationHelper {
                 val sameRowCount = rowsForLegacyPairs.size == legacyCardsCount
                 if (!samePairSet || !sameRowCount) {
                     throw IllegalStateException(
-                        "Verifikation fehlgeschlagen: Legacy-Zeilen=$legacyCardsCount, " +
-                            "Zielzeilen=${rowsForLegacyPairs.size}, Paare=${afterPairs.size}/${expectedPairSet.size}"
+                        context.getString(
+                            R.string.migration_error_verification,
+                            legacyCardsCount,
+                            rowsForLegacyPairs.size,
+                            afterPairs.size,
+                            expectedPairSet.size
+                        )
                     )
                 }
                 inserted
@@ -184,14 +190,18 @@ object UserMigrationHelper {
             MigrationResult.Success(legacyCardsCount, migratedCount)
         } catch (e: Exception) {
             com.pokemontcg.sammlung.util.AppLogger.log("UserMigrationHelper", "Migration Ausnahme-Fehler: ${e.message}")
-            MigrationResult.Error(e.message ?: "Unknown migration error")
+            MigrationResult.Error(
+                e.message?.takeIf { it.isNotBlank() }?.let {
+                    context.getString(R.string.migration_error_detail, it)
+                } ?: context.getString(R.string.migration_error_unknown)
+            )
         }
     }
 
     /** Exports the untouched legacy user_cards table to CSV when migration needs recovery. */
     suspend fun exportLegacyCsv(context: Context): String = withContext(Dispatchers.IO) {
         val oldDbFile = context.getDatabasePath("tcg_sammlung_database")
-        require(oldDbFile.exists()) { "Keine Legacy-Datenbank gefunden" }
+        require(oldDbFile.exists()) { context.getString(R.string.migration_error_no_legacy_db) }
         val rows = mutableListOf<List<String>>()
         SQLiteDatabase.openDatabase(oldDbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
             db.rawQuery(
