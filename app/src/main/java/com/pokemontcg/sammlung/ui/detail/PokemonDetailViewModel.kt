@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -46,6 +47,14 @@ class PokemonDetailViewModel(
             initialValue = emptyList()
         )
 
+    val wishlistCardIds: StateFlow<Set<String>> = collectionRepository.getWishlist()
+        .map { wishlist -> wishlist.map { it.cardId }.toSet() }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptySet()
+        )
+
     val totalPrice: StateFlow<Double?> = priceRepository.getTotalPriceForPokemon(pokemonIdStr)
         .stateIn(
             scope = viewModelScope,
@@ -70,6 +79,17 @@ class PokemonDetailViewModel(
     fun removePrimaryCard() {
         viewModelScope.launch {
             collectionRepository.removePrimaryCard(pokemonIdStr)
+        }
+    }
+
+    fun toggleWishlist(card: CardEntity) {
+        viewModelScope.launch {
+            applyWishlistToggle(
+                cardId = card.id,
+                loadWishlist = collectionRepository::getWishlistOnce,
+                add = collectionRepository::addToWishlist,
+                remove = collectionRepository::removeFromWishlist
+            )
         }
     }
 

@@ -80,6 +80,8 @@
     <string name="detail_secondary_none">Noch keine weiteren Karten ausgewählt.</string>
     <string name="detail_btn_deselect">Abwählen</string>
     <string name="detail_btn_remove">Entfernen</string>
+    <string name="detail_wishlist_add">Zur Wunschliste hinzufügen: %1$s</string>
+    <string name="detail_wishlist_remove">Von der Wunschliste entfernen: %1$s</string>
 
     <!-- Wishlist -->
     <string name="wishlist_title">Meine Wunschliste (%1$d)</string>

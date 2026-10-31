@@ -236,6 +236,7 @@ class MainActivity : ComponentActivity() {
                             val pokemon by pokemonDetailViewModel.pokemon.collectAsState()
                             val cards by pokemonDetailViewModel.cards.collectAsState()
                             val uCards by pokemonDetailViewModel.userCards.collectAsState()
+                            val wishlistCardIds by pokemonDetailViewModel.wishlistCardIds.collectAsState()
                             val totalPrice by pokemonDetailViewModel.totalPrice.collectAsState()
 
                             if (pokemon != null) {
@@ -243,6 +244,7 @@ class MainActivity : ComponentActivity() {
                                     pokemon = pokemon!!,
                                     cards = cards,
                                     userCards = uCards,
+                                    wishlistCardIds = wishlistCardIds,
                                     totalPrice = totalPrice,
                                     onBackClick = { navController.popBackStack() },
                                     onSelectPrimary = { card -> pokemonDetailViewModel.setPrimaryCard(card) },
@@ -251,6 +253,7 @@ class MainActivity : ComponentActivity() {
                                         pokemonDetailViewModel.addSecondaryCard(card, category)
                                     },
                                     onRemoveSecondary = { cardId -> pokemonDetailViewModel.removeSecondaryCard(cardId) },
+                                    onToggleWishlist = { card -> pokemonDetailViewModel.toggleWishlist(card) },
                                     onClassificationChange = { _ -> }
                                 )
                             } else {
@@ -286,6 +289,11 @@ class MainActivity : ComponentActivity() {
                                 onRemoveWish = { cardId ->
                                     scope.launch {
                                         collectionRepo.removeFromWishlist(cardId)
+                                    }
+                                },
+                                onUpdateWish = { wish ->
+                                    scope.launch {
+                                        collectionRepo.addToWishlist(wish)
                                     }
                                 },
                                 onBackClick = { navController.popBackStack() }

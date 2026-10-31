@@ -12,6 +12,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
@@ -37,12 +39,14 @@ fun PokemonDetailScreen(
     pokemon: PokemonEntity,
     cards: List<CardEntity>,
     userCards: List<UserCardEntityV2>,
+    wishlistCardIds: Set<String>,
     totalPrice: Double?,
     onBackClick: () -> Unit,
     onSelectPrimary: (CardEntity) -> Unit,
     onRemovePrimary: () -> Unit,
     onAddSecondary: (CardEntity, CardCategory) -> Unit,
     onRemoveSecondary: (String) -> Unit,
+    onToggleWishlist: (CardEntity) -> Unit,
     onClassificationChange: (String) -> Unit
 ) {
     var showPrimaryDialog by remember { mutableStateOf(false) }
@@ -166,6 +170,17 @@ fun PokemonDetailScreen(
                                 Text(stringResource(R.string.ui_card_set_number_hash, primaryCard.setName, primaryCard.number), style = MaterialTheme.typography.bodySmall)
                                 Text(PriceFormatter.formatPriceShort(primaryCard.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }
+                            val isWishlisted = primaryCard.id in wishlistCardIds
+                            IconButton(onClick = { onToggleWishlist(primaryCard) }) {
+                                Icon(
+                                    imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                    contentDescription = stringResource(
+                                        if (isWishlisted) R.string.detail_wishlist_remove else R.string.detail_wishlist_add,
+                                        primaryCard.name
+                                    ),
+                                    tint = if (isWishlisted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                             IconButton(onClick = onRemovePrimary) {
                                 Icon(Icons.Default.Close, contentDescription = stringResource(R.string.ui_remove_primary_card_named, primaryCard.name), tint = MaterialTheme.colorScheme.error)
                             }
@@ -209,6 +224,17 @@ fun PokemonDetailScreen(
                                     Text(card.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                                     Text(stringResource(R.string.ui_card_set_number_compact, card.setName, card.number), style = MaterialTheme.typography.bodySmall)
                                     Text(PriceFormatter.formatPriceShort(card.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
+                                }
+                                val isWishlisted = card.id in wishlistCardIds
+                                IconButton(onClick = { onToggleWishlist(card) }) {
+                                    Icon(
+                                        imageVector = if (isWishlisted) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
+                                        contentDescription = stringResource(
+                                            if (isWishlisted) R.string.detail_wishlist_remove else R.string.detail_wishlist_add,
+                                            card.name
+                                        ),
+                                        tint = if (isWishlisted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
                                 }
                                 IconButton(onClick = { onRemoveSecondary(card.id) }) {
                                     Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_remove_secondary_card_named, card.name), tint = MaterialTheme.colorScheme.error)
