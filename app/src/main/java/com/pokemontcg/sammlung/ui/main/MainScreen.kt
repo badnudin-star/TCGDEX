@@ -57,7 +57,8 @@ fun MainScreen(
     var showGenerationDialog by rememberSaveable { mutableStateOf(false) }
 
     val quantitiesMap = remember(userCards) {
-        userCards.associate { it.cardId to it.quantity }
+        userCards.groupBy { it.cardId }
+            .mapValues { (_, cards) -> cards.sumOf { it.quantity } }
     }
 
     NotificationPermissionHandler()

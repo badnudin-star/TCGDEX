@@ -220,16 +220,20 @@ class ResumableCatalogWorker(
                 val userCards = collectionRepository.getAllUserCardsOnce()
                 val wishlist = collectionRepository.getWishlistOnce()
                 val cardIds = (userCards.map { it.cardId } + wishlist.map { it.cardId }).distinct()
-                val cardEntities = db.cardDao().getCardsByIds(cardIds)
+                val cardIdSet = cardIds.toSet()
+                val cardEntities = cardIds.chunked(500).flatMap { batch ->
+                    db.cardDao().getCardsByIds(batch)
+                }
                 val cardNames = cardEntities.associate { it.id to it.name }
+                val relevantHistory = history.filter { it.cardId in cardIdSet }
 
                 val alertsEnabled = preferencesRepository.priceAlertsEnabledFlow.first()
                 val threshold = preferencesRepository.priceAlertThresholdPercentFlow.first()
                 val windowDays = preferencesRepository.priceAlertWindowDaysFlow.first()
                 val lastAlertTimestamp = preferencesRepository.priceAlertLastTimestampFlow.first()
-                val didNotify = PriceAlertManager.checkAndNotifyPriceChanges(
+                val didNotify = PriceAlertManager.checkAndNotifyPriceChange(
                     context = applicationContext,
-                    history = history,
+                    history = relevantHistory,
                     cardNames = cardNames,
                     settings = PriceAlertSettings(
                         enabled = alertsEnabled,

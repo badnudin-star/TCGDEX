@@ -10,6 +10,8 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.pokemontcg.sammlung.util.PRICE_ALERT_DEFAULT_THRESHOLD
+import com.pokemontcg.sammlung.util.PRICE_ALERT_THRESHOLDS
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -68,7 +70,9 @@ class AppPreferencesRepository(
     }
 
     val priceAlertThresholdPercentFlow: Flow<Int> = dataStore.data.map { prefs ->
-        (prefs[KEY_PRICE_ALERT_THRESHOLD] ?: 10).coerceIn(1, 100)
+        (prefs[KEY_PRICE_ALERT_THRESHOLD] ?: PRICE_ALERT_DEFAULT_THRESHOLD)
+            .takeIf { it in PRICE_ALERT_THRESHOLDS }
+            ?: PRICE_ALERT_DEFAULT_THRESHOLD
     }
 
     val priceAlertWindowDaysFlow: Flow<Int> = dataStore.data.map { prefs ->
@@ -124,7 +128,9 @@ class AppPreferencesRepository(
     }
 
     suspend fun setPriceAlertThresholdPercent(percent: Int) {
-        dataStore.edit { it[KEY_PRICE_ALERT_THRESHOLD] = percent.coerceIn(1, 100) }
+        val normalized = percent.takeIf { it in PRICE_ALERT_THRESHOLDS }
+            ?: PRICE_ALERT_DEFAULT_THRESHOLD
+        dataStore.edit { it[KEY_PRICE_ALERT_THRESHOLD] = normalized }
     }
 
     suspend fun setPriceAlertWindowDays(days: Int) {

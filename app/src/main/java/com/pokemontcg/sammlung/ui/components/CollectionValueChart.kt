@@ -34,6 +34,9 @@ fun CollectionValueChart(
     val points = remember(history, quantities, selectedDays) {
         buildValueSeries(history, quantities, selectedDays)
     }
+    val relevantHistoryCount = remember(history, quantities) {
+        history.count { it.cardId in quantities }
+    }
 
     Column(
         modifier = modifier.padding(vertical = 8.dp),
@@ -63,7 +66,7 @@ fun CollectionValueChart(
             }
         }
 
-        if (points.size < 2) {
+        if (relevantHistoryCount < 2 || points.size < 2) {
             Box(
                 modifier = Modifier
                     .fillMaxWidth()

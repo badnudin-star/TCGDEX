@@ -154,6 +154,15 @@
     <string name="settings_price_alert_24h">24 Stunden</string>
     <string name="settings_price_alert_7d">7 Tage</string>
     <string name="settings_price_alert_permission_hint">Benachrichtigungen müssen in den Android-Einstellungen erlaubt sein.</string>
+    <string name="settings_price_alert_threshold_option">%1$d %%</string>
+    <string name="price_alert_channel_name">Preisalarme</string>
+    <string name="price_alert_channel_description">Benachrichtigungen über wesentliche Preisänderungen gesammelter Karten</string>
+    <plurals name="price_alert_title">
+        <item quantity="one">Preisalarm: %1$d Karte verändert</item>
+        <item quantity="other">Preisalarm: %1$d Karten verändert</item>
+    </plurals>
+    <string name="price_alert_entry">%1$s %2$s%3$.1f%%</string>
+    <string name="price_alert_more">%1$s … und %2$d weitere</string>
 
     <string name="generation_hidden_chip">%1$d Generationen ausgeblendet · Anzeigen</string>
     <string name="generation_hidden_search_matches">%1$d Treffer in ausgeblendeten Generationen · Anzeigen</string>

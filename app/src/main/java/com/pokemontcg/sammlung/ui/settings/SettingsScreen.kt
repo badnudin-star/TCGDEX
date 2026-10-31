@@ -24,6 +24,7 @@ import com.pokemontcg.sammlung.data.repository.CollectionRepository
 import com.pokemontcg.sammlung.ui.export.ImportPreviewDialog
 import com.pokemontcg.sammlung.ui.pokedex.GenerationFilterDialog
 import com.pokemontcg.sammlung.util.AppLogger
+import com.pokemontcg.sammlung.util.PRICE_ALERT_THRESHOLDS
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -294,13 +295,23 @@ fun SettingsScreen(
                             )
                         }
                         Text(stringResource(R.string.settings_price_alert_threshold, uiState.priceAlertThresholdPercent))
-                        Slider(
-                            value = uiState.priceAlertThresholdPercent.toFloat(),
-                            onValueChange = { viewModel.setPriceAlertThresholdPercent(it.toInt()) },
-                            valueRange = 1f..50f,
-                            steps = 48,
-                            enabled = uiState.priceAlertsEnabled
-                        )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            PRICE_ALERT_THRESHOLDS.forEach { threshold ->
+                                FilterChip(
+                                    selected = uiState.priceAlertThresholdPercent == threshold,
+                                    onClick = { viewModel.setPriceAlertThresholdPercent(threshold) },
+                                    enabled = uiState.priceAlertsEnabled,
+                                    label = {
+                                        Text(
+                                            stringResource(
+                                                R.string.settings_price_alert_threshold_option,
+                                                threshold
+                                            )
+                                        )
+                                    }
+                                )
+                            }
+                        }
                         Text(stringResource(R.string.settings_price_alert_window), style = MaterialTheme.typography.labelLarge)
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             FilterChip(

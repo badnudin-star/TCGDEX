@@ -39,7 +39,7 @@ fun PriceDevelopmentTab(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(
-                    text = stringResource(R.string.ui_price_development_title),
+                    text = stringResource(R.string.main_collection_value_title),
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )

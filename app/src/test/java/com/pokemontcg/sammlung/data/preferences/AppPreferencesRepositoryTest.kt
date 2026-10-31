@@ -46,6 +46,10 @@ class AppPreferencesRepositoryTest {
         assertEquals("EUR_CARDMARKET", repository.currencySourceFlow.first())
         assertEquals(emptySet<Int>(), repository.hiddenGenerationsFlow.first())
         assertEquals(emptySet<Int>(), repository.collapsedGenerationsFlow.first())
+        assertEquals(false, repository.priceAlertsEnabledFlow.first())
+        assertEquals(10, repository.priceAlertThresholdPercentFlow.first())
+        assertEquals(1, repository.priceAlertWindowDaysFlow.first())
+        assertEquals(0L, repository.priceAlertLastTimestampFlow.first())
     }
 
     @Test
@@ -63,12 +67,35 @@ class AppPreferencesRepositoryTest {
         repository.setPreferredLanguage("en")
         repository.setHiddenGenerations(setOf(2, 5))
         repository.setCollapsedGenerations(setOf(3))
+        repository.setPriceAlertsEnabled(true)
+        repository.setPriceAlertThresholdPercent(20)
+        repository.setPriceAlertWindowDays(7)
+        repository.setPriceAlertLastTimestamp(123L)
 
         assertEquals(false, repository.wifiOnlyFlow.first())
         assertEquals(17, repository.scheduledUpdateHourFlow.first())
         assertEquals("en", repository.preferredLanguageFlow.first())
         assertEquals(setOf(2, 5), repository.hiddenGenerationsFlow.first())
         assertEquals(setOf(3), repository.collapsedGenerationsFlow.first())
+        assertEquals(true, repository.priceAlertsEnabledFlow.first())
+        assertEquals(20, repository.priceAlertThresholdPercentFlow.first())
+        assertEquals(7, repository.priceAlertWindowDaysFlow.first())
+        assertEquals(123L, repository.priceAlertLastTimestampFlow.first())
         assertEquals(true, tempFile.exists())
+    }
+
+    @Test
+    fun testUnsupportedPriceAlertThresholdFallsBackToDefault() = runTest {
+        val tempFile = File.createTempFile("tcg-price-alert", ".preferences_pb")
+        tempFile.delete()
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { tempFile }
+        )
+        val repository = AppPreferencesRepository(dataStore)
+
+        repository.setPriceAlertThresholdPercent(7)
+
+        assertEquals(10, repository.priceAlertThresholdPercentFlow.first())
     }
 }

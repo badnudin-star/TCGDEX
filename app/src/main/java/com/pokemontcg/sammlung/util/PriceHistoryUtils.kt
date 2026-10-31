@@ -2,6 +2,7 @@ package com.pokemontcg.sammlung.util
 
 import com.pokemontcg.sammlung.data.local.user.PriceHistoryEntity
 import com.pokemontcg.sammlung.ui.components.ValuePoint
+import kotlin.math.ceil
 
 fun buildValueSeries(
     history: List<PriceHistoryEntity>,
@@ -14,8 +15,8 @@ fun buildValueSeries(
     val msPerDay = 24L * 60L * 60L * 1000L
     val effectiveDays = if (rangeDays > 0) rangeDays else {
         val minTs = history.minOf { it.timestamp }
-        val diffDays = ((now - minTs) / msPerDay).toInt().coerceAtLeast(1)
-        diffDays
+        val elapsedDays = ceil((now - minTs).toDouble() / msPerDay.toDouble()).toInt().coerceAtLeast(0)
+        elapsedDays + 1
     }
 
     val historyByCard = history.groupBy { it.cardId }
