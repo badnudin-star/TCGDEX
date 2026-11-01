@@ -8,6 +8,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.data.export.ExportMergeStrategy
@@ -23,7 +25,12 @@ fun ImportPreviewDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ui_sammlung_importieren_vorschau_29d15d)) },
+        title = {
+            Text(
+                stringResource(R.string.ui_sammlung_importieren_vorschau_29d15d),
+                modifier = Modifier.semantics { heading() }
+            )
+        },
         text = {
             Column(
                 modifier = Modifier.fillMaxWidth(),
@@ -43,7 +50,11 @@ fun ImportPreviewDialog(
 
                 HorizontalDivider()
 
-                Text(stringResource(R.string.ui_import_strategie_w_hlen_f98493), fontWeight = FontWeight.Bold)
+                Text(
+                    stringResource(R.string.ui_import_strategie_w_hlen_f98493),
+                    modifier = Modifier.semantics { heading() },
+                    fontWeight = FontWeight.Bold
+                )
 
                 val strategies = listOf(
                     ExportMergeStrategy.SKIP_EXISTING to stringResource(R.string.ui_import_strategy_skip),

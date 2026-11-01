@@ -32,6 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -101,7 +103,8 @@ fun CardScannerScreen(
                     stringResource(
                         if (permanentlyDenied) R.string.scanner_permission_denied_title
                         else R.string.scanner_permission_title
-                    )
+                    ),
+                    modifier = Modifier.semantics { heading() }
                 )
             },
             text = {
@@ -222,7 +225,12 @@ fun CardScannerScreen(
                 modifier = Modifier.padding(16.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
-                Text(stringResource(R.string.scanner_active), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.scanner_active),
+                    modifier = Modifier.semantics { heading() },
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Spacer(Modifier.height(4.dp))
                 Text(detectedText.ifBlank { stringResource(R.string.scanner_placeholder) }, style = MaterialTheme.typography.bodySmall, maxLines = 3)
                 Spacer(Modifier.height(12.dp))

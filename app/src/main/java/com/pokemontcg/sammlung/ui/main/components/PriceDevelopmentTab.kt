@@ -10,6 +10,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.data.local.user.PriceHistoryEntity
@@ -42,6 +44,7 @@ fun PriceDevelopmentTab(
             ) {
                 Text(
                     text = stringResource(R.string.main_collection_value_title),
+                    modifier = Modifier.semantics { heading() },
                     style = MaterialTheme.typography.titleLarge,
                     fontWeight = FontWeight.Bold
                 )
@@ -75,6 +78,7 @@ fun PriceDevelopmentTab(
             ) {
                 Text(
                     text = stringResource(R.string.ui_collection_statistics),
+                    modifier = Modifier.semantics { heading() },
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold
                 )

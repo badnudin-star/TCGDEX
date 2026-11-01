@@ -25,6 +25,8 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavType
@@ -164,7 +166,12 @@ class MainActivity : ComponentActivity() {
                         }
                         MigrationUiState.Failed -> AlertDialog(
                             onDismissRequest = {},
-                            title = { Text(stringResource(R.string.ui_sammlung_konnte_nicht_bernommen_werd_74969d)) },
+                            title = {
+                                Text(
+                                    stringResource(R.string.ui_sammlung_konnte_nicht_bernommen_werd_74969d),
+                                    modifier = Modifier.semantics { heading() }
+                                )
+                            },
                             text = { Text(stringResource(R.string.ui_migration_blocked_error, migrationError)) },
                             confirmButton = {
                                 Button(onClick = { migrationAttempt++ }) { Text(stringResource(R.string.ui_erneut_versuchen_3234b7)) }
@@ -367,7 +374,12 @@ class MainActivity : ComponentActivity() {
                     if (showScanResults) {
                         AlertDialog(
                             onDismissRequest = { showScanResults = false },
-                            title = { Text(stringResource(R.string.ui_scanner_matches_title)) },
+                            title = {
+                                Text(
+                                    stringResource(R.string.ui_scanner_matches_title),
+                                    modifier = Modifier.semantics { heading() }
+                                )
+                            },
                             text = {
                                 if (scanLookupFailed) {
                                     Text(stringResource(R.string.ui_scanner_no_match))
@@ -401,7 +413,12 @@ class MainActivity : ComponentActivity() {
                     selectedScannedCard?.let { card ->
                         AlertDialog(
                             onDismissRequest = { selectedScannedCard = null },
-                            title = { Text(stringResource(R.string.ui_scanner_confirm_title)) },
+                            title = {
+                                Text(
+                                    stringResource(R.string.ui_scanner_confirm_title),
+                                    modifier = Modifier.semantics { heading() }
+                                )
+                            },
                             text = { Text(stringResource(R.string.ui_scanner_confirm_text, card.name, card.setName, card.number)) },
                             confirmButton = {
                                 Button(onClick = {

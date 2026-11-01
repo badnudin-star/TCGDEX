@@ -9,6 +9,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 
@@ -18,7 +20,12 @@ fun AboutAndSourcesDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ui_ber_tcg_sammlung_quellen_6d887d)) },
+        title = {
+            Text(
+                stringResource(R.string.ui_ber_tcg_sammlung_quellen_6d887d),
+                modifier = Modifier.semantics { heading() }
+            )
+        },
         text = {
             Column(
                 modifier = Modifier
@@ -34,7 +41,12 @@ fun AboutAndSourcesDialog(
 
                 HorizontalDivider()
 
-                Text(stringResource(R.string.ui_datenquellen_urheberrechte_674a73), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.ui_datenquellen_urheberrechte_674a73),
+                    modifier = Modifier.semantics { heading() },
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
 
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(stringResource(R.string.ui_tcgdex_api_c9ff41), fontWeight = FontWeight.Bold)
@@ -49,7 +61,12 @@ fun AboutAndSourcesDialog(
 
                 HorizontalDivider()
 
-                Text(stringResource(R.string.ui_haftungsausschluss_767c5a), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                Text(
+                    stringResource(R.string.ui_haftungsausschluss_767c5a),
+                    modifier = Modifier.semantics { heading() },
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleMedium
+                )
                 Text(
                     stringResource(R.string.ui_trademark_disclaimer),
                     style = MaterialTheme.typography.bodySmall,

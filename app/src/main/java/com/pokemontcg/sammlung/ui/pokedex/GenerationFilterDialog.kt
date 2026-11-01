@@ -4,9 +4,13 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.res.stringResource
@@ -23,7 +27,12 @@ fun GenerationFilterDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.generation_hide_dialog_title)) },
+        title = {
+            Text(
+                stringResource(R.string.generation_hide_dialog_title),
+                modifier = Modifier.semantics { heading() }
+            )
+        },
         text = {
             Column(
                 modifier = Modifier
@@ -41,6 +50,9 @@ fun GenerationFilterDialog(
 
                 GenerationModel.GENERATIONS.forEach { gen ->
                     val isHidden = localHidden.contains(gen.id)
+                    val visibilityState = stringResource(
+                        if (isHidden) R.string.a11y_state_hidden else R.string.a11y_state_visible
+                    )
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -67,7 +79,10 @@ fun GenerationFilterDialog(
                                 } else {
                                     localHidden + gen.id
                                 }
-                            }
+                            },
+                            modifier = Modifier
+                                .minimumInteractiveComponentSize()
+                                .semantics { stateDescription = visibilityState }
                         )
                     }
                 }

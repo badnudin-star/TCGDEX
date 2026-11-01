@@ -12,6 +12,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.data.local.entities.SourceAuditEntity
@@ -46,7 +48,12 @@ fun DiagnosticsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.ui_diagnose_daten_check_f9cfd5)) },
+                title = {
+                    Text(
+                        stringResource(R.string.ui_diagnose_daten_check_f9cfd5),
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.ui_icon_back))
@@ -68,7 +75,12 @@ fun DiagnosticsScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(R.string.ui_system_bersicht_kennzahlen_d2dad8), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.ui_system_bersicht_kennzahlen_d2dad8),
+                        modifier = Modifier.semantics { heading() },
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     HorizontalDivider()
 
                     metrics?.let { m ->
@@ -116,7 +128,12 @@ fun DiagnosticsScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(R.string.ui_quellenbericht_ea5631), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.ui_quellenbericht_ea5631),
+                        modifier = Modifier.semantics { heading() },
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     Text(stringResource(R.string.ui_status_und_vollst_ndigkeit_der_daten_6e2dc9), style = MaterialTheme.typography.bodySmall)
                     HorizontalDivider()
 
@@ -148,7 +165,12 @@ fun DiagnosticsScreen(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(stringResource(R.string.ui_integrit_tspr_fung_e97d46), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.ui_integrit_tspr_fung_e97d46),
+                        modifier = Modifier.semantics { heading() },
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     Text(stringResource(R.string.ui_pr_ft_die_physikalische_datenbankstr_64dd72), style = MaterialTheme.typography.bodySmall)
 
                     integrityStatus?.let { status ->

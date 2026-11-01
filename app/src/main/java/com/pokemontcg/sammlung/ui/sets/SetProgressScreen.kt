@@ -15,6 +15,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
@@ -58,7 +60,12 @@ fun SetProgressScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.ui_set_fortschritt_601613)) },
+                title = {
+                    Text(
+                        stringResource(R.string.ui_set_fortschritt_601613),
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.ui_icon_back))
@@ -144,13 +151,21 @@ fun SetProgressScreen(
                                     if (!setImg.isNullOrBlank()) {
                                         TcgImage(
                                             model = setImg,
-                                            contentDescription = item.set.name,
+                                            contentDescription = stringResource(
+                                                R.string.ui_set_symbol_description,
+                                                item.set.name
+                                            ),
                                             modifier = Modifier.size(36.dp)
                                         )
                                         Spacer(Modifier.width(12.dp))
                                     }
                                     Column(modifier = Modifier.weight(1f)) {
-                                        Text(item.set.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                        Text(
+                                            item.set.name,
+                                            modifier = Modifier.semantics { heading() },
+                                            fontWeight = FontWeight.Bold,
+                                            style = MaterialTheme.typography.titleMedium
+                                        )
                                         Text(stringResource(R.string.ui_set_series_release, item.set.series, item.set.releaseDate.ifBlank { stringResource(R.string.ui_unbekannt) }), style = MaterialTheme.typography.bodySmall)
                                     }
                                     Text(
@@ -168,6 +183,7 @@ fun SetProgressScreen(
 
                                 if (item.isCatalogIncomplete) {
                                     Row(
+                                        modifier = Modifier.horizontalScroll(rememberScrollState()),
                                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
@@ -175,10 +191,17 @@ fun SetProgressScreen(
                                             stringResource(R.string.ui_set_catalog_count, item.catalogCount),
                                             style = MaterialTheme.typography.labelSmall
                                         )
-                                        SuggestionChip(
-                                            onClick = {},
-                                            label = { Text(stringResource(R.string.ui_katalog_unvollst_ndig_2a2190), style = MaterialTheme.typography.labelSmall) }
-                                        )
+                                        Surface(
+                                            shape = MaterialTheme.shapes.small,
+                                            color = MaterialTheme.colorScheme.secondaryContainer
+                                        ) {
+                                            Text(
+                                                stringResource(R.string.ui_katalog_unvollst_ndig_2a2190),
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSecondaryContainer
+                                            )
+                                        }
                                     }
                                 }
                             }

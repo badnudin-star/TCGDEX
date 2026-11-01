@@ -3,6 +3,7 @@ package com.pokemontcg.sammlung.ui.cards
 import com.pokemontcg.sammlung.R
 import androidx.compose.ui.res.stringResource
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -12,6 +13,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -72,7 +74,12 @@ fun CardSelectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ui_karte_in_sammlung_bearbeiten_7e5caa)) },
+        title = {
+            Text(
+                stringResource(R.string.ui_karte_in_sammlung_bearbeiten_7e5caa),
+                modifier = Modifier.semantics { heading() }
+            )
+        },
         text = {
             Column(
                 modifier = Modifier
@@ -88,7 +95,12 @@ fun CardSelectionDialog(
                         .height(220.dp)
                 )
 
-                Text(card.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
+                Text(
+                    card.name,
+                    modifier = Modifier.semantics { heading() },
+                    fontWeight = FontWeight.Bold,
+                    style = MaterialTheme.typography.titleLarge
+                )
                 Text(stringResource(R.string.ui_card_set_number, card.setName, card.number))
                 Text(
                     PriceFormatter.formatPrice(context, card.marketPrice, dateString = card.setReleaseDate),
@@ -132,8 +144,10 @@ fun CardSelectionDialog(
                 // Category selector
                 Text(stringResource(R.string.ui_kategorie_typ_4aa6c2), fontWeight = FontWeight.Bold)
                 Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceEvenly
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     FilterChip(
                         selected = selectedCategory == CardCategory.NONE.name,

@@ -13,6 +13,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -47,7 +49,12 @@ fun SecondaryCardDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ui_weitere_karten_verwalten_9c849a)) },
+        title = {
+            Text(
+                stringResource(R.string.ui_weitere_karten_verwalten_9c849a),
+                modifier = Modifier.semantics { heading() }
+            )
+        },
         text = {
             Column(modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -59,11 +66,11 @@ fun SecondaryCardDialog(
                     placeholder = { Text(stringResource(R.string.ui_name_set_nummer_sprache_058f1e)) }
                 )
                 if (cards.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.ui_keine_karten_f_r_dieses_pok_mon_vorh_53cb93))
                     }
                 } else if (filteredCards.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.ui_keine_passenden_karten_gefunden_e6f6bf))
                     }
                 } else {
@@ -114,7 +121,10 @@ fun SecondaryCardDialog(
                                                 Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_remove_card_named, card.name), tint = MaterialTheme.colorScheme.error)
                                             }
                                         } else {
-                                            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                                            Column(
+                                                verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                horizontalAlignment = Alignment.End
+                                            ) {
                                                 FilterChip(
                                                     selected = false,
                                                     onClick = { onAddCard(card, CardCategory.COMMON) },

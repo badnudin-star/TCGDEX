@@ -4,6 +4,7 @@ import com.pokemontcg.sammlung.R
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -17,11 +18,14 @@ import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
@@ -105,7 +109,12 @@ fun PokemonDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(pokemon.name) },
+                title = {
+                    Text(
+                        pokemon.name,
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.ui_icon_back))
@@ -120,7 +129,11 @@ fun PokemonDetailScreen(
         ) {
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.ui_wert_der_ausgew_hlten_karten_6abd48), style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        stringResource(R.string.ui_wert_der_ausgew_hlten_karten_6abd48),
+                        modifier = Modifier.semantics { heading() },
+                        style = MaterialTheme.typography.titleMedium
+                    )
                     Text(PriceFormatter.formatPrice(context, totalPrice), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
                     Text(stringResource(R.string.ui_prim_rkarte_und_alle_weiteren_karten_80d843), style = MaterialTheme.typography.bodySmall)
                 }
@@ -128,8 +141,18 @@ fun PokemonDetailScreen(
 
             Card(Modifier.fillMaxWidth()) {
                 Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(stringResource(R.string.ui_kategorie_f_r_die_bersicht_c2c26d), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    Text(
+                        stringResource(R.string.ui_kategorie_f_r_die_bersicht_c2c26d),
+                        modifier = Modifier.semantics { heading() },
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
                         listOf(
                             "Common" to stringResource(R.string.main_filter_common),
                             "Fullart" to stringResource(R.string.main_filter_fullart),
@@ -151,7 +174,12 @@ fun PokemonDetailScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Star, contentDescription = null, tint = MaterialTheme.colorScheme.tertiary)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.ui_prim_rkarte_845a5e), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.ui_prim_rkarte_845a5e),
+                            modifier = Modifier.semantics { heading() },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                         Spacer(Modifier.weight(1f))
                         OutlinedButton(onClick = { showPrimaryDialog = true }) {
                             Text(stringResource(R.string.ui_ausw_hlen_2ac692))
@@ -161,7 +189,10 @@ fun PokemonDetailScreen(
                     if (primaryCard != null) {
                         HorizontalDivider()
                         Row(
-                            modifier = Modifier.fillMaxWidth().clickable { selectedCardForEdit = primaryCard },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .minimumInteractiveComponentSize()
+                                .clickable { selectedCardForEdit = primaryCard },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             TcgImage(
@@ -203,7 +234,12 @@ fun PokemonDetailScreen(
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Default.Add, contentDescription = null, tint = MaterialTheme.colorScheme.secondary)
                         Spacer(Modifier.width(8.dp))
-                        Text(stringResource(R.string.ui_weitere_karten_c7ec5c), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                        Text(
+                            stringResource(R.string.ui_weitere_karten_c7ec5c),
+                            modifier = Modifier.semantics { heading() },
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
                         Spacer(Modifier.weight(1f))
                         OutlinedButton(onClick = { showSecondaryDialog = true }) {
                             Text(stringResource(R.string.ui_verwalten_d0d41d))
@@ -216,7 +252,10 @@ fun PokemonDetailScreen(
                         secondaryCards.forEach { (card, _) ->
                             HorizontalDivider()
                             Row(
-                                modifier = Modifier.fillMaxWidth().clickable { selectedCardForEdit = card },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .minimumInteractiveComponentSize()
+                                    .clickable { selectedCardForEdit = card },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TcgImage(

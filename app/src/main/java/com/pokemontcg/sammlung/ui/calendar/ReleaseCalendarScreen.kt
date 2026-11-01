@@ -15,6 +15,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.R
@@ -35,7 +37,12 @@ fun ReleaseCalendarScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.ui_ver_ffentlichungskalender_7b0d91)) },
+                title = {
+                    Text(
+                        stringResource(R.string.ui_ver_ffentlichungskalender_7b0d91),
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(
@@ -74,7 +81,10 @@ fun ReleaseCalendarScreen(
                                 if (!setImage.isNullOrBlank()) {
                                     TcgImage(
                                         model = setImage,
-                                        contentDescription = set.name,
+                                        contentDescription = stringResource(
+                                            R.string.ui_set_symbol_description,
+                                            set.name
+                                        ),
                                         modifier = Modifier.size(48.dp)
                                     )
                                     Spacer(Modifier.width(16.dp))

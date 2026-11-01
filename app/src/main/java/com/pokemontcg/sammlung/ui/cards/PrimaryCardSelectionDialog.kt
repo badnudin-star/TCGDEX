@@ -10,10 +10,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import java.util.Locale
@@ -45,7 +48,12 @@ fun PrimaryCardSelectionDialog(
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.ui_prim_rkarte_ausw_hlen_672838)) },
+        title = {
+            Text(
+                stringResource(R.string.ui_prim_rkarte_ausw_hlen_672838),
+                modifier = Modifier.semantics { heading() }
+            )
+        },
         text = {
             Column(modifier = Modifier.fillMaxWidth().heightIn(max = 560.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
@@ -57,11 +65,11 @@ fun PrimaryCardSelectionDialog(
                     placeholder = { Text(stringResource(R.string.ui_name_set_nummer_sprache_058f1e)) }
                 )
                 if (cards.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(150.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.ui_keine_karten_f_r_dieses_pok_mon_vorh_53cb93))
                     }
                 } else if (filteredCards.isEmpty()) {
-                    Box(modifier = Modifier.fillMaxWidth().height(120.dp), contentAlignment = Alignment.Center) {
+                    Box(modifier = Modifier.fillMaxWidth().heightIn(min = 120.dp), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.ui_keine_passenden_karten_gefunden_e6f6bf))
                     }
                 } else {
@@ -69,7 +77,10 @@ fun PrimaryCardSelectionDialog(
                         items(filteredCards, key = { it.id }) { card ->
                             val isCurrentlyPrimary = (card.id == currentPrimaryId)
                             Card(
-                                modifier = Modifier.fillMaxWidth().clickable { onSelect(card) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .minimumInteractiveComponentSize()
+                                    .clickable { onSelect(card) },
                                 colors = CardDefaults.cardColors(containerColor = if (isCurrentlyPrimary) MaterialTheme.colorScheme.tertiaryContainer else MaterialTheme.colorScheme.surface)
                             ) {
                                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {

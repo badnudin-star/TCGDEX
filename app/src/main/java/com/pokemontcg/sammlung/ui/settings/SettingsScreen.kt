@@ -2,17 +2,22 @@ package com.pokemontcg.sammlung.ui.settings
 
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.R
@@ -193,7 +198,12 @@ fun SettingsScreen(
     if (statusDialogMessage != null) {
         AlertDialog(
             onDismissRequest = { statusDialogMessage = null },
-            title = { Text(stringResource(R.string.common_dialog_notice)) },
+            title = {
+                Text(
+                    stringResource(R.string.common_dialog_notice),
+                    modifier = Modifier.semantics { heading() }
+                )
+            },
             text = { Text(statusDialogMessage!!) },
             confirmButton = {
                 TextButton(onClick = { statusDialogMessage = null }) {
@@ -214,7 +224,12 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings_title)) },
+                title = {
+                    Text(
+                        stringResource(R.string.settings_title),
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.btn_back))
@@ -239,7 +254,12 @@ fun SettingsScreen(
                 // Section: Aktualisierung
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.settings_section_update), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.settings_section_update),
+                            modifier = Modifier.semantics { heading() },
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -251,7 +271,14 @@ fun SettingsScreen(
                             }
                             Switch(
                                 checked = uiState.wifiOnly,
-                                onCheckedChange = { viewModel.setWifiOnly(it) }
+                                onCheckedChange = { viewModel.setWifiOnly(it) },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .semantics {
+                                        stateDescription = context.getString(
+                                            if (uiState.wifiOnly) R.string.a11y_state_on else R.string.a11y_state_off
+                                        )
+                                    }
                             )
                         }
                         HorizontalDivider()
@@ -275,9 +302,17 @@ fun SettingsScreen(
                 // Section: Anzeige
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text(stringResource(R.string.settings_section_display), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.settings_section_display),
+                            modifier = Modifier.semantics { heading() },
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.titleSmall)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             uiState.availableLanguages.forEach { language ->
                                 FilterChip(
                                     selected = uiState.preferredLanguage == language,
@@ -294,7 +329,12 @@ fun SettingsScreen(
                 // Section: Preisalarme
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text(stringResource(R.string.settings_price_alerts_title), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.settings_price_alerts_title),
+                            modifier = Modifier.semantics { heading() },
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Text(stringResource(R.string.settings_price_alerts_desc), style = MaterialTheme.typography.bodySmall)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -304,11 +344,21 @@ fun SettingsScreen(
                             Text(stringResource(R.string.settings_price_alerts_enabled), modifier = Modifier.weight(1f))
                             Switch(
                                 checked = uiState.priceAlertsEnabled,
-                                onCheckedChange = viewModel::setPriceAlertsEnabled
+                                onCheckedChange = viewModel::setPriceAlertsEnabled,
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .semantics {
+                                        stateDescription = context.getString(
+                                            if (uiState.priceAlertsEnabled) R.string.a11y_state_on else R.string.a11y_state_off
+                                        )
+                                    }
                             )
                         }
                         Text(stringResource(R.string.settings_price_alert_threshold, uiState.priceAlertThresholdPercent))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             PRICE_ALERT_THRESHOLDS.forEach { threshold ->
                                 FilterChip(
                                     selected = uiState.priceAlertThresholdPercent == threshold,
@@ -326,7 +376,10 @@ fun SettingsScreen(
                             }
                         }
                         Text(stringResource(R.string.settings_price_alert_window), style = MaterialTheme.typography.labelLarge)
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Row(
+                            modifier = Modifier.horizontalScroll(rememberScrollState()),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
                             FilterChip(
                                 selected = uiState.priceAlertWindowDays == 1,
                                 onClick = { viewModel.setPriceAlertWindowDays(1) },
@@ -347,7 +400,12 @@ fun SettingsScreen(
                 // Section: Sammlung sichern
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.settings_section_backup), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.settings_section_backup),
+                            modifier = Modifier.semantics { heading() },
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         Button(
                             onClick = {
                                 scope.launch(Dispatchers.IO) {
@@ -390,7 +448,12 @@ fun SettingsScreen(
                 // Section: Navigation & Diagnose
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(stringResource(R.string.settings_section_navigation), fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                        Text(
+                            stringResource(R.string.settings_section_navigation),
+                            modifier = Modifier.semantics { heading() },
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
                         OutlinedButton(
                             onClick = { showGenDialog = true },
                             modifier = Modifier.fillMaxWidth()

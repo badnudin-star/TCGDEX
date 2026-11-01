@@ -18,7 +18,10 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.core.content.ContextCompat
 
 @Composable
@@ -57,7 +60,12 @@ fun NotificationPermissionHandler(
     if (showRationaleDialog) {
         AlertDialog(
             onDismissRequest = { showRationaleDialog = false },
-            title = { Text(stringResource(R.string.ui_benachrichtigungen_aktivieren_4e1b17)) },
+            title = {
+                Text(
+                    stringResource(R.string.ui_benachrichtigungen_aktivieren_4e1b17),
+                    modifier = Modifier.semantics { heading() }
+                )
+            },
             text = {
                 Text(
                     stringResource(R.string.ui_notification_rationale)

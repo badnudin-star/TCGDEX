@@ -3,9 +3,11 @@ package com.pokemontcg.sammlung.ui.wishlist
 import com.pokemontcg.sammlung.R
 import androidx.compose.ui.res.stringResource
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -16,6 +18,8 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
@@ -74,7 +78,12 @@ fun WishlistScreen(
         var targetText by remember { mutableStateOf(wish.targetPrice?.toString() ?: "") }
         AlertDialog(
             onDismissRequest = { editingWishTarget = null },
-            title = { Text(stringResource(R.string.ui_zielpreis_festlegen_99510b)) },
+            title = {
+                Text(
+                    stringResource(R.string.ui_zielpreis_festlegen_99510b),
+                    modifier = Modifier.semantics { heading() }
+                )
+            },
             text = {
                 OutlinedTextField(
                     value = targetText,
@@ -108,7 +117,12 @@ fun WishlistScreen(
         var notesText by remember { mutableStateOf(wish.notes ?: "") }
         AlertDialog(
             onDismissRequest = { editingWishNotes = null },
-            title = { Text(stringResource(R.string.ui_notiz_bearbeiten_a47793)) },
+            title = {
+                Text(
+                    stringResource(R.string.ui_notiz_bearbeiten_a47793),
+                    modifier = Modifier.semantics { heading() }
+                )
+            },
             text = {
                 OutlinedTextField(
                     value = notesText,
@@ -139,7 +153,12 @@ fun WishlistScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.ui_wishlist_title_count, wishlist.size)) },
+                title = {
+                    Text(
+                        stringResource(R.string.ui_wishlist_title_count, wishlist.size),
+                        modifier = Modifier.semantics { heading() }
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBackClick) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.ui_icon_back))
@@ -207,7 +226,9 @@ fun WishlistScreen(
                                 ) {
                                     TcgImage(
                                         model = card?.imageUrl,
-                                        contentDescription = card?.let { stringResource(R.string.ui_card_image_description, it.name, it.number, it.setName) } ?: wish.cardId,
+                                        contentDescription = card?.let {
+                                            stringResource(R.string.ui_card_image_description, it.name, it.number, it.setName)
+                                        } ?: stringResource(R.string.ui_card_id_description, wish.cardId),
                                         modifier = Modifier.size(60.dp)
                                     )
                                     Spacer(Modifier.width(12.dp))
@@ -263,28 +284,36 @@ fun WishlistScreen(
                                 }
 
                                 Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .horizontalScroll(rememberScrollState()),
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        AssistChip(
-                                            onClick = { editingWishTarget = wish },
-                                            label = { Text(stringResource(R.string.ui_zielpreis_848291)) },
-                                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                        )
-                                        AssistChip(
-                                            onClick = { editingWishNotes = wish },
-                                            label = { Text(stringResource(R.string.ui_notiz_b6c441)) },
-                                            leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) }
-                                        )
-                                    }
+                                    AssistChip(
+                                        onClick = { editingWishTarget = wish },
+                                        label = { Text(stringResource(R.string.ui_zielpreis_848291)) },
+                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                    )
+                                    AssistChip(
+                                        onClick = { editingWishNotes = wish },
+                                        label = { Text(stringResource(R.string.ui_notiz_b6c441)) },
+                                        leadingIcon = { Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) }
+                                    )
 
                                     if (targetReached) {
-                                        SuggestionChip(
-                                            onClick = {},
-                                            label = { Text(stringResource(R.string.ui_ziel_erreicht_d2e169), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold) }
-                                        )
+                                        Surface(
+                                            shape = MaterialTheme.shapes.small,
+                                            color = MaterialTheme.colorScheme.primaryContainer
+                                        ) {
+                                            Text(
+                                                stringResource(R.string.ui_ziel_erreicht_d2e169),
+                                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                style = MaterialTheme.typography.labelMedium,
+                                                color = MaterialTheme.colorScheme.primary,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
                                     }
                                 }
                             }

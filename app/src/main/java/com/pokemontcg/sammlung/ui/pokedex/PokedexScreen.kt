@@ -8,10 +8,14 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.*
+import androidx.compose.material3.minimumInteractiveComponentSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,8 +50,15 @@ fun PokedexScreen(
                     val genInfo = GenerationModel.getGenerationInfo(section.generationId)
                     val isCollapsed = section.generationId in collapsedGenerations
                     item(key = "gen_header_${section.generationId}", span = { GridItemSpan(maxLineSpan) }) {
+                        val collapseState = stringResource(
+                            if (isCollapsed) R.string.a11y_state_collapsed else R.string.a11y_state_expanded
+                        )
                         Surface(
-                            modifier = Modifier.fillMaxWidth().clickable { onToggleGeneration(section.generationId) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .minimumInteractiveComponentSize()
+                                .clickable { onToggleGeneration(section.generationId) }
+                                .semantics { stateDescription = collapseState },
                             color = MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small
                         ) {
                             Row(
@@ -61,6 +72,7 @@ fun PokedexScreen(
                                             stringResource(genInfo.nameRes),
                                             stringResource(genInfo.regionRes)
                                         ),
+                                        modifier = Modifier.semantics { heading() },
                                         fontWeight = FontWeight.Bold,
                                         style = MaterialTheme.typography.titleMedium
                                     )
@@ -74,7 +86,11 @@ fun PokedexScreen(
                         items(section.pokemon, key = { it.id }) { pokemon ->
                             val primaryImage = pokemon.primaryCardImageUrl
                             Card(
-                                modifier = Modifier.fillMaxWidth().aspectRatio(0.715f).clickable { onPokemonClick(pokemon) },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .aspectRatio(0.715f)
+                                    .minimumInteractiveComponentSize()
+                                    .clickable { onPokemonClick(pokemon) },
                                 shape = MaterialTheme.shapes.medium, elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
                                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                             ) {

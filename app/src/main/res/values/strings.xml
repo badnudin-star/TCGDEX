@@ -303,10 +303,11 @@
     <string name="ui_generation_title_region">%1$s · %2$s</string>
     <string name="ui_pokemon_number">#%1$s</string>
     <string name="ui_price_history_count">%1$d</string>
-    <string name="ui_card_image_description">Karte %1$s, Nummer %2$s, Set %3$s</string>
+    <string name="ui_card_image_description">%1$s, Nr. %2$s, %3$s</string>
+    <string name="ui_card_id_description">Karte %1$s</string>
     <string name="ui_set_symbol_description">Set-Symbol: %1$s</string>
-    <string name="ui_primary_card_description">Lieblingskarte %1$s, Nummer %2$s, Set %3$s</string>
-    <string name="ui_pokemon_card_description">%1$s, Nummer %2$s, Set %3$s</string>
+    <string name="ui_primary_card_description">Lieblingskarte: %1$s, Nr. %2$s, %3$s</string>
+    <string name="ui_pokemon_card_description">%1$s, Nr. %2$s, %3$s</string>
     <string name="ui_keine_oder_noch_ohne_">Keine</string>
     <string name="ui_keine_karten">keine Karten</string>
     <string name="ui_set_series">Reihe: %1$s</string>
@@ -440,6 +441,14 @@
     <string name="diag_migration_pending">Nicht bestätigt</string>
     <string name="diag_migration_unknown">Unbekannt</string>
     <string name="diag_language_unknown">unbekannt</string>
+
+    <!-- T14: accessibility state descriptions -->
+    <string name="a11y_state_visible">sichtbar</string>
+    <string name="a11y_state_hidden">ausgeblendet</string>
+    <string name="a11y_state_collapsed">eingeklappt</string>
+    <string name="a11y_state_expanded">ausgeklappt</string>
+    <string name="a11y_state_on">aktiviert</string>
+    <string name="a11y_state_off">deaktiviert</string>
 
     <string name="sync_error_unit_failed">Fehler bei Ausführung von %1$s</string>
 
