@@ -40,7 +40,7 @@ class CatalogImporterTest {
     }
 
     @Test
-    fun failedMidTransactionCatalogImportRollsBackEarlierTableWrites() = runBlocking {
+    fun failedMidTransactionCatalogImportRollsBackEarlierTableWrites(): Unit = runBlocking {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
         val importer = CatalogImporter(targetContext, appDb)
@@ -95,7 +95,7 @@ class CatalogImporterTest {
     }
 
     @Test
-    fun importingCatalogSnapshotRemovesRowsMissingFromNewCatalog() = runBlocking {
+    fun importingCatalogSnapshotRemovesRowsMissingFromNewCatalog(): Unit = runBlocking {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
         val importer = CatalogImporter(targetContext, appDb)
@@ -118,7 +118,7 @@ class CatalogImporterTest {
     }
 
     @Test
-    fun briefCatalogUpdatePreservesLoadedDetailsAndUserState() = runBlocking {
+    fun briefCatalogUpdatePreservesLoadedDetailsAndUserState(): Unit = runBlocking {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
         val importer = CatalogImporter(targetContext, appDb)
@@ -225,7 +225,7 @@ class CatalogImporterTest {
     }
 
     @Test
-    fun emptyCatalogSnapshotIsRejectedWithoutClearingCurrentCatalog() = runBlocking {
+    fun emptyCatalogSnapshotIsRejectedWithoutClearingCurrentCatalog(): Unit = runBlocking {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
         val importer = CatalogImporter(targetContext, appDb)
@@ -267,7 +267,7 @@ class CatalogImporterTest {
     }
 
     @Test
-    fun catalogWithChangedTableColumnsIsRejectedBeforeImport() = runBlocking {
+    fun catalogWithChangedTableColumnsIsRejectedBeforeImport(): Unit = runBlocking {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
         val importer = CatalogImporter(targetContext, appDb)
@@ -296,7 +296,7 @@ class CatalogImporterTest {
     }
 
     @Test
-    fun catalogWithOrphanedCardSetReferenceIsRejectedBeforeReplacingCurrentCatalog() = runBlocking {
+    fun catalogWithOrphanedCardSetReferenceIsRejectedBeforeReplacingCurrentCatalog(): Unit = runBlocking {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
         val importer = CatalogImporter(targetContext, appDb)
@@ -334,7 +334,7 @@ class CatalogImporterTest {
     }
 
     @Test
-    fun catalogFixtureImportsOnlyCatalogTablesAndPreservesBothCollections() = runBlocking {
+    fun catalogFixtureImportsOnlyCatalogTablesAndPreservesBothCollections(): Unit = runBlocking {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
 

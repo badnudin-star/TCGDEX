@@ -24,6 +24,13 @@ class DatabaseMigrationTest {
 
     private val TEST_DB = "migration-test-db"
 
+    /**
+     * Schema 14 is reconstructed from the exported schema 15 by reversing MIGRATION_14_15:
+     * sortNumber, card_pokemon, pokemon_names and their indices are removed. No real v14
+     * database exists in the repository, and a generated identity hash for the old entity set
+     * cannot be produced without compiling that historical schema. MigrationTestHelper only
+     * consumes the create statements here; the migration to 15 writes the real v15 hash.
+     */
     @get:Rule
     val helper: MigrationTestHelper = MigrationTestHelper(
         InstrumentationRegistry.getInstrumentation(),
@@ -43,9 +50,12 @@ class DatabaseMigrationTest {
         }
 
         val db15 = helper.runMigrationsAndValidate(TEST_DB, 15, true, *AppDatabase.ALL_MIGRATIONS)
-        val cursor = db15.query("SELECT cardId, dexId FROM card_pokemon WHERE cardId = 'xy1-1'")
-        assertTrue(cursor.count > 0)
-        cursor.close()
+        db15.query("SELECT cardId, dexId FROM card_pokemon WHERE cardId = 'xy1-1'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("xy1-1", cursor.getString(0))
+            assertEquals(25, cursor.getInt(1))
+            assertTrue("Only one dex link is known before 15→16", !cursor.moveToNext())
+        }
     }
 
     @Test
@@ -348,7 +358,7 @@ class DatabaseMigrationTest {
     }
 
     @Test
-    fun testLegacyToV2EndToEndMigrationFixture() = runBlocking {
+    fun testLegacyToV2EndToEndMigrationFixture(): Unit = runBlocking {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         // Isolate the fixture from the app's real database and migration preference flag.
         val fixtureContext = object : ContextWrapper(context) {
@@ -374,12 +384,21 @@ class DatabaseMigrationTest {
         sqliteDb.execSQL("INSERT INTO pokemon (id, dexId, cardType) VALUES ('25', 25, 'Common'), ('6', 6, 'Fullart'), ('1', 1, 'Nichts'), ('150', 150, 'Nichts'), ('384', 384, 'Nichts')")
         sqliteDb.execSQL("INSERT INTO cards (id, language) VALUES ('c1', 'de'), ('c2', 'de'), ('c3', 'en'), ('c4', 'ja'), ('c5', 'fr')")
 
+        // c1 is the favourite (primary) card; c2 is a full-art card; c3-c5 are ordinary cards.
         sqliteDb.execSQL("INSERT INTO user_cards VALUES ('c1', '25', 1, 1, 0, 1000)")
         sqliteDb.execSQL("INSERT INTO user_cards VALUES ('c2', '6', 0, 0, 1, 2000)")
         sqliteDb.execSQL("INSERT INTO user_cards VALUES ('c3', '1', 0, 0, 0, 3000)")
         sqliteDb.execSQL("INSERT INTO user_cards VALUES ('c4', '150', 0, 0, 0, 4000)")
         sqliteDb.execSQL("INSERT INTO user_cards VALUES ('c5', '384', 0, 0, 0, 5000)")
         sqliteDb.close()
+
+        val expectedLegacyRows = listOf(
+            listOf("c1", "25", "1", "1", "0", "1000"),
+            listOf("c2", "6", "0", "0", "1", "2000"),
+            listOf("c3", "1", "0", "0", "0", "3000"),
+            listOf("c4", "150", "0", "0", "0", "4000"),
+            listOf("c5", "384", "0", "0", "0", "5000")
+        )
 
         context.deleteDatabase("test_user_db_e2e")
         val userDb = Room.databaseBuilder(context, UserDatabase::class.java, "test_user_db_e2e")
@@ -390,35 +409,60 @@ class DatabaseMigrationTest {
         fixtureContext.getSharedPreferences("user_migration_prefs", 0).edit().clear().commit()
 
         val result = UserMigrationHelper.migrateLegacyUserCardsIfNeeded(fixtureContext, userDb)
-        assertTrue(result is UserMigrationHelper.MigrationResult.Success)
+        assertEquals(UserMigrationHelper.MigrationResult.Success(5, 5), result)
 
         val migrated = userDb.userCardDao().getAllUserCardsOnce()
         assertEquals(5, migrated.size)
+        assertEquals(5, userDb.userCardDao().getUserCardCount())
 
         val c1 = migrated.find { it.cardId == "c1" }
-        assertEquals(25, c1?.pokemonDexId)
-        assertEquals("de", c1?.language)
         assertEquals("COMMON", c1?.category)
+        assertEquals("de", c1?.language)
+        assertEquals(25, c1?.pokemonDexId)
         assertEquals(true, c1?.isPrimary)
-
-        val c3 = migrated.find { it.cardId == "c3" }
-        assertEquals("en", c3?.language)
 
         val c2 = migrated.find { it.cardId == "c2" }
         assertEquals("FULLART", c2?.category)
+        assertEquals("de", c2?.language)
         assertEquals(6, c2?.pokemonDexId)
         assertEquals(false, c2?.isPrimary)
-        assertEquals("ja", migrated.find { it.cardId == "c4" }?.language)
-        assertEquals(384, migrated.find { it.cardId == "c5" }?.pokemonDexId)
+
+        val c3 = migrated.find { it.cardId == "c3" }
+        assertEquals("NONE", c3?.category)
+        assertEquals("en", c3?.language)
+        assertEquals(1, c3?.pokemonDexId)
+
+        val c4 = migrated.find { it.cardId == "c4" }
+        assertEquals("NONE", c4?.category)
+        assertEquals("ja", c4?.language)
+        assertEquals(150, c4?.pokemonDexId)
+
+        val c5 = migrated.find { it.cardId == "c5" }
+        assertEquals("NONE", c5?.category)
+        assertEquals("fr", c5?.language)
+        assertEquals(384, c5?.pokemonDexId)
 
         val secondResult = UserMigrationHelper.migrateLegacyUserCardsIfNeeded(fixtureContext, userDb)
         assertEquals(UserMigrationHelper.MigrationResult.AlreadyCompleted, secondResult)
-        assertEquals(5, userDb.userCardDao().getAllUserCardsOnce().size)
+        assertEquals("Repeated migration must not insert or change rows", migrated, userDb.userCardDao().getAllUserCardsOnce())
 
         SQLiteDatabase.openDatabase(oldDbFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { legacyAfter ->
-            legacyAfter.rawQuery("SELECT COUNT(*) FROM user_cards", null).use { cursor ->
-                assertTrue(cursor.moveToFirst())
-                assertEquals("Legacy source must remain unchanged", 5, cursor.getInt(0))
+            legacyAfter.rawQuery(
+                "SELECT cardId, pokemonId, isPrimary, isCommon, isFullart, addedAt FROM user_cards ORDER BY cardId",
+                null
+            ).use { cursor ->
+                val rows = mutableListOf<List<String>>()
+                while (cursor.moveToNext()) {
+                    rows += listOf(
+                        cursor.getString(0),
+                        cursor.getString(1),
+                        cursor.getInt(2).toString(),
+                        cursor.getInt(3).toString(),
+                        cursor.getInt(4).toString(),
+                        cursor.getLong(5).toString()
+                    )
+                }
+                assertEquals("Legacy source must remain byte-for-byte unchanged", expectedLegacyRows, rows)
             }
         }
         userDb.close()
