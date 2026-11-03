@@ -8,7 +8,7 @@ import shutil
 from unittest import mock
 
 from build_catalog import (
-    CATALOG_TABLES, LANGUAGES, SCHEMA_JSON_PATH, build_coverage, create_database, fetch_bulbapedia_set_titles,
+    NotFoundError, CATALOG_TABLES, LANGUAGES, SCHEMA_JSON_PATH, build_coverage, create_database, fetch_bulbapedia_set_titles,
     fetch_sets, find_incomplete_catalog, generate_manifest, load_schema, populate_database, upsert_card, upsert_set,
     _publish_staged_artifacts, _recover_interrupted_publish,
 )
@@ -618,6 +618,79 @@ class TestCatalogBuilder(unittest.TestCase):
             saved = json.load(handle)
         self.assertNotIn("test-set", saved["completedSets"].get("en", []))
         conn.close()
+
+    def test_card_detail_404_falls_back_to_listing_data_and_completes_set(self):
+        db_file = os.path.join(self.temp_dir, "catalog.sqlite")
+        checkpoint = os.path.join(self.temp_dir, "catalog-progress.json")
+        conn = create_database(db_file, load_schema(SCHEMA_JSON_PATH))
+
+        def fake_fetcher(url, params=None):
+            if url.endswith("/sets") and "/v2/" in url:
+                return [{"id": "exu", "name": "Unseen Forces", "cardCount": {"official": 2, "total": 2}}] if "/en/" in url else []
+            if url.endswith("/en/sets/exu"):
+                return {"id": "exu", "name": "Unseen Forces", "cards": [
+                    {"id": "exu-1", "localId": "1", "name": "Ampharos", "image": "https://assets.tcgdex.net/en/ex/exu/1"},
+                    {"id": "exu-?", "localId": "?", "name": "Unown", "image": "https://assets.tcgdex.net/en/ex/exu/%3F"}]}
+            if url.endswith("/en/cards/exu-1"):
+                return {"id": "exu-1", "localId": "1", "name": "Ampharos", "category": "Pokemon", "dexId": [181],
+                        "set": {"id": "exu", "name": "Unseen Forces"}}
+            if url.endswith("/en/cards/exu-?"):
+                raise NotFoundError("Not found (404): " + url)
+            if url.endswith("pokemon-species/"):
+                return {"results": []}
+            raise AssertionError(f"Unexpected test URL: {url}")
+
+        summary = populate_database(conn, fetcher=fake_fetcher, include_bulbapedia=False,
+                                    checkpoint_path=checkpoint, schema_version=17)
+        self.assertEqual(summary["languages"]["en"]["failedSets"], 0)
+        self.assertEqual(summary["languages"]["en"]["cards"], 2)
+        with open(checkpoint, encoding="utf-8") as handle:
+            saved = json.load(handle)
+        self.assertIn("exu", saved["completedSets"]["en"])
+        row = conn.execute("SELECT name, number, detailLoaded FROM cards WHERE id LIKE '%exu-?'").fetchone()
+        self.assertEqual(row, ("Unown", "?", 0))
+        full = conn.execute("SELECT detailLoaded FROM cards WHERE id LIKE '%exu-1'").fetchone()
+        self.assertEqual(full[0], 1)
+        conn.close()
+
+    def test_card_detail_404_without_listing_name_still_fails_the_set(self):
+        db_file = os.path.join(self.temp_dir, "catalog.sqlite")
+        checkpoint = os.path.join(self.temp_dir, "catalog-progress.json")
+        conn = create_database(db_file, load_schema(SCHEMA_JSON_PATH))
+
+        def fake_fetcher(url, params=None):
+            if url.endswith("/sets") and "/v2/" in url:
+                return [{"id": "x", "name": "X", "cardCount": {"official": 1, "total": 1}}] if "/en/" in url else []
+            if url.endswith("/en/sets/x"):
+                return {"id": "x", "name": "X", "cards": [{"id": "x-1"}]}
+            if url.endswith("/en/cards/x-1"):
+                raise NotFoundError("Not found (404): " + url)
+            if url.endswith("pokemon-species/"):
+                return {"results": []}
+            raise AssertionError(f"Unexpected test URL: {url}")
+
+        summary = populate_database(conn, fetcher=fake_fetcher, include_bulbapedia=False,
+                                    checkpoint_path=checkpoint, schema_version=17)
+        self.assertEqual(summary["languages"]["en"]["failedSets"], 1)
+        conn.close()
+
+    def test_request_json_does_not_retry_on_404(self):
+        import requests
+        import build_catalog
+        response = requests.Response()
+        response.status_code = 404
+        calls = []
+
+        class FakeSession:
+            def get(self, url, **kwargs):
+                calls.append(url)
+                return response
+
+        with mock.patch.object(build_catalog.time, "sleep") as sleeper:
+            with self.assertRaises(NotFoundError):
+                build_catalog.request_json("https://example.invalid/x", session=FakeSession())
+        self.assertEqual(len(calls), 1)
+        sleeper.assert_not_called()
 
     def test_truncated_set_detail_does_not_mark_set_complete(self):
         db_file = os.path.join(self.temp_dir, "catalog.sqlite")

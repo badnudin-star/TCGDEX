@@ -69,6 +69,10 @@ def create_database(db_path: str, schema_data: dict[str, Any]) -> sqlite3.Connec
     return db
 
 
+class NotFoundError(RuntimeError):
+    """HTTP 404: the resource permanently does not exist, so retrying is pointless."""
+
+
 def request_json(url: str, *, session: requests.Session | None = None,
                  params: dict[str, Any] | None = None, retries: int = RETRIES) -> Any:
     client = session or requests.Session()
@@ -82,6 +86,9 @@ def request_json(url: str, *, session: requests.Session | None = None,
             response.raise_for_status()
             return response.json()
         except (requests.RequestException, ValueError) as exc:
+            if (isinstance(exc, requests.HTTPError) and exc.response is not None
+                    and exc.response.status_code == 404):
+                raise NotFoundError(f"Not found (404): {url}") from exc
             last_error = exc
             if attempt + 1 < retries:
                 time.sleep(min(2 ** attempt, 12))
@@ -181,7 +188,7 @@ def upsert_card(db: sqlite3.Connection, lang: str, card: dict[str, Any], set_ite
               _image_url(set_data.get("symbol") or set_item.get("symbol")),
               _integer(set_count.get("official"), _integer((set_item.get("cardCount") or {}).get("official"))),
               _integer(set_count.get("total"), _integer((set_item.get("cardCount") or {}).get("total"))),
-              release_date, _sort_number(local_id), 1)
+              release_date, _sort_number(local_id), 0 if card.get("_briefOnly") else 1)
     db.execute("""INSERT OR REPLACE INTO cards
       (id,name,supertype,number,rarity,setId,setName,series,imageUrl,largeImageUrl,marketPrice,lowPrice,trendPrice,
        nationalPokedexNumber,subtypes,language,nationalPokedexNumbers,setLogoUrl,setSymbolUrl,setCardCountOfficial,
@@ -348,6 +355,16 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
                         if not isinstance(card, dict) or not card.get("id"):
                             raise ValueError("Card detail response is empty or has no id")
                         return card
+                    except NotFoundError:
+                        # TCGdex cannot serve some card IDs by their detail URL (e.g. "exu-?" = Unown ?).
+                        # Use the brief record from the set listing instead of failing the whole set.
+                        if card_ref.get("name"):
+                            print(f"Warning: card details {language}/{card_id}: 404, using set-listing data only")
+                            brief_card = dict(card_ref)
+                            brief_card["_briefOnly"] = True
+                            return brief_card
+                        print(f"Warning: card details {language}/{card_id}: 404 and no listing data")
+                        return None
                     except Exception as exc:
                         print(f"Warning: card details {language}/{card_id}: {exc}")
                         return None
