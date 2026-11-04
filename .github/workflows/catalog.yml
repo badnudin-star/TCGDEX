@@ -17,7 +17,7 @@ concurrency:
 jobs:
   build-catalog:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 350
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -53,5 +53,7 @@ jobs:
             tools/catalog-builder/catalog.sqlite
             tools/catalog-builder/manifest.json
             tools/catalog-builder/coverage_report.md
+            tools/catalog-builder/gap_report.md
+            tools/catalog-builder/gaps.csv
           overwrite_files: true
           make_latest: false

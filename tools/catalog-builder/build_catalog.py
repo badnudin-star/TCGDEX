@@ -17,6 +17,7 @@ import shutil
 import sqlite3
 import tempfile
 import time
+from urllib.parse import quote
 from collections import defaultdict
 from typing import Any, Callable
 
@@ -28,11 +29,16 @@ OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DB_PATH = os.path.join(OUTPUT_DIR, "catalog.sqlite")
 OUTPUT_MANIFEST_PATH = os.path.join(OUTPUT_DIR, "manifest.json")
 OUTPUT_REPORT_PATH = os.path.join(OUTPUT_DIR, "coverage_report.md")
+PARTIAL_DB_NAME = "catalog-partial.sqlite"   # unfinished build kept for --resume when the publication gate fails
 USER_AGENT = "TCGSammlungCatalogBuilder/2.0.0 (catalog maintenance; contact: repository maintainer)"
 LANGUAGES = ["en", "fr", "es", "es-mx", "it", "pt", "pt-br", "pt-pt", "de", "nl", "pl", "ru", "ja", "ko", "zh-tw", "id", "th", "zh-cn"]
 CATALOG_TABLES = ("sets", "cards", "pokemon", "card_pokemon", "pokemon_names")
 MAX_WORKERS = 4
-RETRIES = 4
+RETRIES = 6
+CARD_RETRY_ROUNDS = 2          # extra sequential passes over card requests that failed with server errors
+CARD_RETRY_DELAY = 20          # seconds to wait before each extra pass
+REQUIRED_LANGUAGES = ("en", "de")   # a catalog without these is never published
+MAX_DEGRADED_RATIO = 0.02      # more than 2 % list-only cards in one language = suspected outage, do not publish
 
 
 def load_schema(schema_path: str = SCHEMA_JSON_PATH) -> dict[str, Any]:
@@ -73,6 +79,15 @@ class NotFoundError(RuntimeError):
     """HTTP 404: the resource permanently does not exist, so retrying is pointless."""
 
 
+def _retry_delay(attempt: int, exc: Exception) -> float:
+    delay = min(2 ** attempt, 30)
+    response = getattr(exc, "response", None)
+    header = response.headers.get("Retry-After") if response is not None else None
+    if header and str(header).isdigit():
+        delay = max(delay, min(int(header), 60))
+    return delay
+
+
 def request_json(url: str, *, session: requests.Session | None = None,
                  params: dict[str, Any] | None = None, retries: int = RETRIES) -> Any:
     client = session or requests.Session()
@@ -91,8 +106,13 @@ def request_json(url: str, *, session: requests.Session | None = None,
                 raise NotFoundError(f"Not found (404): {url}") from exc
             last_error = exc
             if attempt + 1 < retries:
-                time.sleep(min(2 ** attempt, 12))
+                time.sleep(_retry_delay(attempt, exc))
     raise RuntimeError(f"Request failed after {retries} attempts: {url}: {last_error}")
+
+
+def _path_segment(value: str) -> str:
+    """Percent-encode reserved characters (e.g. '+' or '?') in an ID, keeping existing %XX sequences."""
+    return quote(value, safe="%")
 
 
 def fetch_sets(language: str, *, fetcher: Callable[..., Any] = request_json) -> list[dict[str, Any]]:
@@ -103,12 +123,12 @@ def fetch_sets(language: str, *, fetcher: Callable[..., Any] = request_json) -> 
 
 
 def fetch_set_details(language: str, set_id: str, *, fetcher: Callable[..., Any] = request_json) -> dict[str, Any]:
-    data = fetcher(f"https://api.tcgdex.net/v2/{language}/sets/{set_id}")
+    data = fetcher(f"https://api.tcgdex.net/v2/{language}/sets/{_path_segment(set_id)}")
     return data if isinstance(data, dict) else {}
 
 
 def fetch_card(language: str, card_id: str, *, fetcher: Callable[..., Any] = request_json) -> dict[str, Any]:
-    data = fetcher(f"https://api.tcgdex.net/v2/{language}/cards/{card_id}")
+    data = fetcher(f"https://api.tcgdex.net/v2/{language}/cards/{_path_segment(card_id)}")
     return data if isinstance(data, dict) else {}
 
 
@@ -266,7 +286,7 @@ def fetch_bulbapedia_set_titles(*, fetcher: Callable[..., Any] = request_json) -
 
 def _load_checkpoint(path: str | None, schema_version: int) -> dict[str, Any]:
     if not path or not os.path.exists(path):
-        return {"schemaVersion": schema_version, "completedSets": {}, "pokemonComplete": False}
+        return {"schemaVersion": schema_version, "completedSets": {}, "pokemonComplete": False, "gapSets": {}}
     with open(path, "r", encoding="utf-8") as handle:
         data = json.load(handle)
     if data.get("schemaVersion") != schema_version:
@@ -276,7 +296,8 @@ def _load_checkpoint(path: str | None, schema_version: int) -> dict[str, Any]:
         raise ValueError("Resume checkpoint is malformed: completedSets must be an object")
     return {"schemaVersion": schema_version,
             "completedSets": {str(lang): sorted(set(map(str, ids))) for lang, ids in completed.items() if isinstance(ids, list)},
-            "pokemonComplete": bool(data.get("pokemonComplete", False))}
+            "pokemonComplete": bool(data.get("pokemonComplete", False)),
+            "gapSets": data.get("gapSets") if isinstance(data.get("gapSets"), dict) else {}}
 
 
 def _save_checkpoint(path: str | None, checkpoint: dict[str, Any]) -> None:
@@ -301,6 +322,41 @@ def _validate_existing_catalog(db: sqlite3.Connection, schema_data: dict[str, An
         raise ValueError("Existing catalog Room identity hash does not match the current schema")
 
 
+def _brief_card(card_ref: dict[str, Any]) -> dict[str, Any]:
+    """Minimal card record built from the set listing (name, number, image) when details are unavailable."""
+    brief_card = dict(card_ref)
+    brief_card["_briefOnly"] = True
+    return brief_card
+
+
+def _remove_orphan_card_links(db: sqlite3.Connection) -> int:
+    """Delete card->Pokémon links whose dexId is not in the PokéAPI snapshot (e.g. species PokéAPI lacks yet).
+
+    One such link would fail the relationship check of the verification step and block the whole catalog.
+    """
+    cursor = db.execute("DELETE FROM card_pokemon WHERE dexId NOT IN (SELECT dexId FROM pokemon)")
+    db.commit()
+    return cursor.rowcount
+
+
+def _forget_completed_sets_without_cards(db: sqlite3.Connection, checkpoint: dict[str, Any]) -> int:
+    """Self-heal a resume: a set marked complete must have cards in the database (or be a recorded API gap)."""
+    removed = 0
+    gaps = checkpoint.get("gapSets", {}) if isinstance(checkpoint.get("gapSets"), dict) else {}
+    for language, ids in list(checkpoint.get("completedSets", {}).items()):
+        language_gaps = gaps.get(language, {}) if isinstance(gaps.get(language), dict) else {}
+        kept = []
+        for set_id in ids:
+            has_cards = db.execute("SELECT 1 FROM cards WHERE language=? AND setId=? LIMIT 1",
+                                   (_language_code(language), set_id)).fetchone()
+            if has_cards or set_id in language_gaps:
+                kept.append(set_id)
+            else:
+                removed += 1
+        checkpoint["completedSets"][language] = kept
+    return removed
+
+
 def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = request_json,
                       include_bulbapedia: bool = True, checkpoint_path: str | None = None,
                       schema_version: int = 17) -> dict[str, Any]:
@@ -309,9 +365,13 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
     all_set_names: dict[str, str] = {}
     failed_sets_by_language: dict[str, int] = {}
     checkpoint = _load_checkpoint(checkpoint_path, schema_version)
+    forgotten = _forget_completed_sets_without_cards(db, checkpoint)
+    if forgotten:
+        print(f"Note: {forgotten} set(s) were marked complete in the checkpoint but have no cards; fetching them again")
     completed_sets: dict[str, set[str]] = {
         language: set(checkpoint["completedSets"].get(language, [])) for language in LANGUAGES
     }
+    gap_sets: dict[str, dict[str, dict[str, int]]] = checkpoint.setdefault("gapSets", {})
     for language in LANGUAGES:
         try:
             sets = fetch_sets(language, fetcher=fetcher)
@@ -319,77 +379,136 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
             card_count = 0
             expected_cards = 0
             failed_sets = 0
+            missing_cards = 0     # cards the API itself does not provide (permanent data gap)
+            brief_cards = 0       # cards stored with list data only because the detail URL returns 404
+            degraded_cards = 0    # cards stored with list data only because of persistent server errors
+            language_gaps = gap_sets.setdefault(language, {})
             for brief in sets:
                 set_id = str(brief.get("id") or "")
                 if not set_id:
                     continue
                 upsert_set(db, language, brief)
                 brief_counts = brief.get("cardCount") if isinstance(brief.get("cardCount"), dict) else {}
-                expected_cards += _integer(brief_counts.get("total"), _integer(brief_counts.get("official")))
+                set_expected = _integer(brief_counts.get("total"), _integer(brief_counts.get("official")))
+                expected_cards += set_expected
                 all_set_ids.add(set_id)
                 all_set_names.setdefault(set_id, str(brief.get("name") or set_id))
                 if set_id in completed_sets[language]:
                     card_count += db.execute("SELECT COUNT(*) FROM cards WHERE language=? AND setId=?",
                                              (_language_code(language), set_id)).fetchone()[0]
                     set_count += 1
+                    known_gap = language_gaps.get(set_id, {})
+                    missing_cards += _integer(known_gap.get("missing"), 0)
+                    brief_cards += _integer(known_gap.get("brief"), 0)
                     continue
-                failed_set_details = False
+                set_failed = False   # transient problem: retried on --resume and blocks publication
                 try:
                     detail = fetch_set_details(language, set_id, fetcher=fetcher)
+                except NotFoundError:
+                    print(f"Warning: set details {language}/{set_id}: 404, no card list available")
+                    detail = brief
                 except Exception as exc:
                     print(f"Warning: set details {language}/{set_id}: {exc}")
                     detail = brief
-                    failed_set_details = True
+                    set_failed = True
                 cards = detail.get("cards", []) if isinstance(detail.get("cards"), list) else []
-                set_expected = _integer(brief_counts.get("total"), _integer(brief_counts.get("official")))
-                # A non-empty but truncated set response is just as incomplete as an empty one.
-                # Do not checkpoint it as complete when the API's declared card count is larger.
-                failed_card = failed_set_details or (set_expected > 0 and len(cards) < set_expected)
-                # Fetch individual full card details with a strict maximum of four concurrent requests.
-                def get_card(card_ref: dict[str, Any]) -> dict[str, Any] | None:
+                set_missing = 0
+                if not set_failed and set_expected > len(cards):
+                    # The API declares more cards than it lists. That is a permanent data gap on the API side,
+                    # not a transient failure: record it, but do not block the whole catalog on it.
+                    set_missing = set_expected - len(cards)
+
+                def get_card(card_ref: dict[str, Any]) -> tuple[dict[str, Any] | None, str]:
                     card_id = str(card_ref.get("id") or "")
                     if not card_id:
-                        return None
+                        return None, "skip"
                     try:
                         card = fetch_card(language, card_id, fetcher=fetcher)
                         if not isinstance(card, dict) or not card.get("id"):
                             raise ValueError("Card detail response is empty or has no id")
-                        return card
+                        return card, "ok"
                     except NotFoundError:
                         # TCGdex cannot serve some card IDs by their detail URL (e.g. "exu-?" = Unown ?).
-                        # Use the brief record from the set listing instead of failing the whole set.
                         if card_ref.get("name"):
                             print(f"Warning: card details {language}/{card_id}: 404, using set-listing data only")
-                            brief_card = dict(card_ref)
-                            brief_card["_briefOnly"] = True
-                            return brief_card
+                            return _brief_card(card_ref), "brief"
                         print(f"Warning: card details {language}/{card_id}: 404 and no listing data")
-                        return None
+                        return None, "missing"
                     except Exception as exc:
                         print(f"Warning: card details {language}/{card_id}: {exc}")
-                        return None
+                        return None, "failed"
+
+                results: list[tuple[dict[str, Any] | None, str]] = []
+                pending: list[dict[str, Any]] = []
+                # Strict maximum of four concurrent requests.
                 with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
-                    futures = [pool.submit(get_card, item) for item in cards]
+                    futures = {pool.submit(get_card, item): item for item in cards}
                     for future in concurrent.futures.as_completed(futures):
-                        card = future.result()
-                        if not card:
-                            failed_card = True
-                            continue
-                        card.setdefault("set", {"id": set_id, "name": brief.get("name", set_id)})
-                        upsert_card(db, language, card, detail or brief)
-                        card_count += 1
+                        card, status = future.result()
+                        if status == "failed":
+                            pending.append(futures[future])
+                        else:
+                            results.append((card, status))
+                # Server errors (e.g. 503) are often temporary: retry them one by one after a pause.
+                for _ in range(CARD_RETRY_ROUNDS):
+                    if not pending:
+                        break
+                    time.sleep(CARD_RETRY_DELAY)
+                    still_pending = []
+                    for ref in pending:
+                        card, status = get_card(ref)
+                        if status == "failed":
+                            still_pending.append(ref)
+                        else:
+                            results.append((card, status))
+                    pending = still_pending
+                for ref in pending:
+                    if ref.get("name"):
+                        results.append((_brief_card(ref), "degraded"))
+                    else:
+                        results.append((None, "failed"))
+
+                set_brief = 0
+                set_degraded = 0
+                for card, status in results:
+                    if status == "skip":
+                        continue
+                    if status == "missing":
+                        set_missing += 1
+                        continue
+                    if status == "failed" or not card:
+                        set_failed = True
+                        continue
+                    card.setdefault("set", {"id": set_id, "name": brief.get("name", set_id)})
+                    upsert_card(db, language, card, detail or brief)
+                    card_count += 1
+                    if status == "brief":
+                        set_brief += 1
+                    elif status == "degraded":
+                        set_degraded += 1
                 set_count += 1
                 db.commit()
-                if failed_card:
+                missing_cards += set_missing
+                brief_cards += set_brief
+                degraded_cards += set_degraded
+                if set_failed:
                     failed_sets += 1
+                elif set_degraded:
+                    # Stored with list data only; leave unchecked so the next --resume tries this set again.
+                    pass
                 else:
                     completed_sets[language].add(set_id)
                     checkpoint["completedSets"][language] = sorted(completed_sets[language])
+                    if set_missing or set_brief:
+                        language_gaps[set_id] = {"missing": set_missing, "brief": set_brief}
                     _save_checkpoint(checkpoint_path, checkpoint)
             db.commit()
             failed_sets_by_language[language] = failed_sets
             language_stats[language] = {"sets": set_count, "cards": card_count, "expectedCards": expected_cards,
-                                        "failedSets": failed_sets}
+                                        "failedSets": failed_sets, "missingCards": missing_cards,
+                                        "briefCards": brief_cards, "degradedCards": degraded_cards}
+            print(f"[{language}] sets={set_count} cards={card_count}/{expected_cards} "
+                  f"missing_at_api={missing_cards} list_only={brief_cards + degraded_cards} failed_sets={failed_sets}")
         except Exception as exc:
             language_stats[language] = {"sets": 0, "cards": 0, "expectedCards": 0, "failedSets": 0, "error": str(exc)}
             print(f"Warning: language {language} incomplete: {exc}")
@@ -412,17 +531,28 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
         pokemon_error = str(exc)
     else:
         pokemon_error = None
+    orphan_links = 0
+    if pokemon_error is None and pokemon_rows:
+        orphan_links = _remove_orphan_card_links(db)
+        if orphan_links:
+            print(f"Note: removed {orphan_links} card->Pokémon link(s) whose dexId is missing in the PokéAPI snapshot")
     bulbapedia_titles = fetch_bulbapedia_set_titles(fetcher=fetcher) if include_bulbapedia else set()
     api_names = {name.lower() for name in all_set_names.values()}
     missing_bulba = sorted(title for title in bulbapedia_titles if title.lower() not in api_names)
     return {"languages": language_stats, "setIds": all_set_ids, "setNames": all_set_names,
             "pokemonCount": len(pokemon_rows), "pokemonNameCount": len(name_rows),
             "pokemonError": pokemon_error, "failedSetsByLanguage": failed_sets_by_language,
+            "orphanLinksRemoved": orphan_links,
             "bulbapediaSetTitles": len(bulbapedia_titles), "bulbapediaUnmatched": missing_bulba}
 
 
 def find_incomplete_catalog(summary: dict[str, Any]) -> dict[str, str]:
-    """Return language/API failures that must block publication of a catalog snapshot."""
+    """Return language/API failures that must block publication of a catalog snapshot.
+
+    Permanent data gaps on the API side (a language without any sets, sets that list fewer cards than they
+    declare, cards without detail pages) are reported but do not block. Transient failures and missing
+    required languages do.
+    """
     failures: dict[str, str] = {}
     languages = summary.get("languages", {})
     for language in LANGUAGES:
@@ -432,7 +562,14 @@ def find_incomplete_catalog(summary: dict[str, Any]) -> dict[str, str]:
         elif stats.get("error"):
             failures[language] = str(stats["error"])
         elif _integer(stats.get("sets"), 0) <= 0:
-            failures[language] = "zero sets returned; refusing to publish potentially incomplete language data"
+            if language in REQUIRED_LANGUAGES:
+                failures[language] = "zero sets returned; refusing to publish potentially incomplete language data"
+        else:
+            cards = _integer(stats.get("cards"), 0)
+            degraded = _integer(stats.get("degradedCards"), 0)
+            if cards > 0 and degraded / cards > MAX_DEGRADED_RATIO:
+                failures[language] = (f"{degraded} of {cards} cards only have list data after repeated server errors; "
+                                      "run again with --resume")
     for language, count in summary.get("failedSetsByLanguage", {}).items():
         if count:
             failures[language] = f"{count} set(s) have incomplete card details"
@@ -497,6 +634,18 @@ def generate_manifest(db_path: str, manifest_path: str, report_path: str, schema
             percent_text = f"{percent} %" if percent is not None else "unbekannt"
             expected = stats.get("expectedCards", "unbekannt")
             handle.write(f"| {language} | {stats.get('sets', 0)} | {stats.get('cards', 0)} | {expected} | {percent_text} |\n")
+        language_details = extra_report.get("languages") if isinstance(extra_report, dict) else None
+        if isinstance(language_details, dict):
+            handle.write("\n## Bekannte Lücken je Sprache\n\n")
+            handle.write("| Sprache | Karten fehlen bei der API | Per Englisch ergänzt | Nur Kurzdaten (ohne Details) | Unvollständige Sets |\n|---|---:|---:|---:|---:|\n")
+            for language in LANGUAGES:
+                detail_stats = language_details.get(language, {})
+                if not isinstance(detail_stats, dict):
+                    continue
+                handle.write(f"| {language} | {detail_stats.get('missingCards', 0)} | "
+                             f"{detail_stats.get('filledFromEnglish', 0)} | "
+                             f"{detail_stats.get('briefCards', 0) + detail_stats.get('degradedCards', 0)} | "
+                             f"{detail_stats.get('failedSets', 0)} |\n")
         if extra_report:
             handle.write(f"\n## PokéAPI\n\n- Pokémon: {extra_report.get('pokemonCount', 0)}\n- Pokémon-Namen: {extra_report.get('pokemonNameCount', 0)}\n")
             handle.write(f"\n## Bulbapedia-Abgleich (MediaWiki API)\n\n- Set-Titel abgerufen: {extra_report.get('bulbapediaSetTitles', 0)}\n")
@@ -602,6 +751,168 @@ def _publish_staged_artifacts(staging_dir: str, output_dir: str) -> None:
             shutil.rmtree(backup_dir, ignore_errors=True)
 
 
+FALLBACK_LANGUAGE = "en"   # source language used to fill cards that TCGdex lacks in another language
+
+
+def _raw_card_id(row_id: str, language: str) -> str:
+    prefix = f"{_language_code(language)}:"
+    return row_id[len(prefix):] if row_id.startswith(prefix) else row_id
+
+
+def _card_row_id(language: str, raw_id: str) -> str:
+    code = _language_code(language)
+    return raw_id if code == "de" else f"{code}:{raw_id}"
+
+
+def plan_gap_fill(db: sqlite3.Connection, checkpoint: dict[str, Any]) -> list[dict[str, Any]]:
+    """Work out, per language and set with a recorded API gap, which English cards could fill it.
+
+    A set is only filled when the English card list has no more candidate cards than the number of cards
+    missing in the target language; otherwise the match is ambiguous and the set is left alone.
+    """
+    plan: list[dict[str, Any]] = []
+    gaps = checkpoint.get("gapSets", {}) if isinstance(checkpoint.get("gapSets"), dict) else {}
+    source_code = _language_code(FALLBACK_LANGUAGE)
+    for language in LANGUAGES:
+        if language == FALLBACK_LANGUAGE:
+            continue
+        code = _language_code(language)
+        language_gaps = gaps.get(language, {}) if isinstance(gaps.get(language), dict) else {}
+        for set_id, info in sorted(language_gaps.items()):
+            missing = _integer(info.get("missing"), 0) if isinstance(info, dict) else 0
+            if missing <= 0:
+                continue
+            source_rows = db.execute("SELECT id, number, name FROM cards WHERE language=? AND setId=? "
+                                     "ORDER BY sortNumber, number", (source_code, set_id)).fetchall()
+            have_rows = db.execute("SELECT id, number FROM cards WHERE language=? AND setId=?",
+                                   (code, set_id)).fetchall()
+            have_numbers = {number for _, number in have_rows}
+            have_raw = {_raw_card_id(row_id, language) for row_id, _ in have_rows}
+            candidates = [(row_id, number, name) for row_id, number, name in source_rows
+                          if number not in have_numbers and _raw_card_id(row_id, FALLBACK_LANGUAGE) not in have_raw]
+            if not source_rows:
+                status = "no_english_equivalent"
+            elif not candidates:
+                status = "english_has_no_extra_cards"
+            elif len(candidates) > missing:
+                status = "ambiguous"
+            else:
+                status = "fillable"
+            set_row = db.execute("SELECT name FROM sets WHERE id=?", (set_id,)).fetchone()
+            plan.append({"language": language, "setId": set_id, "setName": set_row[0] if set_row else set_id,
+                         "missing": missing, "have": len(have_rows), "english": len(source_rows),
+                         "candidateCount": len(candidates), "status": status,
+                         "fillable": candidates if status == "fillable" else []})
+    return plan
+
+
+def apply_gap_fill(db: sqlite3.Connection, plan: list[dict[str, Any]]) -> dict[str, int]:
+    """Copy the planned English cards into the target language as list-only rows (detailLoaded = 0).
+
+    Prices are left empty on purpose (an English price is not the price of the local print). The card IDs follow
+    the normal scheme, so a real card that appears in a later snapshot replaces the substitute and keeps the
+    link to the user's collection.
+    """
+    columns = [row[1] for row in db.execute("PRAGMA table_info(cards)")]
+    filled: dict[str, int] = {}
+    for entry in plan:
+        if entry["status"] != "fillable":
+            continue
+        language = entry["language"]
+        code = _language_code(language)
+        set_name_row = db.execute("SELECT setName FROM cards WHERE language=? AND setId=? LIMIT 1",
+                                  (code, entry["setId"])).fetchone()
+        for source_id, _number, _name in entry["fillable"]:
+            new_id = _card_row_id(language, _raw_card_id(source_id, FALLBACK_LANGUAGE))
+            expressions: list[str] = []
+            params: list[Any] = []
+            for column in columns:
+                if column == "id":
+                    expressions.append("?")
+                    params.append(new_id)
+                elif column == "language":
+                    expressions.append("?")
+                    params.append(code)
+                elif column in ("marketPrice", "lowPrice", "trendPrice"):
+                    expressions.append("NULL")
+                elif column == "detailLoaded":
+                    expressions.append("0")
+                elif column == "setName" and set_name_row and set_name_row[0]:
+                    expressions.append("?")
+                    params.append(set_name_row[0])
+                else:
+                    expressions.append(f'"{column}"')
+            cursor = db.execute(
+                f"INSERT OR IGNORE INTO cards ({','.join(columns)}) SELECT {','.join(expressions)} FROM cards WHERE id=?",
+                params + [source_id])
+            if cursor.rowcount:
+                db.execute("INSERT OR IGNORE INTO card_pokemon(cardId,dexId) SELECT ?, dexId FROM card_pokemon "
+                           "WHERE cardId=?", (new_id, source_id))
+                filled[language] = filled.get(language, 0) + 1
+    db.commit()
+    return filled
+
+
+def apply_language_fallback(db_path: str, checkpoint_path: str, schema_version: int,
+                            summary: dict[str, Any]) -> list[dict[str, Any]]:
+    """Fill API gaps from the English catalog, record the counts in the summary, return the plan for the report."""
+    checkpoint = _load_checkpoint(checkpoint_path, schema_version)
+    with closing(sqlite3.connect(db_path)) as db:
+        plan = plan_gap_fill(db, checkpoint)
+        filled = apply_gap_fill(db, plan)
+    languages = summary.get("languages", {})
+    for language, count in filled.items():
+        if isinstance(languages.get(language), dict):
+            languages[language]["filledFromEnglish"] = count
+    return plan
+
+
+def write_gap_report(db_path: str, output_dir: str, plan: list[dict[str, Any]], summary: dict[str, Any]) -> None:
+    """Write gap_report.md (overview) and gaps.csv (every filled card and every open set)."""
+    languages = summary.get("languages", {}) if isinstance(summary.get("languages"), dict) else {}
+    status_text = {
+        "fillable": "mit englischen Karten ergänzt",
+        "no_english_equivalent": "offen: kein englisches Gegenstück (nur in dieser Sprache erschienen)",
+        "english_has_no_extra_cards": "offen: Englisch hat keine zusätzlichen Karten",
+        "ambiguous": "offen: Zuordnung nicht eindeutig (Englisch hat mehr Karten als fehlen)",
+    }
+    lines = ["# Lücken-Bericht", "",
+             "Karten, die TCGdex in einer Sprache nicht liefert, und was die Pipeline dagegen getan hat.",
+             "Ersatzkarten sind englische Karten (Name und Bild englisch, ohne Preis).", "",
+             "## Übersicht je Sprache", "",
+             "| Sprache | Karten fehlen bei der API | Per Englisch ergänzt | Noch offen |", "|---|---:|---:|---:|"]
+    for language in LANGUAGES:
+        stats = languages.get(language, {})
+        if not isinstance(stats, dict):
+            continue
+        missing = _integer(stats.get("missingCards"), 0)
+        filled = _integer(stats.get("filledFromEnglish"), 0)
+        lines.append(f"| {language} | {missing} | {filled} | {max(0, missing - filled)} |")
+    open_sets = sorted((entry for entry in plan if entry["status"] != "fillable"),
+                       key=lambda entry: (-entry["missing"], entry["language"], entry["setId"]))
+    lines += ["", "## Offene Lücken (größte zuerst, max. 40)", "",
+              "| Sprache | Set | Name | fehlen | Grund |", "|---|---|---|---:|---|"]
+    for entry in open_sets[:40]:
+        lines.append(f"| {entry['language']} | {entry['setId']} | {entry['setName']} | {entry['missing']} | "
+                     f"{status_text.get(entry['status'], entry['status'])} |")
+    if len(open_sets) > 40:
+        lines.append(f"\n… und {len(open_sets) - 40} weitere Sets, siehe gaps.csv.")
+    with open(os.path.join(output_dir, "gap_report.md"), "w", encoding="utf-8") as handle:
+        handle.write("\n".join(lines) + "\n")
+    import csv
+    with open(os.path.join(output_dir, "gaps.csv"), "w", encoding="utf-8-sig", newline="") as handle:
+        writer = csv.writer(handle, delimiter=";")
+        writer.writerow(["language", "setId", "setName", "number", "cardName", "status", "missingInSet"])
+        for entry in plan:
+            if entry["status"] == "fillable":
+                for _source_id, number, name in entry["fillable"]:
+                    writer.writerow([entry["language"], entry["setId"], entry["setName"], number, name,
+                                     "filled_from_en", entry["missing"]])
+            else:
+                writer.writerow([entry["language"], entry["setId"], entry["setName"], "", "",
+                                 entry["status"], entry["missing"]])
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--schema", default=SCHEMA_JSON_PATH)
@@ -618,11 +929,14 @@ def main() -> int:
     stage_checkpoint = os.path.join(staging_dir, "catalog-progress.json")
     output_db = os.path.join(output_dir, "catalog.sqlite")
     output_checkpoint = os.path.join(output_dir, "catalog-progress.json")
+    output_partial = os.path.join(output_dir, PARTIAL_DB_NAME)
     try:
         if args.resume:
-            if not os.path.exists(output_db):
-                parser.error("--resume requires an existing catalog.sqlite; run a normal build first")
-            shutil.copy2(output_db, stage_db)
+            # An unfinished build (publication gate failed) is kept next to its checkpoint; prefer it.
+            resume_db = output_partial if os.path.exists(output_partial) else output_db
+            if not os.path.exists(resume_db):
+                parser.error("--resume requires an existing catalog-partial.sqlite or catalog.sqlite; run a normal build first")
+            shutil.copy2(resume_db, stage_db)
             if os.path.exists(output_checkpoint):
                 shutil.copy2(output_checkpoint, stage_checkpoint)
             conn = sqlite3.connect(stage_db)
@@ -643,13 +957,17 @@ def main() -> int:
         failures = find_incomplete_catalog(summary)
         if failures:
             # Keep the failed run resumable, but never replace the last known-good published snapshot.
+            # Keep the unfinished database together with its checkpoint, otherwise hours of downloads are lost.
+            shutil.copy2(stage_db, output_partial)
             if os.path.exists(stage_checkpoint):
                 shutil.copy2(stage_checkpoint, output_checkpoint)
             print("ERROR: catalog is incomplete; previous published artifacts were preserved.")
+            print(f"Progress was saved. Run again with --resume to continue ({PARTIAL_DB_NAME}).")
             for source, reason in sorted(failures.items()):
                 print(f"- {source}: {reason}")
             return 2
 
+        gap_plan = apply_language_fallback(stage_db, stage_checkpoint, schema["database"]["version"], summary)
         coverage = build_coverage(stage_db, summary)
         manifest_path = os.path.join(staging_dir, "manifest.json")
         report_path = os.path.join(staging_dir, "coverage_report.md")
@@ -659,7 +977,11 @@ def main() -> int:
         _publish_staged_artifacts(staging_dir, output_dir)
         if os.path.exists(stage_checkpoint):
             shutil.copy2(stage_checkpoint, output_checkpoint)
+        if os.path.exists(output_partial):
+            os.remove(output_partial)
+        write_gap_report(output_db, output_dir, gap_plan, summary)
         print(f"Catalog built: {output_db}")
+        print(f"Gap report: {os.path.join(output_dir, 'gap_report.md')} (details: gaps.csv)")
         print(f"Manifest: {os.path.join(output_dir, 'manifest.json')}")
         print(f"Coverage report: {os.path.join(output_dir, 'coverage_report.md')}")
         return 0
