@@ -8,6 +8,7 @@ import shutil
 from unittest import mock
 
 import build_catalog
+from contextlib import closing
 from build_catalog import (
     NotFoundError, CATALOG_TABLES, LANGUAGES, SCHEMA_JSON_PATH, build_coverage, create_database, fetch_bulbapedia_set_titles,
     fetch_sets, find_incomplete_catalog, generate_manifest, load_schema, populate_database, upsert_card, upsert_set,
@@ -1015,6 +1016,56 @@ class TestCatalogBuilder(unittest.TestCase):
         verify_catalog_artifacts(db_file, manifest, SCHEMA_JSON_PATH)
         with open(report, encoding="utf-8") as handle:
             self.assertIn("Per Englisch ergänzt", handle.read())
+
+    def test_pokeapi_language_variants_are_mapped_or_dropped(self):
+        def fake_fetcher(url, params=None):
+            if url.endswith("pokemon-species/"):
+                return {"results": [{"name": "bulbasaur", "url": "https://pokeapi.co/api/v2/pokemon-species/1/"}]}
+            names = [("en", "Bulbasaur"), ("de", "Bisasam"), ("zh-Hans", "妙蛙种子"), ("zh-Hant", "妙蛙種子"),
+                     ("es-419", "Bulbasaur MX"), ("ja-Hrkt", "フシギダネ"), ("ja-Roma", "Fushigidane"),
+                     ("cs", "Bulbasaur CS"), ("ko", "이상해씨")]
+            return {"names": [{"language": {"name": lang}, "name": name} for lang, name in names]}
+
+        _species, name_rows = build_catalog.fetch_pokemon_names(fetcher=fake_fetcher)
+        by_language = {language: name for language, name, _dex in name_rows}
+        self.assertTrue(set(by_language) <= set(LANGUAGES))
+        self.assertEqual((by_language["zh-cn"], by_language["zh-tw"], by_language["es-mx"], by_language["ja"]),
+                         ("妙蛙种子", "妙蛙種子", "Bulbasaur MX", "フシギダネ"))
+        self.assertNotIn("ja-roma", by_language)
+        self.assertNotIn("cs", by_language)
+
+    def test_existing_name_languages_are_normalized_for_resumed_databases(self):
+        db_file = os.path.join(self.temp_dir, "catalog.sqlite")
+        conn = create_database(db_file, load_schema(SCHEMA_JSON_PATH))
+        conn.executemany("INSERT INTO pokemon_names(language, name, dexId) VALUES (?,?,?)",
+                         [("zh-hans", "妙蛙种子", 1), ("ja-roma", "Fushigidane", 1), ("en", "Bulbasaur", 1)])
+        conn.commit()
+        conn.close()
+        build_catalog._normalize_pokemon_name_languages(db_file)
+        with closing(sqlite3.connect(db_file)) as check:
+            languages = sorted(row[0] for row in check.execute("SELECT language FROM pokemon_names"))
+        self.assertEqual(languages, ["en", "zh-cn"])
+
+    def test_failed_verification_keeps_download_for_resume(self):
+        out = os.path.join(self.temp_dir, "out")
+        os.makedirs(out)
+        original = build_catalog.populate_database
+
+        def quiet_populate(conn, **kwargs):
+            return original(conn, fetcher=lambda url, params=None: [] if url.endswith("/sets") else {"results": []},
+                            include_bulbapedia=False, checkpoint_path=kwargs["checkpoint_path"],
+                            schema_version=kwargs["schema_version"])
+
+        argv = ["build_catalog.py", "--output-dir", out, "--skip-bulbapedia"]
+        with mock.patch.object(build_catalog, "populate_database", quiet_populate), \
+                mock.patch.object(build_catalog, "find_incomplete_catalog", return_value={}), \
+                mock.patch("verify_catalog_artifacts.verify_catalog_artifacts", side_effect=ValueError("boom")), \
+                mock.patch("sys.argv", argv):
+            with self.assertRaises(ValueError):
+                build_catalog.main()
+        self.assertTrue(os.path.exists(os.path.join(out, "catalog-partial.sqlite")))
+        self.assertTrue(os.path.exists(os.path.join(out, "catalog-progress.json")))
+        self.assertFalse(os.path.exists(os.path.join(out, "catalog.sqlite")))
 
     def test_resume_rejects_checkpoint_for_other_schema_version(self):
         checkpoint = os.path.join(self.temp_dir, "catalog-progress.json")

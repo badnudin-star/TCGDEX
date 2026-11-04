@@ -34,6 +34,8 @@ USER_AGENT = "TCGSammlungCatalogBuilder/2.0.0 (catalog maintenance; contact: rep
 LANGUAGES = ["en", "fr", "es", "es-mx", "it", "pt", "pt-br", "pt-pt", "de", "nl", "pl", "ru", "ja", "ko", "zh-tw", "id", "th", "zh-cn"]
 CATALOG_TABLES = ("sets", "cards", "pokemon", "card_pokemon", "pokemon_names")
 MAX_WORKERS = 4
+# PokéAPI language codes that differ from the catalog language codes. Everything else not in LANGUAGES is dropped.
+POKEAPI_LANGUAGE_MAP = {"zh-hans": "zh-cn", "zh-hant": "zh-tw", "es-419": "es-mx", "ja-hrkt": "ja"}
 RETRIES = 6
 CARD_RETRY_ROUNDS = 2          # extra sequential passes over card requests that failed with server errors
 CARD_RETRY_DELAY = 20          # seconds to wait before each extra pass
@@ -246,13 +248,21 @@ def fetch_pokemon_names(*, fetcher: Callable[..., Any] = request_json) -> tuple[
             dex_id, slug, species = result
             names = species.get("names", []) if isinstance(species.get("names"), list) else []
             localized = {}
+            priority: dict[str, int] = {}
             for name_item in names:
                 language = name_item.get("language") or {}
-                code = _language_code(str(language.get("name") or ""))
+                raw_code = _language_code(str(language.get("name") or ""))
+                code = POKEAPI_LANGUAGE_MAP.get(raw_code, raw_code)
                 name = str(name_item.get("name") or "").strip()
-                if code and name:
-                    localized[code] = name
-                    name_rows.append((code, name, dex_id))
+                if not code or not name or code not in LANGUAGES:
+                    continue
+                rank = 0 if code == raw_code else 1     # a directly named language beats a mapped variant
+                if code in priority and priority[code] <= rank:
+                    continue
+                priority[code] = rank
+                localized[code] = name
+            for code, name in localized.items():
+                name_rows.append((code, name, dex_id))
             german = localized.get("de") or slug.replace("-", " ").title()
             species_rows.append((str(dex_id), dex_id, f"{dex_id:03d}", german,
                                  " ".join([slug] + list(localized.values())).lower(),
@@ -913,6 +923,19 @@ def write_gap_report(db_path: str, output_dir: str, plan: list[dict[str, Any]], 
                                  entry["status"], entry["missing"]])
 
 
+def _normalize_pokemon_name_languages(db_path: str) -> int:
+    """Map known PokéAPI language variants to catalog languages and delete all other name languages."""
+    with closing(sqlite3.connect(db_path)) as db:
+        changed = 0
+        for old_code, new_code in POKEAPI_LANGUAGE_MAP.items():
+            changed += db.execute("UPDATE OR IGNORE pokemon_names SET language=? WHERE language=?",
+                                  (new_code, old_code)).rowcount
+        placeholders = ",".join("?" * len(LANGUAGES))
+        changed += db.execute(f"DELETE FROM pokemon_names WHERE language NOT IN ({placeholders})", LANGUAGES).rowcount
+        db.commit()
+    return changed
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--schema", default=SCHEMA_JSON_PATH)
@@ -967,14 +990,26 @@ def main() -> int:
                 print(f"- {source}: {reason}")
             return 2
 
-        gap_plan = apply_language_fallback(stage_db, stage_checkpoint, schema["database"]["version"], summary)
-        coverage = build_coverage(stage_db, summary)
-        manifest_path = os.path.join(staging_dir, "manifest.json")
-        report_path = os.path.join(staging_dir, "coverage_report.md")
-        generate_manifest(stage_db, manifest_path, report_path, schema["database"]["version"], coverage, summary)
-        from verify_catalog_artifacts import verify_catalog_artifacts
-        verify_catalog_artifacts(stage_db, manifest_path, args.schema)
-        _publish_staged_artifacts(staging_dir, output_dir)
+        _normalize_pokemon_name_languages(stage_db)
+        pre_fill_db = os.path.join(staging_dir, "pre-fill.sqlite")
+        shutil.copy2(stage_db, pre_fill_db)
+        try:
+            gap_plan = apply_language_fallback(stage_db, stage_checkpoint, schema["database"]["version"], summary)
+            coverage = build_coverage(stage_db, summary)
+            manifest_path = os.path.join(staging_dir, "manifest.json")
+            report_path = os.path.join(staging_dir, "coverage_report.md")
+            generate_manifest(stage_db, manifest_path, report_path, schema["database"]["version"], coverage, summary)
+            from verify_catalog_artifacts import verify_catalog_artifacts
+            verify_catalog_artifacts(stage_db, manifest_path, args.schema)
+            _publish_staged_artifacts(staging_dir, output_dir)
+        except Exception:
+            # The download is the expensive part: keep it (without substitute cards) so --resume does not start over.
+            shutil.copy2(pre_fill_db, output_partial)
+            if os.path.exists(stage_checkpoint):
+                shutil.copy2(stage_checkpoint, output_checkpoint)
+            print("ERROR: the catalog was downloaded but building or verifying it failed.")
+            print(f"Progress was saved. After fixing the problem run again with --resume ({PARTIAL_DB_NAME}).")
+            raise
         if os.path.exists(stage_checkpoint):
             shutil.copy2(stage_checkpoint, output_checkpoint)
         if os.path.exists(output_partial):
