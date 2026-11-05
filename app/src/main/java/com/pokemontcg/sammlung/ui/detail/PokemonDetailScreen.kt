@@ -52,12 +52,20 @@ fun PokemonDetailScreen(
     onAddSecondary: (CardEntity, CardCategory) -> Unit,
     onRemoveSecondary: (String) -> Unit,
     onToggleWishlist: (CardEntity) -> Unit,
+    onUpdateCardDetails: (cardId: String, quantity: Int, condition: String?, language: String, notes: String?, category: String) -> Unit,
     onClassificationChange: (String) -> Unit
 ) {
     val context = LocalContext.current
     var showPrimaryDialog by remember { mutableStateOf(false) }
     var showSecondaryDialog by remember { mutableStateOf(false) }
     var selectedCardForEdit by remember { mutableStateOf<CardEntity?>(null) }
+    var pendingCategory by remember { mutableStateOf(CardCategory.NONE.name) }
+
+    fun openCardEditor(card: CardEntity) {
+        pendingCategory = userCards.firstOrNull { it.cardId == card.id }?.category
+            ?: CardCategory.NONE.name
+        selectedCardForEdit = card
+    }
 
     val primaryUserCard = userCards.firstOrNull { it.isPrimary }
     val primaryCard = cards.firstOrNull { it.id == primaryUserCard?.cardId }
@@ -98,9 +106,20 @@ fun PokemonDetailScreen(
             initialCondition = uc?.condition,
             initialLanguage = uc?.language ?: "de",
             initialNotes = uc?.notes,
-            onPrimaryChange = { isPri -> if (isPri) onSelectPrimary(card) },
-            onCategoryChange = { _ -> },
-            onDetailsChange = { _, _, _, _ -> },
+            onPrimaryChange = { isPrimary ->
+                if (isPrimary) onSelectPrimary(card) else onRemovePrimary()
+            },
+            onCategoryChange = { selectedCategory -> pendingCategory = selectedCategory },
+            onDetailsChange = { quantity, condition, language, notes ->
+                onUpdateCardDetails(
+                    card.id,
+                    quantity,
+                    condition,
+                    language,
+                    notes,
+                    pendingCategory
+                )
+            },
             onConfirm = { selectedCardForEdit = null },
             onDismiss = { selectedCardForEdit = null }
         )
@@ -192,7 +211,7 @@ fun PokemonDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .minimumInteractiveComponentSize()
-                                .clickable { selectedCardForEdit = primaryCard },
+                                .clickable { openCardEditor(primaryCard) },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             TcgImage(
@@ -255,7 +274,7 @@ fun PokemonDetailScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .minimumInteractiveComponentSize()
-                                    .clickable { selectedCardForEdit = card },
+                                    .clickable { openCardEditor(card) },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TcgImage(

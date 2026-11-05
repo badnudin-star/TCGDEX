@@ -255,6 +255,16 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onRemoveSecondary = { cardId -> pokemonDetailViewModel.removeSecondaryCard(cardId) },
                                     onToggleWishlist = { card -> pokemonDetailViewModel.toggleWishlist(card) },
+                                    onUpdateCardDetails = { cardId, quantity, condition, language, notes, category ->
+                                        pokemonDetailViewModel.updateCardDetails(
+                                            cardId,
+                                            quantity,
+                                            condition,
+                                            language,
+                                            notes,
+                                            category
+                                        )
+                                    },
                                     onClassificationChange = { _ -> }
                                 )
                             } else {

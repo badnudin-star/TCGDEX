@@ -82,6 +82,29 @@ class PokemonDetailViewModel(
         }
     }
 
+    fun updateCardDetails(
+        cardId: String,
+        quantity: Int,
+        condition: String?,
+        language: String,
+        notes: String?,
+        category: String
+    ) {
+        viewModelScope.launch {
+            val userCard = userCards.value.firstOrNull { it.cardId == cardId } ?: return@launch
+            collectionRepository.updateUserCard(
+                sanitizeUserCardDetails(
+                    userCard = userCard,
+                    quantity = quantity,
+                    condition = condition,
+                    language = language,
+                    notes = notes,
+                    category = category
+                )
+            )
+        }
+    }
+
     fun toggleWishlist(card: CardEntity) {
         viewModelScope.launch {
             applyWishlistToggle(
