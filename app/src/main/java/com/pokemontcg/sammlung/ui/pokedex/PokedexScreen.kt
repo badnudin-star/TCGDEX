@@ -32,6 +32,11 @@ fun PokedexScreen(
     collapsedGenerations: Set<Int>,
     onToggleGeneration: (Int) -> Unit,
     isLoading: Boolean,
+    isCatalogEmpty: Boolean,
+    isSyncing: Boolean,
+    syncProgressMessage: String,
+    syncProgressPercent: Int?,
+    onLoadCatalog: () -> Unit,
     primaryImageByDexId: Map<Int, String>,
     onPokemonClick: (PokemonEntity) -> Unit,
     modifier: Modifier = Modifier
@@ -39,6 +44,12 @@ fun PokedexScreen(
     Column(modifier = modifier.fillMaxSize()) {
         when {
             isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            isCatalogEmpty -> CatalogEmptyState(
+                isSyncing = isSyncing,
+                progressMessage = syncProgressMessage,
+                progressPercent = syncProgressPercent,
+                onLoadCatalog = onLoadCatalog
+            )
             generationSections.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.generation_no_pokemon_found), style = MaterialTheme.typography.bodyLarge)
             }
@@ -115,6 +126,62 @@ fun PokedexScreen(
                                 }
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun CatalogEmptyState(
+    isSyncing: Boolean,
+    progressMessage: String,
+    progressPercent: Int?,
+    onLoadCatalog: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Card(modifier = Modifier.fillMaxWidth()) {
+            Column(
+                modifier = Modifier.padding(20.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    stringResource(R.string.catalog_empty_title),
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.semantics { heading() }
+                )
+                Text(
+                    stringResource(R.string.catalog_empty_description),
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                if (isSyncing) {
+                    if (progressPercent != null) {
+                        LinearProgressIndicator(
+                            progress = { progressPercent / 100f },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
+                    Text(
+                        progressMessage.ifBlank { stringResource(R.string.catalog_empty_syncing) },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                    progressPercent?.let { percent ->
+                        Text(
+                            stringResource(R.string.ui_sync_progress_percent, percent),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                    }
+                } else {
+                    Button(onClick = onLoadCatalog) {
+                        Text(stringResource(R.string.catalog_empty_load_button))
                     }
                 }
             }

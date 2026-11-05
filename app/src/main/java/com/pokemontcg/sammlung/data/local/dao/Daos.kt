@@ -15,6 +15,9 @@ interface PokemonDao {
     @Query("SELECT COUNT(*) FROM pokemon")
     suspend fun getPokemonCount(): Int
 
+    @Query("SELECT COUNT(*) FROM pokemon")
+    fun observePokemonCount(): Flow<Int>
+
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertAllIfAbsent(pokemon: List<PokemonEntity>): List<Long>
 
@@ -73,6 +76,9 @@ interface CardDao {
 
     @Query("SELECT * FROM cards")
     suspend fun getAllCardsOnce(): List<CardEntity>
+
+    @Query("SELECT COUNT(*) FROM cards")
+    fun observeCardCount(): Flow<Int>
 
     @Query("UPDATE cards SET nationalPokedexNumber = :firstDexId, nationalPokedexNumbers = :allDexIds WHERE id = :cardId")
     suspend fun updateCardPokemonLinks(cardId: String, firstDexId: Int?, allDexIds: String?)

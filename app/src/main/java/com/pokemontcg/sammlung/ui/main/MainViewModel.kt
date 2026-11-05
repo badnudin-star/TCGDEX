@@ -43,6 +43,9 @@ internal fun isPartialSyncFailure(state: WorkInfo.State, hasFailures: Boolean): 
 internal fun normalizeProgressPercent(value: Int): Int? =
     value.takeIf { it in 0..100 }
 
+internal fun isCatalogEmpty(pokemonCount: Int, cardCount: Int): Boolean =
+    pokemonCount == 0 && cardCount == 0
+
 data class MainUiState(
     val searchQuery: String = "",
     val selectedFilter: String = "Alle",
@@ -83,6 +86,12 @@ class MainViewModel(
     val userCards: StateFlow<List<UserCardEntityV2>> = collectionRepository.getAllUserCards().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
+    val catalogIsEmpty: StateFlow<Boolean> = combine(
+        catalogRepository.observePokemonCount(),
+        catalogRepository.observeCardCount()
+    ) { pokemonCount, cardCount ->
+        isCatalogEmpty(pokemonCount, cardCount)
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private val primaryImageByDexId: StateFlow<Map<Int, String>> = userCards
         .map { cards ->

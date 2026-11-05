@@ -46,6 +46,7 @@ fun MainScreen(
 ) {
     val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
+    val catalogIsEmpty by viewModel.catalogIsEmpty.collectAsState()
     val searchQuery = uiState.searchQuery
     val selectedFilter = uiState.selectedFilter
     val pokemonList = uiState.pokemonList
@@ -189,7 +190,7 @@ fun MainScreen(
                         )
 
                         Box(modifier = Modifier.weight(1f)) {
-                            if (uiState.generationSections.isEmpty() && uiState.hiddenGenerations.containsAll(GenerationModel.GENERATIONS.map { it.id }.toSet()) && uiState.hiddenSearchMatches == 0 && searchQuery.isBlank()) {
+                            if (!catalogIsEmpty && uiState.generationSections.isEmpty() && uiState.hiddenGenerations.containsAll(GenerationModel.GENERATIONS.map { it.id }.toSet()) && uiState.hiddenSearchMatches == 0 && searchQuery.isBlank()) {
                                 Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
                                     Text(stringResource(R.string.generation_empty_all_hidden))
                                     TextButton(onClick = { viewModel.setHiddenGenerations(emptySet()) }) { Text(stringResource(R.string.generation_show_all)) }
@@ -202,6 +203,11 @@ fun MainScreen(
                                     viewModel.setCollapsedGenerations(next)
                                 },
                                 isLoading = false,
+                                isCatalogEmpty = catalogIsEmpty,
+                                isSyncing = uiState.sync.isSyncing,
+                                syncProgressMessage = uiState.sync.progressMessage,
+                                syncProgressPercent = uiState.sync.progressPercent,
+                                onLoadCatalog = viewModel::triggerSync,
                                 primaryImageByDexId = uiState.primaryImageByDexId,
                                 onPokemonClick = { pokemon ->
                                     onNavigateToPokemonDetail(pokemon.dexId)

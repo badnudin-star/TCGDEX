@@ -175,6 +175,10 @@
     <string name="generation_empty_all_hidden">Alle Generationen sind ausgeblendet.</string>
     <string name="generation_show_all">Alle einblenden</string>
     <string name="generation_no_pokemon_found">Keine Pokémon gefunden</string>
+    <string name="catalog_empty_title">Kartenkatalog fehlt</string>
+    <string name="catalog_empty_description">Der Kartenkatalog ist noch nicht geladen. Der vollständige Katalog ist mehrere hundert MB groß. Zum Herunterladen wird eine WLAN-Verbindung empfohlen.</string>
+    <string name="catalog_empty_load_button">Katalog jetzt laden</string>
+    <string name="catalog_empty_syncing">Katalog wird geladen …</string>
     <string name="generation_hide_dialog_title">Generationen ausblenden</string>
     <string name="generation_hide_dialog_description">Ausgeblendete Generationen werden im Pokédex, in der Suche und in den Fortschrittszählern ausgeblendet.</string>
     <string name="generation_dex_range">Dex #%1$s – #%2$s</string>

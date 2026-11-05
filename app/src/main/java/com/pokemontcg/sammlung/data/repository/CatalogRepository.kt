@@ -15,6 +15,10 @@ class CatalogRepository(private val db: AppDatabase) {
 
     fun getAllPokemon(): Flow<List<PokemonEntity>> = db.pokemonDao().getAllPokemon()
 
+    fun observePokemonCount(): Flow<Int> = db.pokemonDao().observePokemonCount()
+
+    fun observeCardCount(): Flow<Int> = db.cardDao().observeCardCount()
+
     fun getAllPokemonNames(): Flow<List<PokemonNameEntity>> = db.pokemonNameDao().getAllPokemonNames()
 
     fun getAvailablePokemonNameLanguages(): Flow<List<String>> =
