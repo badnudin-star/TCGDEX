@@ -14,6 +14,7 @@ import com.pokemontcg.sammlung.data.local.AppDatabase
 import com.pokemontcg.sammlung.data.local.dao.SyncCheckpointDao
 import com.pokemontcg.sammlung.data.local.user.UserDatabase
 import com.pokemontcg.sammlung.data.local.entities.SyncCheckpointEntity
+import com.pokemontcg.sammlung.data.model.SyncStage
 import com.pokemontcg.sammlung.data.repository.PriceRepository
 import com.pokemontcg.sammlung.data.repository.CollectionRepository
 import com.pokemontcg.sammlung.data.repository.SyncRepository
@@ -36,6 +37,7 @@ class ResumableCatalogWorker(
         const val CONTINUATION_WORK_NAME = "catalog_update_continue"
         const val SYNC_TAG = "catalog_sync"
         const val KEY_PROGRESS_MESSAGE = "progress_message"
+        const val KEY_SYNC_STAGE = "sync_stage"
         const val KEY_PROGRESS_PERCENT = "progress_percent"
         const val KEY_DOWNLOADED_BYTES = "downloaded_bytes"
         const val KEY_TOTAL_BYTES = "total_bytes"
@@ -113,6 +115,7 @@ class ResumableCatalogWorker(
                     index + 1,
                     units.size
                 ),
+                KEY_SYNC_STAGE to unitStage(unit).key,
                 KEY_PROGRESS_PERCENT to percent,
                 KEY_HAS_FAILURES to false,
                 KEY_STARTED_AT to startTime
@@ -195,6 +198,14 @@ class ResumableCatalogWorker(
         else -> unit
     }
 
+    private fun unitStage(unit: String): SyncStage = when (unit) {
+        "snapshot" -> SyncStage.CHECKING
+        "catalog" -> SyncStage.START_CATALOG
+        "names" -> SyncStage.NAMES
+        "prices" -> SyncStage.PRICES
+        else -> SyncStage.CHECKING
+    }
+
     private suspend fun executeUnit(
         unit: String,
         db: AppDatabase,
@@ -213,9 +224,10 @@ class ResumableCatalogWorker(
                 syncRepository.importRemoteCatalog(
                     protectedCardIds = protectedCardIds,
                     protectedPokemonIds = protectedPokemonIds
-                ) { message, percent, downloadedBytes, totalBytes ->
+                ) { stage, message, percent, downloadedBytes, totalBytes ->
                     val builder = Data.Builder()
                         .putString(KEY_PROGRESS_MESSAGE, message)
+                        .putString(KEY_SYNC_STAGE, stage.key)
                         .putInt(KEY_PROGRESS_PERCENT, percent)
                     if (downloadedBytes != null) {
                         builder.putLong(KEY_DOWNLOADED_BYTES, downloadedBytes)

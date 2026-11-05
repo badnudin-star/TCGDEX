@@ -25,6 +25,8 @@ import androidx.compose.ui.res.stringResource
 import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.model.GenerationModel
 import com.pokemontcg.sammlung.data.model.GenerationSection
+import com.pokemontcg.sammlung.data.model.SyncStage
+import com.pokemontcg.sammlung.ui.components.SyncStepText
 import com.pokemontcg.sammlung.ui.components.TcgImage
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 
@@ -36,6 +38,7 @@ fun PokedexScreen(
     isLoading: Boolean,
     isCatalogEmpty: Boolean,
     isSyncing: Boolean,
+    syncStage: SyncStage?,
     syncProgressMessage: String,
     syncProgressPercent: Int?,
     syncDownloadedBytes: Long?,
@@ -51,6 +54,7 @@ fun PokedexScreen(
             isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             isCatalogEmpty -> CatalogEmptyState(
                 isSyncing = isSyncing,
+                stage = syncStage,
                 progressMessage = syncProgressMessage,
                 progressPercent = syncProgressPercent,
                 downloadedBytes = syncDownloadedBytes,
@@ -144,6 +148,7 @@ fun PokedexScreen(
 @Composable
 private fun CatalogEmptyState(
     isSyncing: Boolean,
+    stage: SyncStage?,
     progressMessage: String,
     progressPercent: Int?,
     downloadedBytes: Long?,
@@ -185,6 +190,7 @@ private fun CatalogEmptyState(
                         progressMessage.ifBlank { stringResource(R.string.catalog_empty_syncing) },
                         style = MaterialTheme.typography.bodySmall
                     )
+                    SyncStepText(stage = stage)
                     if (downloadedBytes != null && totalBytes != null) {
                         Text(
                             stringResource(

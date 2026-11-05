@@ -15,6 +15,7 @@ import com.pokemontcg.sammlung.data.importer.CatalogImportResult
 import com.pokemontcg.sammlung.data.local.AppDatabase
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 import com.pokemontcg.sammlung.data.local.entities.PokemonNameEntity
+import com.pokemontcg.sammlung.data.model.SyncStage
 import com.pokemontcg.sammlung.worker.ResumableCatalogWorker
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -105,6 +106,7 @@ class SyncRepository(
         protectedCardIds: Set<String> = emptySet(),
         protectedPokemonIds: Set<String> = emptySet(),
         onProgress: suspend (
+            stage: SyncStage,
             message: String,
             percent: Int,
             downloadedBytes: Long?,
@@ -116,16 +118,37 @@ class SyncRepository(
             com.pokemontcg.sammlung.util.AppLogger.log(
                 "SyncRepository", "kein Katalog-Manifest konfiguriert"
             )
-            onProgress(context.getString(R.string.ui_sync_catalog_manifest_disabled), 100, null, null)
+            onProgress(
+                SyncStage.CHECKING,
+                context.getString(R.string.ui_sync_catalog_manifest_disabled),
+                100,
+                null,
+                null
+            )
             return true
         }
 
-        onProgress(context.getString(R.string.ui_sync_catalog_downloading), 0, null, null)
+        onProgress(
+            SyncStage.CHECKING,
+            context.getString(R.string.ui_sync_catalog_checking),
+            0,
+            null,
+            null
+        )
         return when (
             val result = catalogImporter.importRemote(
                 manifestUrl,
                 protectedCardIds,
-                protectedPokemonIds
+                protectedPokemonIds,
+                onStage = { stage ->
+                    onProgress(
+                        stage,
+                        context.getString(catalogStageMessageRes(stage)),
+                        if (stage == SyncStage.DOWNLOADING) 0 else 100,
+                        null,
+                        null
+                    )
+                }
             ) { downloadedBytes, totalBytes ->
                 val percent = if (totalBytes > 0L) {
                     ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
@@ -133,6 +156,7 @@ class SyncRepository(
                     0
                 }
                 onProgress(
+                    SyncStage.DOWNLOADING,
                     context.getString(R.string.ui_sync_catalog_downloading),
                     percent,
                     downloadedBytes,
@@ -141,15 +165,33 @@ class SyncRepository(
             }
         ) {
             is CatalogImportResult.Success -> {
-                onProgress(context.getString(R.string.ui_sync_catalog_updated), 100, null, null)
+                onProgress(
+                    SyncStage.IMPORTING,
+                    context.getString(R.string.ui_sync_catalog_updated),
+                    100,
+                    null,
+                    null
+                )
                 true
             }
             CatalogImportResult.AlreadyUpToDate -> {
-                onProgress(context.getString(R.string.ui_sync_catalog_current), 100, null, null)
+                onProgress(
+                    SyncStage.CHECKING,
+                    context.getString(R.string.ui_sync_catalog_current),
+                    100,
+                    null,
+                    null
+                )
                 true
             }
             is CatalogImportResult.RequiresAppUpdate -> {
-                onProgress(context.getString(R.string.ui_sync_catalog_requires_app_update), 100, null, null)
+                onProgress(
+                    SyncStage.CHECKING,
+                    context.getString(R.string.ui_sync_catalog_requires_app_update),
+                    100,
+                    null,
+                    null
+                )
                 com.pokemontcg.sammlung.util.AppLogger.log(
                     "SyncRepository",
                     "Katalog-Update benötigt App-Update (Schema ${result.remoteSchemaVersion} != ${result.appSchemaVersion})"
@@ -164,6 +206,16 @@ class SyncRepository(
                 false
             }
         }
+    }
+
+    private fun catalogStageMessageRes(stage: SyncStage): Int = when (stage) {
+        SyncStage.CHECKING -> R.string.ui_sync_catalog_checking
+        SyncStage.DOWNLOADING -> R.string.ui_sync_catalog_downloading
+        SyncStage.VERIFYING -> R.string.ui_sync_catalog_verifying
+        SyncStage.IMPORTING -> R.string.ui_sync_catalog_importing
+        SyncStage.START_CATALOG -> R.string.ui_sync_unit_catalog
+        SyncStage.NAMES -> R.string.ui_sync_unit_names
+        SyncStage.PRICES -> R.string.ui_sync_unit_prices
     }
 
     suspend fun getLastUpdateTimestamp(): Long {

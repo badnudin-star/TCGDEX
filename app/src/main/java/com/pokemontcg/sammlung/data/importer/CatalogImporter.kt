@@ -5,6 +5,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import com.google.gson.JsonObject
 import com.google.gson.JsonParser
 import com.pokemontcg.sammlung.data.local.AppDatabase
+import com.pokemontcg.sammlung.data.model.SyncStage
 import com.pokemontcg.sammlung.data.preferences.AppPreferencesRepository
 import com.pokemontcg.sammlung.util.AppLogger
 import kotlinx.coroutines.Dispatchers
@@ -171,6 +172,7 @@ class CatalogImporter(
         manifestUrl: String,
         protectedCardIds: Set<String> = emptySet(),
         protectedPokemonIds: Set<String> = emptySet(),
+        onStage: suspend (SyncStage) -> Unit = {},
         onDownloadProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> }
     ): CatalogImportResult =
         importRemoteInternal(
@@ -178,6 +180,7 @@ class CatalogImporter(
             allowUnconditionalRetry = true,
             protectedCardIds = protectedCardIds,
             protectedPokemonIds = protectedPokemonIds,
+            onStage = onStage,
             onDownloadProgress = onDownloadProgress
         )
 
@@ -186,6 +189,7 @@ class CatalogImporter(
         allowUnconditionalRetry: Boolean,
         protectedCardIds: Set<String>,
         protectedPokemonIds: Set<String>,
+        onStage: suspend (SyncStage) -> Unit,
         onDownloadProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit
     ): CatalogImportResult = withContext(Dispatchers.IO) {
         if (manifestUrl.isBlank()) {
@@ -198,6 +202,7 @@ class CatalogImporter(
             return@withContext CatalogImportResult.Error("Manifest URL must be HTTPS")
         }
 
+        onStage(SyncStage.CHECKING)
         val checkedAt = System.currentTimeMillis()
         try {
             // GitHub release URLs answer with a redirect to a signed asset host. Follow
@@ -255,6 +260,7 @@ class CatalogImporter(
                                     allowUnconditionalRetry = false,
                                     protectedCardIds = protectedCardIds,
                                     protectedPokemonIds = protectedPokemonIds,
+                                    onStage = onStage,
                                     onDownloadProgress = onDownloadProgress
                                 )
                             } else {
@@ -332,6 +338,7 @@ class CatalogImporter(
                 }
             }
 
+            onStage(SyncStage.DOWNLOADING)
             val cacheFile = File(context.cacheDir, "remote_catalog.sqlite")
             try {
                 // The manifest URL is validated as HTTPS, and every redirect hop is checked
@@ -365,6 +372,7 @@ class CatalogImporter(
                     downloadConn.disconnect()
                 }
 
+                onStage(SyncStage.VERIFYING)
                 val validationError = validateDownloadedCatalog(cacheFile, manifest.size, manifest.sha256)
                 if (validationError != null) {
                     cacheFile.delete()
@@ -372,6 +380,7 @@ class CatalogImporter(
                     return@withContext CatalogImportResult.Error(validationError)
                 }
 
+                onStage(SyncStage.IMPORTING)
                 val result = importCatalogFile(cacheFile, protectedCardIds, protectedPokemonIds)
                 cacheFile.delete()
 

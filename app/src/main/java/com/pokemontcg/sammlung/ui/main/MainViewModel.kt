@@ -18,6 +18,7 @@ import com.pokemontcg.sammlung.data.preferences.AppPreferencesRepository
 import com.pokemontcg.sammlung.data.repository.CatalogRepository
 import com.pokemontcg.sammlung.data.repository.CollectionRepository
 import com.pokemontcg.sammlung.data.repository.PriceRepository
+import com.pokemontcg.sammlung.data.model.SyncStage
 import com.pokemontcg.sammlung.data.repository.SyncRepository
 import com.pokemontcg.sammlung.ui.catalog.CatalogManagerUiState
 import com.pokemontcg.sammlung.worker.ResumableCatalogWorker
@@ -32,6 +33,7 @@ import kotlinx.coroutines.launch
 
 data class SyncUiState(
     val isSyncing: Boolean = false,
+    val stage: SyncStage? = null,
     val progressMessage: String = "",
     val progressPercent: Int? = null,
     val downloadedBytes: Long? = null,
@@ -234,6 +236,9 @@ class MainViewModel(
         val progressMessage = activeWork?.progress
             ?.getString(ResumableCatalogWorker.KEY_PROGRESS_MESSAGE)
             .orEmpty()
+        val stage = activeWork?.progress
+            ?.getString(ResumableCatalogWorker.KEY_SYNC_STAGE)
+            ?.let(SyncStage::fromKey)
         val downloadedBytes = activeWork?.progress
             ?.getLong(ResumableCatalogWorker.KEY_DOWNLOADED_BYTES, -1L)
             ?.takeIf { it >= 0L }
@@ -247,6 +252,7 @@ class MainViewModel(
         if (active) {
             return SyncUiState(
                 isSyncing = true,
+                stage = stage,
                 progressMessage = progressMessage,
                 progressPercent = progressPercent,
                 downloadedBytes = downloadedBytes,

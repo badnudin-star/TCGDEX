@@ -12,10 +12,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.pokemontcg.sammlung.data.model.SyncStage
+import com.pokemontcg.sammlung.ui.components.SyncStepText
 
 @Composable
 fun MainSyncBanner(
     isSyncing: Boolean,
+    stage: SyncStage?,
     progressMessage: String,
     progressPercent: Int?,
     downloadedBytes: Long?,
@@ -57,6 +60,10 @@ fun MainSyncBanner(
                             modifier = Modifier.weight(1f)
                         )
                     }
+                    SyncStepText(
+                        stage = stage,
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
                     progressPercent?.let { percent ->
                         LinearProgressIndicator(
                             progress = { percent / 100f },

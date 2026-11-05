@@ -127,6 +127,7 @@ fun MainScreen(
         ) {
             MainSyncBanner(
                 isSyncing = uiState.sync.isSyncing,
+                stage = uiState.sync.stage,
                 progressMessage = uiState.sync.progressMessage,
                 progressPercent = uiState.sync.progressPercent,
                 downloadedBytes = uiState.sync.downloadedBytes,
@@ -199,6 +200,7 @@ fun MainScreen(
                                 isLoading = false,
                                 isCatalogEmpty = catalogIsEmpty,
                                 isSyncing = uiState.sync.isSyncing,
+                                syncStage = uiState.sync.stage,
                                 syncProgressMessage = uiState.sync.progressMessage,
                                 syncProgressPercent = uiState.sync.progressPercent,
                                 syncDownloadedBytes = uiState.sync.downloadedBytes,

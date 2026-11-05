@@ -35,6 +35,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.R
+import com.pokemontcg.sammlung.ui.components.SyncStepText
 import com.pokemontcg.sammlung.ui.main.SyncUiState
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -279,6 +280,7 @@ private fun CatalogDownloadProgressCard(sync: SyncUiState) {
                 sync.progressMessage.ifBlank { stringResource(R.string.catalog_empty_syncing) },
                 style = MaterialTheme.typography.bodySmall
             )
+            SyncStepText(stage = sync.stage)
             if (sync.downloadedBytes != null && sync.totalBytes != null) {
                 Text(
                     stringResource(
