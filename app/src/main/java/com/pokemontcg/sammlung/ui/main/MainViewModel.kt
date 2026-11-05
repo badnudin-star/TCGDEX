@@ -19,6 +19,7 @@ import com.pokemontcg.sammlung.data.repository.CatalogRepository
 import com.pokemontcg.sammlung.data.repository.CollectionRepository
 import com.pokemontcg.sammlung.data.repository.PriceRepository
 import com.pokemontcg.sammlung.data.repository.SyncRepository
+import com.pokemontcg.sammlung.ui.catalog.CatalogManagerUiState
 import com.pokemontcg.sammlung.worker.ResumableCatalogWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -33,6 +34,8 @@ data class SyncUiState(
     val isSyncing: Boolean = false,
     val progressMessage: String = "",
     val progressPercent: Int? = null,
+    val downloadedBytes: Long? = null,
+    val totalBytes: Long? = null,
     val errorMessage: String? = null,
     val errorMessageRes: Int? = null
 )
@@ -42,6 +45,13 @@ internal fun isPartialSyncFailure(state: WorkInfo.State, hasFailures: Boolean): 
 
 internal fun normalizeProgressPercent(value: Int): Int? =
     value.takeIf { it in 0..100 }
+
+internal fun exactDownloadPercent(downloadedBytes: Long?, totalBytes: Long?): Int? =
+    if (downloadedBytes != null && totalBytes != null && totalBytes > 0L) {
+        ((downloadedBytes * 100L) / totalBytes).toInt().coerceIn(0, 100)
+    } else {
+        null
+    }
 
 internal fun isCatalogEmpty(pokemonCount: Int, cardCount: Int): Boolean =
     pokemonCount == 0 && cardCount == 0
@@ -115,6 +125,88 @@ class MainViewModel(
         deriveSyncUiState(works, dismissedId)
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), SyncUiState())
 
+    private data class CatalogCounts(val pokemon: Int, val cards: Int, val sets: Int)
+
+    private val catalogCounts: StateFlow<CatalogCounts> = combine(
+        catalogRepository.observePokemonCount(),
+        catalogRepository.observeCardCount(),
+        catalogRepository.observeSetCount()
+    ) { pokemon, cards, sets -> CatalogCounts(pokemon, cards, sets) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CatalogCounts(0, 0, 0))
+
+    private data class CatalogVersionMetadata(
+        val installedVersion: String?,
+        val remoteVersion: String?,
+        val installedAt: Long,
+        val lastCheckAt: Long
+    )
+
+    private data class CatalogMetadata(
+        val installedVersion: String?,
+        val remoteVersion: String?,
+        val installedAt: Long,
+        val lastCheckAt: Long,
+        val remoteSizeBytes: Long,
+        val requiresAppUpdate: Boolean
+    )
+
+    private val catalogVersionMetadata: StateFlow<CatalogVersionMetadata> = combine(
+        preferencesRepository.catalogInstalledVersionFlow,
+        preferencesRepository.catalogRemoteVersionFlow,
+        preferencesRepository.catalogInstalledAtFlow,
+        preferencesRepository.catalogLastCheckAtFlow
+    ) { installedVersion, remoteVersion, installedAt, lastCheckAt ->
+        CatalogVersionMetadata(installedVersion, remoteVersion, installedAt, lastCheckAt)
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        CatalogVersionMetadata(null, null, 0L, 0L)
+    )
+
+    private val catalogMetadata: StateFlow<CatalogMetadata> = combine(
+        catalogVersionMetadata,
+        preferencesRepository.catalogRemoteSizeBytesFlow,
+        preferencesRepository.catalogRequiresAppUpdateFlow
+    ) { versions, remoteSizeBytes, requiresAppUpdate ->
+        CatalogMetadata(
+            installedVersion = versions.installedVersion,
+            remoteVersion = versions.remoteVersion,
+            installedAt = versions.installedAt,
+            lastCheckAt = versions.lastCheckAt,
+            remoteSizeBytes = remoteSizeBytes,
+            requiresAppUpdate = requiresAppUpdate
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        CatalogMetadata(null, null, 0L, 0L, 0L, false)
+    )
+
+    val catalogManagerState: StateFlow<CatalogManagerUiState> = combine(
+        catalogCounts,
+        catalogMetadata,
+        syncUiState
+    ) { counts, metadata, sync ->
+        CatalogManagerUiState(
+            isLoaded = true,
+            catalogIsEmpty = isCatalogEmpty(counts.pokemon, counts.cards),
+            pokemonCount = counts.pokemon,
+            cardCount = counts.cards,
+            setCount = counts.sets,
+            installedVersion = metadata.installedVersion,
+            remoteVersion = metadata.remoteVersion,
+            installedAt = metadata.installedAt,
+            lastCheckAt = metadata.lastCheckAt,
+            remoteSizeBytes = metadata.remoteSizeBytes.takeIf { it > 0L },
+            requiresAppUpdate = metadata.requiresAppUpdate,
+            sync = sync
+        )
+    }.stateIn(
+        viewModelScope,
+        SharingStarted.WhileSubscribed(5000),
+        CatalogManagerUiState()
+    )
+
     init {
         viewModelScope.launch {
             syncWorkInfos.collect { works ->
@@ -142,14 +234,23 @@ class MainViewModel(
         val progressMessage = activeWork?.progress
             ?.getString(ResumableCatalogWorker.KEY_PROGRESS_MESSAGE)
             .orEmpty()
-        val progressPercent = activeWork?.progress
-            ?.getInt(ResumableCatalogWorker.KEY_PROGRESS_PERCENT, -1)
-            ?.let(::normalizeProgressPercent)
+        val downloadedBytes = activeWork?.progress
+            ?.getLong(ResumableCatalogWorker.KEY_DOWNLOADED_BYTES, -1L)
+            ?.takeIf { it >= 0L }
+        val totalBytes = activeWork?.progress
+            ?.getLong(ResumableCatalogWorker.KEY_TOTAL_BYTES, -1L)
+            ?.takeIf { it > 0L }
+        val progressPercent = exactDownloadPercent(downloadedBytes, totalBytes)
+            ?: activeWork?.progress
+                ?.getInt(ResumableCatalogWorker.KEY_PROGRESS_PERCENT, -1)
+                ?.let(::normalizeProgressPercent)
         if (active) {
             return SyncUiState(
                 isSyncing = true,
                 progressMessage = progressMessage,
-                progressPercent = progressPercent
+                progressPercent = progressPercent,
+                downloadedBytes = downloadedBytes,
+                totalBytes = totalBytes
             )
         }
 

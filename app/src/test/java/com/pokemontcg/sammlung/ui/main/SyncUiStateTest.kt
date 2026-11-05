@@ -25,4 +25,14 @@ class SyncUiStateTest {
         assertEquals(50, normalizeProgressPercent(50))
         assertEquals(100, normalizeProgressPercent(100))
     }
+
+    @Test
+    fun exactDownloadPercentUsesOnlyRealByteTotals() {
+        assertEquals(0, exactDownloadPercent(0L, 100L))
+        assertEquals(50, exactDownloadPercent(50L, 100L))
+        assertEquals(100, exactDownloadPercent(150L, 100L))
+        assertNull(exactDownloadPercent(null, 100L))
+        assertNull(exactDownloadPercent(50L, null))
+        assertNull(exactDownloadPercent(50L, 0L))
+    }
 }

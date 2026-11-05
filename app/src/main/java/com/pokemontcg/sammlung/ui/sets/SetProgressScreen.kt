@@ -27,6 +27,8 @@ import com.pokemontcg.sammlung.data.model.SetSortOption
 import com.pokemontcg.sammlung.data.model.computeSetProgress
 import com.pokemontcg.sammlung.data.model.ownedCardIdsBySet
 import com.pokemontcg.sammlung.data.model.sortSetProgress
+import com.pokemontcg.sammlung.data.model.upcomingSetReleases
+import com.pokemontcg.sammlung.ui.calendar.ReleaseCalendarSection
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -56,6 +58,7 @@ fun SetProgressScreen(
         val computed = computeSetProgress(ownedBySet, catalogCardCountBySet, sets)
         sortSetProgress(computed, currentSort)
     }
+    val upcomingReleases = remember(sets) { upcomingSetReleases(sets) }
 
     Scaffold(
         topBar = {
@@ -135,14 +138,27 @@ fun SetProgressScreen(
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-            } else if (progressList.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Text(stringResource(R.string.ui_keine_erweiterungen_vorhanden_0544ce))
-                }
             } else {
                 LazyColumn(
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
+                    if (upcomingReleases.isNotEmpty()) {
+                        item(key = "upcoming_releases") {
+                            ReleaseCalendarSection(releases = upcomingReleases)
+                        }
+                    }
+                    if (progressList.isEmpty()) {
+                        item(key = "sets_empty") {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 24.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(stringResource(R.string.ui_keine_erweiterungen_vorhanden_0544ce))
+                            }
+                        }
+                    }
                     items(progressList, key = { it.set.id }) { item ->
                         Card(modifier = Modifier.fillMaxWidth()) {
                             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

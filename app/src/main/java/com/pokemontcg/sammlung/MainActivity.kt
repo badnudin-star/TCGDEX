@@ -36,12 +36,11 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
-import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.UserMigrationHelper
 import com.pokemontcg.sammlung.data.local.user.WishlistEntity
 import com.pokemontcg.sammlung.ui.about.AboutAndSourcesDialog
-import com.pokemontcg.sammlung.ui.calendar.ReleaseCalendarScreen
+import com.pokemontcg.sammlung.ui.catalog.CatalogManagerScreen
 import com.pokemontcg.sammlung.ui.cards.CardScannerScreen
 import com.pokemontcg.sammlung.ui.cards.CardMatchCandidate
 import com.pokemontcg.sammlung.ui.cards.isCurrentScannerRequest
@@ -89,7 +88,6 @@ class MainActivity : ComponentActivity() {
 
                     var wishlist by remember { mutableStateOf<List<WishlistEntity>>(emptyList()) }
                     var cardMap by remember { mutableStateOf<Map<String, CardEntity>>(emptyMap()) }
-                    var allSets by remember { mutableStateOf<List<SetEntity>>(emptyList()) }
                     var showAboutDialog by rememberSaveable { mutableStateOf(false) }
                     var migrationAttempt by remember { mutableIntStateOf(0) }
                     var migrationState by remember { mutableStateOf<MigrationUiState>(MigrationUiState.Running) }
@@ -201,12 +199,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    LaunchedEffect(Unit) {
-                        catalogRepo.getAllSets().collect { sets ->
-                            allSets = sets
-                        }
-                    }
-
                     NavHost(
                         navController = navController,
                         startDestination = "main"
@@ -219,8 +211,7 @@ class MainActivity : ComponentActivity() {
                                 },
                                 onNavigateToSettings = { navController.navigate("settings") },
                                 onNavigateToWishlist = { navController.navigate("wishlist") },
-                                onNavigateToDiagnostics = { navController.navigate("diagnose") },
-                                onNavigateToCalendar = { navController.navigate("calendar") },
+                                onNavigateToCatalogManager = { navController.navigate("catalog-manager") },
                                 onNavigateToScanner = { navController.navigate("scanner") },
                                 onNavigateToSets = { navController.navigate("sets") }
                             )
@@ -281,8 +272,19 @@ class MainActivity : ComponentActivity() {
                                 collectionRepo = collectionRepo,
                                 catalogRepo = catalogRepo,
                                 onNavigateToDiagnostics = { navController.navigate("diagnose") },
+                                onNavigateToCatalogManager = { navController.navigate("catalog-manager") },
                                 onTriggerSync = { mainViewModel.triggerSync() },
                                 onShowAbout = { showAboutDialog = true },
+                                onBackClick = { navController.popBackStack() }
+                            )
+                        }
+
+                        composable("catalog-manager") {
+                            val catalogManagerState by mainViewModel.catalogManagerState.collectAsState()
+                            CatalogManagerScreen(
+                                state = catalogManagerState,
+                                onUpdateClick = { mainViewModel.triggerSync() },
+                                onDismissError = { mainViewModel.dismissSyncError() },
                                 onBackClick = { navController.popBackStack() }
                             )
                         }
@@ -308,13 +310,6 @@ class MainActivity : ComponentActivity() {
                                         collectionRepo.addToWishlist(wish)
                                     }
                                 },
-                                onBackClick = { navController.popBackStack() }
-                            )
-                        }
-
-                        composable("calendar") {
-                            ReleaseCalendarScreen(
-                                sets = allSets,
                                 onBackClick = { navController.popBackStack() }
                             )
                         }

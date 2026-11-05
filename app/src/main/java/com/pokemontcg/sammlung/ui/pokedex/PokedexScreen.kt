@@ -1,5 +1,6 @@
 package com.pokemontcg.sammlung.ui.pokedex
 
+import android.text.format.Formatter
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -13,6 +14,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -36,7 +38,10 @@ fun PokedexScreen(
     isSyncing: Boolean,
     syncProgressMessage: String,
     syncProgressPercent: Int?,
+    syncDownloadedBytes: Long?,
+    syncTotalBytes: Long?,
     onLoadCatalog: () -> Unit,
+    onOpenCatalogManager: () -> Unit,
     primaryImageByDexId: Map<Int, String>,
     onPokemonClick: (PokemonEntity) -> Unit,
     modifier: Modifier = Modifier
@@ -48,7 +53,10 @@ fun PokedexScreen(
                 isSyncing = isSyncing,
                 progressMessage = syncProgressMessage,
                 progressPercent = syncProgressPercent,
-                onLoadCatalog = onLoadCatalog
+                downloadedBytes = syncDownloadedBytes,
+                totalBytes = syncTotalBytes,
+                onLoadCatalog = onLoadCatalog,
+                onOpenCatalogManager = onOpenCatalogManager
             )
             generationSections.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(stringResource(R.string.generation_no_pokemon_found), style = MaterialTheme.typography.bodyLarge)
@@ -138,8 +146,12 @@ private fun CatalogEmptyState(
     isSyncing: Boolean,
     progressMessage: String,
     progressPercent: Int?,
-    onLoadCatalog: () -> Unit
+    downloadedBytes: Long?,
+    totalBytes: Long?,
+    onLoadCatalog: () -> Unit,
+    onOpenCatalogManager: () -> Unit
 ) {
+    val context = LocalContext.current
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -173,15 +185,31 @@ private fun CatalogEmptyState(
                         progressMessage.ifBlank { stringResource(R.string.catalog_empty_syncing) },
                         style = MaterialTheme.typography.bodySmall
                     )
+                    if (downloadedBytes != null && totalBytes != null) {
+                        Text(
+                            stringResource(
+                                R.string.ui_sync_download_bytes,
+                                Formatter.formatShortFileSize(context, downloadedBytes),
+                                Formatter.formatShortFileSize(context, totalBytes)
+                            ),
+                            style = MaterialTheme.typography.bodySmall
+                        )
+                    }
                     progressPercent?.let { percent ->
                         Text(
                             stringResource(R.string.ui_sync_progress_percent, percent),
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
+                    TextButton(onClick = onOpenCatalogManager) {
+                        Text(stringResource(R.string.catalog_manager_open))
+                    }
                 } else {
                     Button(onClick = onLoadCatalog) {
                         Text(stringResource(R.string.catalog_empty_load_button))
+                    }
+                    TextButton(onClick = onOpenCatalogManager) {
+                        Text(stringResource(R.string.catalog_manager_open))
                     }
                 }
             }

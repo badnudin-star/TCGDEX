@@ -19,8 +19,6 @@ data class SettingsUiState(
     val scheduledUpdateHour: Int = 3,
     val preferredLanguage: String = "de",
     val currencySource: String = "EUR_CARDMARKET",
-    val hiddenGenerations: Set<Int> = emptySet(),
-    val collapsedGenerations: Set<Int> = emptySet(),
     val priceAlertsEnabled: Boolean = false,
     val priceAlertThresholdPercent: Int = 10,
     val priceAlertWindowDays: Int = 1,
@@ -52,28 +50,16 @@ class SettingsViewModel(
 
     val uiState: StateFlow<SettingsUiState> = combine(
         corePreferences,
-        preferencesRepository.hiddenGenerationsFlow,
-        preferencesRepository.collapsedGenerationsFlow,
         preferencesRepository.priceAlertsEnabledFlow,
         preferencesRepository.priceAlertThresholdPercentFlow,
         preferencesRepository.priceAlertWindowDaysFlow,
         catalogRepository.getAvailablePokemonNameLanguages()
-    ) { values ->
-        val core = values[0] as SettingsCore
-        val hiddenGens = values[1] as Set<Int>
-        val collapsedGens = values[2] as Set<Int>
-        val alertsEnabled = values[3] as Boolean
-        val alertThreshold = values[4] as Int
-        val alertWindow = values[5] as Int
-        @Suppress("UNCHECKED_CAST")
-        val languages = values[6] as List<String>
+    ) { core, alertsEnabled, alertThreshold, alertWindow, languages ->
         SettingsUiState(
             wifiOnly = core.wifiOnly,
             scheduledUpdateHour = core.scheduledUpdateHour,
             preferredLanguage = core.preferredLanguage,
             currencySource = core.currencySource,
-            hiddenGenerations = hiddenGens,
-            collapsedGenerations = collapsedGens,
             priceAlertsEnabled = alertsEnabled,
             priceAlertThresholdPercent = alertThreshold,
             priceAlertWindowDays = alertWindow,
@@ -105,18 +91,6 @@ class SettingsViewModel(
     fun setPreferredLanguage(language: String) {
         viewModelScope.launch {
             preferencesRepository.setPreferredLanguage(language)
-        }
-    }
-
-    fun setHiddenGenerations(hidden: Set<Int>) {
-        viewModelScope.launch {
-            preferencesRepository.setHiddenGenerations(hidden)
-        }
-    }
-
-    fun setCollapsedGenerations(collapsed: Set<Int>) {
-        viewModelScope.launch {
-            preferencesRepository.setCollapsedGenerations(collapsed)
         }
     }
 

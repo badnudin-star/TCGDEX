@@ -32,6 +32,8 @@ interface PokemonDao {
 interface SetDao {
     @Query("SELECT * FROM sets ORDER BY name ASC")
     fun getAllSets(): Flow<List<SetEntity>>
+    @Query("SELECT COUNT(*) FROM sets")
+    fun observeSetCount(): Flow<Int>
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(sets: List<SetEntity>)
     @Query("SELECT * FROM sets WHERE id = :setId LIMIT 1")

@@ -2,6 +2,7 @@ package com.pokemontcg.sammlung.data.importer
 
 import android.content.Context
 import com.pokemontcg.sammlung.data.local.AppDatabase
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -136,6 +137,32 @@ class CatalogImporterTest {
         } catch (expected: IllegalArgumentException) {
             assertTrue(expected.message?.contains("maxBytes") == true)
         }
+    }
+
+    @Test
+    fun testCopyStreamLimitedWithProgressReportsExactBytes() = runTest {
+        val importer = CatalogImporter(
+            Mockito.mock(Context::class.java),
+            Mockito.mock(AppDatabase::class.java)
+        )
+        val input = ByteArray(32_000) { (it % 251).toByte() }
+        val output = ByteArrayOutputStream()
+        val events = mutableListOf<Pair<Long, Long>>()
+
+        importer.copyStreamLimitedWithProgress(
+            input = ByteArrayInputStream(input),
+            output = output,
+            maxBytes = input.size.toLong()
+        ) { downloaded, total ->
+            events += downloaded to total
+        }
+
+        assertEquals(input.size, output.size())
+        assertEquals(0L, events.first().first)
+        assertEquals(input.size.toLong(), events.last().first)
+        assertEquals(input.size.toLong(), events.last().second)
+        assertTrue("Progress must be emitted between start and end", events.size > 2)
+        assertTrue(events.zipWithNext().all { (before, after) -> after.first >= before.first })
     }
 
     @Test

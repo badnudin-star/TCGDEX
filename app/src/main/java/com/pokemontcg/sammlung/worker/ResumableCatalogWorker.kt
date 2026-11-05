@@ -2,6 +2,7 @@ package com.pokemontcg.sammlung.worker
 
 import android.content.Context
 import androidx.work.CoroutineWorker
+import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
@@ -36,6 +37,8 @@ class ResumableCatalogWorker(
         const val SYNC_TAG = "catalog_sync"
         const val KEY_PROGRESS_MESSAGE = "progress_message"
         const val KEY_PROGRESS_PERCENT = "progress_percent"
+        const val KEY_DOWNLOADED_BYTES = "downloaded_bytes"
+        const val KEY_TOTAL_BYTES = "total_bytes"
         const val KEY_HAS_FAILURES = "has_failures"
         const val KEY_STARTED_AT = "started_at"
         const val KEY_FINISHED_AT = "finished_at"
@@ -210,8 +213,17 @@ class ResumableCatalogWorker(
                 syncRepository.importRemoteCatalog(
                     protectedCardIds = protectedCardIds,
                     protectedPokemonIds = protectedPokemonIds
-                ) { message, percent ->
-                    setProgress(workDataOf(KEY_PROGRESS_MESSAGE to message, KEY_PROGRESS_PERCENT to percent))
+                ) { message, percent, downloadedBytes, totalBytes ->
+                    val builder = Data.Builder()
+                        .putString(KEY_PROGRESS_MESSAGE, message)
+                        .putInt(KEY_PROGRESS_PERCENT, percent)
+                    if (downloadedBytes != null) {
+                        builder.putLong(KEY_DOWNLOADED_BYTES, downloadedBytes)
+                    }
+                    if (totalBytes != null) {
+                        builder.putLong(KEY_TOTAL_BYTES, totalBytes)
+                    }
+                    setProgress(builder.build())
                 }
             }
             unit == "names" -> syncRepository.ensurePokemonNamesLoaded()

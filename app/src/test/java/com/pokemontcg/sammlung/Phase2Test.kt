@@ -69,6 +69,8 @@ class Phase2Test {
         assertEquals("ResumableCatalogUpdateWork", ResumableCatalogWorker.UNIQUE_WORK_NAME)
         assertEquals("progress_message", ResumableCatalogWorker.KEY_PROGRESS_MESSAGE)
         assertEquals("progress_percent", ResumableCatalogWorker.KEY_PROGRESS_PERCENT)
+        assertEquals("downloaded_bytes", ResumableCatalogWorker.KEY_DOWNLOADED_BYTES)
+        assertEquals("total_bytes", ResumableCatalogWorker.KEY_TOTAL_BYTES)
         assertEquals("has_failures", ResumableCatalogWorker.KEY_HAS_FAILURES)
         assertEquals("catalog_update_continue", ResumableCatalogWorker.CONTINUATION_WORK_NAME)
         assertEquals("catalog_sync", ResumableCatalogWorker.SYNC_TAG)

@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Favorite
-import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
@@ -39,8 +38,7 @@ fun MainScreen(
     onNavigateToPokemonDetail: (Int) -> Unit,
     onNavigateToSettings: () -> Unit,
     onNavigateToWishlist: () -> Unit,
-    onNavigateToDiagnostics: () -> Unit,
-    onNavigateToCalendar: () -> Unit,
+    onNavigateToCatalogManager: () -> Unit,
     onNavigateToScanner: () -> Unit,
     onNavigateToSets: () -> Unit
 ) {
@@ -96,12 +94,6 @@ fun MainScreen(
                     IconButton(onClick = onNavigateToSets) {
                         Icon(painterResource(R.drawable.ic_tcg_sets), contentDescription = stringResource(R.string.ui_icon_sets))
                     }
-                    IconButton(onClick = onNavigateToCalendar) {
-                        Icon(painterResource(R.drawable.ic_tcg_calendar), contentDescription = stringResource(R.string.ui_icon_calendar))
-                    }
-                    IconButton(onClick = onNavigateToDiagnostics) {
-                        Icon(Icons.Default.Info, contentDescription = stringResource(R.string.ui_diagnose_daten_check_f9cfd5))
-                    }
                     IconButton(onClick = { showGenerationDialog = true }) {
                         Icon(painterResource(R.drawable.ic_tcg_filter), contentDescription = stringResource(R.string.generation_show_hide_content_description))
                     }
@@ -137,6 +129,8 @@ fun MainScreen(
                 isSyncing = uiState.sync.isSyncing,
                 progressMessage = uiState.sync.progressMessage,
                 progressPercent = uiState.sync.progressPercent,
+                downloadedBytes = uiState.sync.downloadedBytes,
+                totalBytes = uiState.sync.totalBytes,
                 errorMessage = uiState.sync.errorMessage,
                 errorMessageRes = uiState.sync.errorMessageRes,
                 onDismissError = viewModel::dismissSyncError
@@ -207,7 +201,10 @@ fun MainScreen(
                                 isSyncing = uiState.sync.isSyncing,
                                 syncProgressMessage = uiState.sync.progressMessage,
                                 syncProgressPercent = uiState.sync.progressPercent,
+                                syncDownloadedBytes = uiState.sync.downloadedBytes,
+                                syncTotalBytes = uiState.sync.totalBytes,
                                 onLoadCatalog = viewModel::triggerSync,
+                                onOpenCatalogManager = onNavigateToCatalogManager,
                                 primaryImageByDexId = uiState.primaryImageByDexId,
                                 onPokemonClick = { pokemon ->
                                     onNavigateToPokemonDetail(pokemon.dexId)

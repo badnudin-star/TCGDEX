@@ -21,6 +21,9 @@ class AppPreferencesRepositoryTest {
         assertNotNull(AppPreferencesRepository.KEY_CURRENCY_SOURCE)
         assertNotNull(AppPreferencesRepository.KEY_HIDDEN_GENERATIONS)
         assertNotNull(AppPreferencesRepository.KEY_COLLAPSED_GENERATIONS)
+        assertNotNull(AppPreferencesRepository.KEY_CATALOG_INSTALLED_AT)
+        assertNotNull(AppPreferencesRepository.KEY_CATALOG_REMOTE_VERSION)
+        assertNotNull(AppPreferencesRepository.KEY_CATALOG_REMOTE_SIZE_BYTES)
 
         assertEquals("wifi_only_updates", AppPreferencesRepository.KEY_WIFI_ONLY.name)
         assertEquals("scheduled_update_hour", AppPreferencesRepository.KEY_UPDATE_HOUR.name)
@@ -28,6 +31,9 @@ class AppPreferencesRepositoryTest {
         assertEquals("currency_source", AppPreferencesRepository.KEY_CURRENCY_SOURCE.name)
         assertEquals("hidden_generations", AppPreferencesRepository.KEY_HIDDEN_GENERATIONS.name)
         assertEquals("collapsed_generations", AppPreferencesRepository.KEY_COLLAPSED_GENERATIONS.name)
+        assertEquals("catalog_installed_at", AppPreferencesRepository.KEY_CATALOG_INSTALLED_AT.name)
+        assertEquals("catalog_remote_version", AppPreferencesRepository.KEY_CATALOG_REMOTE_VERSION.name)
+        assertEquals("catalog_remote_size_bytes", AppPreferencesRepository.KEY_CATALOG_REMOTE_SIZE_BYTES.name)
     }
 
     @Test
@@ -52,6 +58,9 @@ class AppPreferencesRepositoryTest {
         assertEquals(0L, repository.priceAlertLastTimestampFlow.first())
         assertEquals(null, repository.catalogEtagFlow.first())
         assertEquals(null, repository.catalogInstalledVersionFlow.first())
+        assertEquals(0L, repository.catalogInstalledAtFlow.first())
+        assertEquals(null, repository.catalogRemoteVersionFlow.first())
+        assertEquals(0L, repository.catalogRemoteSizeBytesFlow.first())
         assertEquals(-1, repository.catalogManifestSchemaVersionFlow.first())
         assertEquals(false, repository.catalogRequiresAppUpdateFlow.first())
         assertEquals(0L, repository.catalogLastCheckAtFlow.first())
@@ -101,12 +110,17 @@ class AppPreferencesRepositoryTest {
 
         repository.setCatalogEtag("\"etag-1\"")
         repository.setCatalogInstalledVersion("2026.10.31")
+        repository.setCatalogInstalledAt(654321L)
+        repository.setCatalogRemoteMetadata("2026.11.01", 987654L)
         repository.setCatalogManifestSchemaVersion(17)
         repository.setCatalogRequiresAppUpdate(true)
         repository.setCatalogLastCheckAt(123456L)
 
         assertEquals("\"etag-1\"", repository.catalogEtagFlow.first())
         assertEquals("2026.10.31", repository.catalogInstalledVersionFlow.first())
+        assertEquals(654321L, repository.catalogInstalledAtFlow.first())
+        assertEquals("2026.11.01", repository.catalogRemoteVersionFlow.first())
+        assertEquals(987654L, repository.catalogRemoteSizeBytesFlow.first())
         assertEquals(17, repository.catalogManifestSchemaVersionFlow.first())
         assertEquals(true, repository.catalogRequiresAppUpdateFlow.first())
         assertEquals(123456L, repository.catalogLastCheckAtFlow.first())

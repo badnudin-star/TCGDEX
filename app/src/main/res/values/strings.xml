@@ -17,7 +17,6 @@
     <string name="main_scanner_desc">Kartenscanner</string>
     <string name="main_wishlist_desc">Wunschliste</string>
     <string name="main_sets_desc">Set-Fortschritt</string>
-    <string name="main_calendar_desc">Veröffentlichungskalender</string>
     <string name="main_settings_desc">Einstellungen</string>
     <string name="main_collection_value_title">Gesamtwert deiner Sammlung</string>
     <string name="main_total_cards">Gesammelte Karten: %1$d</string>
@@ -45,7 +44,6 @@
     <string name="settings_export_csv">Sammlung exportieren (CSV)</string>
     <string name="settings_import">Sammlung importieren</string>
     <string name="settings_section_navigation">Navigation &amp; Weitere Optionen</string>
-    <string name="settings_filter_generations">Generationen filtern</string>
     <string name="settings_diagnostics">Diagnose &amp; Daten-Check</string>
     <string name="settings_about">Über TCG Sammlung &amp; Quellen</string>
 
@@ -112,6 +110,8 @@
     <string name="calendar_title">Veröffentlichungskalender</string>
     <string name="calendar_empty">Keine Erweiterungen im Kalender vorhanden.</string>
     <string name="calendar_btn_reminder">Erinnerung</string>
+    <string name="ui_coming_releases">Kommende Releases</string>
+    <string name="ui_coming_releases_hint">Zukünftige Erweiterungen aus deinem Katalog. Du kannst direkt eine Erinnerung anlegen.</string>
 
     <!-- Card Scanner -->
     <string name="scanner_permission_title">Kamera-Berechtigung erforderlich</string>
@@ -179,6 +179,29 @@
     <string name="catalog_empty_description">Der Kartenkatalog ist noch nicht geladen. Der vollständige Katalog ist mehrere hundert MB groß. Zum Herunterladen wird eine WLAN-Verbindung empfohlen.</string>
     <string name="catalog_empty_load_button">Katalog jetzt laden</string>
     <string name="catalog_empty_syncing">Katalog wird geladen …</string>
+
+    <!-- Catalog Manager -->
+    <string name="catalog_manager_title">Katalog-Manager</string>
+    <string name="catalog_manager_open">Katalog verwalten</string>
+    <string name="catalog_manager_status_title">Katalogstatus</string>
+    <string name="catalog_manager_status_missing">Katalog fehlt</string>
+    <string name="catalog_manager_status_ready">Katalog vorhanden</string>
+    <string name="catalog_manager_status_update_available">Update verfügbar</string>
+    <string name="catalog_manager_status_app_update_required">App-Update erforderlich</string>
+    <string name="catalog_manager_details_title">Katalogdetails</string>
+    <string name="catalog_manager_counts">Sets: %1$d · Karten: %2$d · Pokémon: %3$d</string>
+    <string name="catalog_manager_installed_version">Installierte Version: %1$s</string>
+    <string name="catalog_manager_remote_version">Verfügbare Version: %1$s</string>
+    <string name="catalog_manager_installed_at">Letzte Aktualisierung: %1$s</string>
+    <string name="catalog_manager_last_check">Letzte Prüfung: %1$s</string>
+    <string name="catalog_manager_size">Geschätzte Downloadgröße: %1$s</string>
+    <string name="catalog_manager_size_unknown">Geschätzte Downloadgröße: wird beim nächsten Prüflauf ermittelt</string>
+    <string name="catalog_manager_unknown">Unbekannt</string>
+    <string name="catalog_manager_progress_title">Aktualisierung läuft</string>
+    <string name="catalog_manager_error_title">Letzter Fehler</string>
+    <string name="catalog_manager_app_update_hint">Der verfügbare Katalog benötigt eine neuere App-Version.</string>
+    <string name="catalog_manager_update_now">Jetzt aktualisieren</string>
+    <string name="catalog_manager_wifi_hint">Der vollständige Katalog ist mehrere hundert MB groß. Für den Download wird eine WLAN-Verbindung empfohlen.</string>
     <string name="generation_hide_dialog_title">Generationen ausblenden</string>
     <string name="generation_hide_dialog_description">Ausgeblendete Generationen werden im Pokédex, in der Suche und in den Fortschrittszählern ausgeblendet.</string>
     <string name="generation_dex_range">Dex #%1$s – #%2$s</string>
@@ -235,8 +258,7 @@
     <string name="ui_weitere_karten_c7ec5c">Weitere Karten</string>
     <string name="ui_verwalten_d0d41d">Verwalten</string>
     <string name="ui_noch_keine_weiteren_karten_ausgew_hl_c3316b">Noch keine weiteren Karten ausgewählt.</string>
-    <string name="ui_ver_ffentlichungskalender_7b0d91">Veröffentlichungskalender</string>
-    <string name="ui_keine_erweiterungen_im_kalender_vorh_003e00">Keine Erweiterungen im Kalender vorhanden.</string>
+
     <string name="ui_erinnerung_d95298">Erinnerung</string>
     <string name="ui_set_fortschritt_601613">Set-Fortschritt</string>
     <string name="ui_fortschritt_absteigend_b8ba6f">Fortschritt absteigend</string>
@@ -332,7 +354,6 @@
     <string name="ui_icon_scanner">Kartenscanner</string>
     <string name="ui_icon_wishlist">Wunschliste</string>
     <string name="ui_icon_sets">Set-Fortschritt</string>
-    <string name="ui_icon_calendar">Veröffentlichungskalender</string>
     <string name="ui_icon_pokedex">Pokédex</string>
     <string name="ui_icon_price_development">Preisentwicklung</string>
     <plurals name="ui_card_count">
@@ -363,6 +384,7 @@
     <string name="ui_sync_catalog_manifest_disabled">Kein Katalog-Manifest konfiguriert</string>
     <string name="ui_sync_catalog_requires_app_update">Katalog-Update benötigt App-Update</string>
     <string name="ui_sync_progress_percent">%1$d %%</string>
+    <string name="ui_sync_download_bytes">%1$s von %2$s heruntergeladen</string>
     <string name="ui_notification_rationale">Die App verwendet Benachrichtigungen, um dich über den Fortschritt der Hintergrund-Datenbankaktualisierung und künftige Preisalarme deiner Sammlung zu informieren.</string>
     <string name="ui_diagnostic_running">Prüfung läuft …</string>
     <string name="ui_diagnostic_run_now">Jetzt prüfen</string>

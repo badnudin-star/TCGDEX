@@ -168,20 +168,23 @@ class CatalogImporter(
     suspend fun importRemote(
         manifestUrl: String,
         protectedCardIds: Set<String> = emptySet(),
-        protectedPokemonIds: Set<String> = emptySet()
+        protectedPokemonIds: Set<String> = emptySet(),
+        onDownloadProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> }
     ): CatalogImportResult =
         importRemoteInternal(
             manifestUrl = manifestUrl,
             allowUnconditionalRetry = true,
             protectedCardIds = protectedCardIds,
-            protectedPokemonIds = protectedPokemonIds
+            protectedPokemonIds = protectedPokemonIds,
+            onDownloadProgress = onDownloadProgress
         )
 
     private suspend fun importRemoteInternal(
         manifestUrl: String,
         allowUnconditionalRetry: Boolean,
         protectedCardIds: Set<String>,
-        protectedPokemonIds: Set<String>
+        protectedPokemonIds: Set<String>,
+        onDownloadProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit
     ): CatalogImportResult = withContext(Dispatchers.IO) {
         if (manifestUrl.isBlank()) {
             AppLogger.log("CatalogImporter", "kein Katalog-Manifest konfiguriert")
@@ -246,7 +249,8 @@ class CatalogImporter(
                                     manifestUrl = manifestUrl,
                                     allowUnconditionalRetry = false,
                                     protectedCardIds = protectedCardIds,
-                                    protectedPokemonIds = protectedPokemonIds
+                                    protectedPokemonIds = protectedPokemonIds,
+                                    onDownloadProgress = onDownloadProgress
                                 )
                             } else {
                                 CatalogImportResult.Error("Manifest returned 304 without a usable local catalog")
@@ -280,6 +284,9 @@ class CatalogImporter(
                 return@withContext CatalogImportResult.Error("Invalid manifest JSON")
             }
 
+            // Cache the remote metadata even when no download is needed so the catalog
+            // manager can show the available version and expected download size offline.
+            updateState.setCatalogRemoteMetadata(manifest.version, manifest.size)
             val installedVersion = updateState.catalogInstalledVersionFlow.first()
             val localCatalogUsable = localCatalogUsable()
             when (decideCatalogUpdate(
@@ -338,7 +345,14 @@ class CatalogImporter(
                     }
 
                     FileOutputStream(cacheFile).use { output ->
-                        downloadConn.inputStream.use { input -> copyStreamLimited(input, output, manifest.size) }
+                        downloadConn.inputStream.use { input ->
+                            copyStreamLimitedWithProgress(
+                                input = input,
+                                output = output,
+                                maxBytes = manifest.size,
+                                onProgress = onDownloadProgress
+                            )
+                        }
                     }
                 } finally {
                     // Also release the connection when opening the response or reading headers fails.
@@ -358,6 +372,7 @@ class CatalogImporter(
                 if (result is CatalogImportResult.Success) {
                     updateState.setCatalogEtag(newEtag)
                     updateState.setCatalogInstalledVersion(manifest.version)
+                    updateState.setCatalogInstalledAt(System.currentTimeMillis())
                     updateState.setCatalogManifestSchemaVersion(manifest.schemaVersion)
                     updateState.setCatalogRequiresAppUpdate(false)
                     updateState.setCatalogLastCheckAt(checkedAt)
@@ -808,6 +823,39 @@ class CatalogImporter(
             output.write(buffer, 0, read)
             total += read
         }
+    }
+
+    /**
+     * Copies a download while reporting exact byte progress. Callbacks are throttled to one
+     * update per percent so WorkManager does not receive thousands of progress writes.
+     */
+    internal suspend fun copyStreamLimitedWithProgress(
+        input: InputStream,
+        output: OutputStream,
+        maxBytes: Long,
+        onProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit
+    ) {
+        require(maxBytes >= 0L) { "maxBytes must not be negative" }
+        val buffer = ByteArray(8192)
+        var total = 0L
+        var lastPercent = -1
+        onProgress(0L, maxBytes)
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            if (total + read > maxBytes) {
+                throw IOException("Response exceeds permitted size of $maxBytes bytes")
+            }
+            output.write(buffer, 0, read)
+            total += read
+            val percent = if (maxBytes == 0L) 100 else ((total * 100) / maxBytes).toInt()
+                .coerceIn(0, 100)
+            if (percent != lastPercent) {
+                lastPercent = percent
+                onProgress(total, maxBytes)
+            }
+        }
+        if (lastPercent != 100) onProgress(total, maxBytes)
     }
 
     private fun isValidHttpsUrl(candidate: String): Boolean {

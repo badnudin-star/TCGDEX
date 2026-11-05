@@ -37,6 +37,9 @@ class AppPreferencesRepository(
         val KEY_LAST_DATA_CHECK_RESULT = stringPreferencesKey("last_data_check_result")
         val KEY_CATALOG_ETAG = stringPreferencesKey("catalog_etag")
         val KEY_CATALOG_INSTALLED_VERSION = stringPreferencesKey("catalog_installed_version")
+        val KEY_CATALOG_INSTALLED_AT = longPreferencesKey("catalog_installed_at")
+        val KEY_CATALOG_REMOTE_VERSION = stringPreferencesKey("catalog_remote_version")
+        val KEY_CATALOG_REMOTE_SIZE_BYTES = longPreferencesKey("catalog_remote_size_bytes")
         val KEY_CATALOG_MANIFEST_SCHEMA_VERSION = intPreferencesKey("catalog_manifest_schema_version")
         val KEY_CATALOG_REQUIRES_APP_UPDATE = booleanPreferencesKey("catalog_requires_app_update")
         val KEY_CATALOG_LAST_CHECK_AT = longPreferencesKey("catalog_last_check_at")
@@ -76,6 +79,18 @@ class AppPreferencesRepository(
 
     val catalogInstalledVersionFlow: Flow<String?> = dataStore.data.map { prefs ->
         prefs[KEY_CATALOG_INSTALLED_VERSION]
+    }
+
+    val catalogInstalledAtFlow: Flow<Long> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_INSTALLED_AT] ?: 0L
+    }
+
+    val catalogRemoteVersionFlow: Flow<String?> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_REMOTE_VERSION]
+    }
+
+    val catalogRemoteSizeBytesFlow: Flow<Long> = dataStore.data.map { prefs ->
+        prefs[KEY_CATALOG_REMOTE_SIZE_BYTES] ?: 0L
     }
 
     val catalogManifestSchemaVersionFlow: Flow<Int> = dataStore.data.map { prefs ->
@@ -157,6 +172,17 @@ class AppPreferencesRepository(
     suspend fun setCatalogInstalledVersion(version: String) {
         if (version.isNotBlank()) {
             dataStore.edit { it[KEY_CATALOG_INSTALLED_VERSION] = version }
+        }
+    }
+
+    suspend fun setCatalogInstalledAt(timestamp: Long) {
+        dataStore.edit { it[KEY_CATALOG_INSTALLED_AT] = timestamp.coerceAtLeast(0L) }
+    }
+
+    suspend fun setCatalogRemoteMetadata(version: String, sizeBytes: Long) {
+        dataStore.edit { prefs ->
+            if (version.isNotBlank()) prefs[KEY_CATALOG_REMOTE_VERSION] = version
+            if (sizeBytes > 0L) prefs[KEY_CATALOG_REMOTE_SIZE_BYTES] = sizeBytes
         }
     }
 

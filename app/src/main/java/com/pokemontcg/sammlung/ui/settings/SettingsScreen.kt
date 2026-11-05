@@ -28,7 +28,6 @@ import com.pokemontcg.sammlung.data.export.ImportPreview
 import com.pokemontcg.sammlung.data.repository.CatalogRepository
 import com.pokemontcg.sammlung.data.repository.CollectionRepository
 import com.pokemontcg.sammlung.ui.export.ImportPreviewDialog
-import com.pokemontcg.sammlung.ui.pokedex.GenerationFilterDialog
 import com.pokemontcg.sammlung.util.AppLogger
 import com.pokemontcg.sammlung.util.PRICE_ALERT_THRESHOLDS
 import kotlinx.coroutines.Dispatchers
@@ -43,12 +42,12 @@ fun SettingsScreen(
     collectionRepo: CollectionRepository,
     catalogRepo: CatalogRepository,
     onNavigateToDiagnostics: () -> Unit,
+    onNavigateToCatalogManager: () -> Unit,
     onTriggerSync: () -> Unit,
     onShowAbout: () -> Unit,
     onBackClick: () -> Unit
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    var showGenDialog by remember { mutableStateOf(false) }
 
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -213,14 +212,6 @@ fun SettingsScreen(
         )
     }
 
-    if (showGenDialog) {
-        GenerationFilterDialog(
-            hiddenGenerations = uiState.hiddenGenerations,
-            onHiddenGenerationsChange = { viewModel.setHiddenGenerations(it) },
-            onDismiss = { showGenDialog = false }
-        )
-    }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -295,6 +286,12 @@ fun SettingsScreen(
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Text(stringResource(R.string.settings_btn_update_now))
+                        }
+                        OutlinedButton(
+                            onClick = onNavigateToCatalogManager,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Text(stringResource(R.string.catalog_manager_open))
                         }
                     }
                 }
@@ -454,12 +451,6 @@ fun SettingsScreen(
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium
                         )
-                        OutlinedButton(
-                            onClick = { showGenDialog = true },
-                            modifier = Modifier.fillMaxWidth()
-                        ) {
-                            Text(stringResource(R.string.settings_filter_generations))
-                        }
                         Button(
                             onClick = onNavigateToDiagnostics,
                             modifier = Modifier.fillMaxWidth()

@@ -1,6 +1,8 @@
 package com.pokemontcg.sammlung.ui.main.components
 
+import android.text.format.Formatter
 import com.pokemontcg.sammlung.R
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 
 import androidx.compose.animation.AnimatedVisibility
@@ -16,10 +18,13 @@ fun MainSyncBanner(
     isSyncing: Boolean,
     progressMessage: String,
     progressPercent: Int?,
+    downloadedBytes: Long?,
+    totalBytes: Long?,
     errorMessage: String?,
     errorMessageRes: Int?,
     onDismissError: () -> Unit
 ) {
+    val context = LocalContext.current
     val resolvedErrorMessage = if (errorMessageRes != null) {
         stringResource(errorMessageRes)
     } else {
@@ -63,6 +68,17 @@ fun MainSyncBanner(
                         )
                         Text(
                             text = stringResource(R.string.ui_sync_progress_percent, percent),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    }
+                    if (downloadedBytes != null && totalBytes != null) {
+                        Text(
+                            text = stringResource(
+                                R.string.ui_sync_download_bytes,
+                                Formatter.formatShortFileSize(context, downloadedBytes),
+                                Formatter.formatShortFileSize(context, totalBytes)
+                            ),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onPrimaryContainer
                         )
