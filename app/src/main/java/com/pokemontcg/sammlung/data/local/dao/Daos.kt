@@ -12,8 +12,11 @@ interface PokemonDao {
     @Query("SELECT * FROM pokemon WHERE dexId = :dexId LIMIT 1")
     suspend fun getPokemonByDexId(dexId: Int): PokemonEntity?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(pokemon: List<PokemonEntity>)
+    @Query("SELECT COUNT(*) FROM pokemon")
+    suspend fun getPokemonCount(): Int
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAllIfAbsent(pokemon: List<PokemonEntity>): List<Long>
 
     @Query("UPDATE pokemon SET cardsUpdatedAt = :timestamp WHERE id = :pokemonId")
     suspend fun updateCardsFetchedAt(pokemonId: String, timestamp: Long)
@@ -100,8 +103,8 @@ interface CardPokemonDao {
 
 @Dao
 interface PokemonNameDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertAll(names: List<PokemonNameEntity>)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertAllIfAbsent(names: List<PokemonNameEntity>): List<Long>
 
     @Query("SELECT dexId FROM pokemon_names WHERE language = :language AND name = :name LIMIT 1")
     suspend fun findDexIdByName(language: String, name: String): Int?

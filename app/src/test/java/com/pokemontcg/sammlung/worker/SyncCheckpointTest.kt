@@ -23,14 +23,22 @@ class SyncCheckpointTest {
     }
 
     @Test
+    fun syncUnitsRunCatalogBeforeNames() {
+        assertEquals(
+            listOf("snapshot", "catalog", "names", "prices"),
+            ResumableCatalogWorker.SYNC_UNITS
+        )
+    }
+
+    @Test
     fun testResumeFlowSkipsCompletedUnits() {
         val dao = FakeCheckpointDao()
         val runId = 1000L
-        val units = listOf("snapshot", "names", "catalog", "prices")
+        val units = ResumableCatalogWorker.SYNC_UNITS
 
-        // First run completes unit 0 and unit 1
+        // First run completes the snapshot and catalog units.
         dao.saveCheckpoint(SyncCheckpointEntity("snapshot", runId, "DONE", 1, 1000L))
-        dao.saveCheckpoint(SyncCheckpointEntity("names", runId, "DONE", 1, 1000L))
+        dao.saveCheckpoint(SyncCheckpointEntity("catalog", runId, "DONE", 1, 1000L))
 
         val executedUnits = mutableListOf<String>()
 
@@ -44,11 +52,12 @@ class SyncCheckpointTest {
             dao.saveCheckpoint(SyncCheckpointEntity(unit, runId, "DONE", 1, 1005L))
         }
 
-        // Executed units should only be the remaining coarse units ("catalog", "prices").
+        // Executed units should only be the remaining coarse units ("names", "prices").
         assertEquals(2, executedUnits.size)
         assertFalse(executedUnits.contains("snapshot"))
-        assertFalse(executedUnits.contains("names"))
-        assertTrue(executedUnits.contains("catalog"))
+        assertFalse(executedUnits.contains("catalog"))
+        assertTrue(executedUnits.contains("names"))
+        assertTrue(executedUnits.contains("prices"))
     }
 
     @Test
@@ -66,7 +75,7 @@ class SyncCheckpointTest {
     @Test
     fun testFailureAtThirdUnitResumesThereAndSchedulesRetry() {
         val runId = 1000L
-        val units = listOf("snapshot", "names", "catalog", "prices")
+        val units = ResumableCatalogWorker.SYNC_UNITS
         val checkpoints = mutableMapOf<String, SyncCheckpointEntity>()
         val firstRunCalls = mutableListOf<String>()
 
@@ -80,14 +89,14 @@ class SyncCheckpointTest {
             checkpoints[unit] = SyncCheckpointEntity(unit, runId, "DONE", attempts = 1, updatedAt = 100L)
         }
 
-        assertEquals(listOf("snapshot", "names", "catalog", "prices"), firstRunCalls)
+        assertEquals(listOf("snapshot", "catalog", "names", "prices"), firstRunCalls)
         assertTrue(SyncCheckpointPolicy.shouldScheduleRetry(checkpoints.values.toList()))
 
         val resumedCalls = mutableListOf<String>()
         units.forEach { unit ->
             if (!SyncCheckpointPolicy.shouldSkip(checkpoints[unit], runId)) resumedCalls += unit
         }
-        assertEquals(listOf("catalog"), resumedCalls)
+        assertEquals(listOf("names"), resumedCalls)
     }
 
     @Test

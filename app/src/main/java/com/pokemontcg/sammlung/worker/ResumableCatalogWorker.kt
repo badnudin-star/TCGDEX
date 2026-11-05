@@ -40,6 +40,7 @@ class ResumableCatalogWorker(
         const val KEY_STARTED_AT = "started_at"
         const val KEY_FINISHED_AT = "finished_at"
         const val MAX_TIME_SLICE_MS = 8L * 60L * 1000L // 8 Minuten
+        internal val SYNC_UNITS = listOf("snapshot", "catalog", "names", "prices")
     }
 
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
@@ -81,7 +82,7 @@ class ResumableCatalogWorker(
             latestRunId
         }
 
-        val units = listOf("snapshot", "names", "catalog", "prices")
+        val units = SYNC_UNITS
         var completedCount = 0
         var hasFailures = false
 

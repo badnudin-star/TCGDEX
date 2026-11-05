@@ -24,7 +24,7 @@ class SyncRepository(
     private val context: Context
 ) {
 
-    private val workManager = WorkManager.getInstance(context.applicationContext)
+    private val workManager by lazy { WorkManager.getInstance(context.applicationContext) }
     private val catalogImporter = CatalogImporter(context, db)
 
     fun hasNetworkConnection(): Boolean {
@@ -64,32 +64,40 @@ class SyncRepository(
         return catalogImporter.importFromAsset("start_catalog.sqlite")
     }
 
-    suspend fun ensurePokemonNamesLoaded(): Boolean {
-        if (!hasNetworkConnection()) return false
+    suspend fun ensurePokemonNamesLoaded(
+        hasNetwork: () -> Boolean = { hasNetworkConnection() },
+        loadPokemon: suspend () -> List<PokemonEntity> = { fetchPokemonList() }
+    ): Boolean {
+        if (db.pokemonDao().getPokemonCount() > 0) return true
+        if (!hasNetwork()) return false
         return try {
-            val response = ApiService.pokeapi.getPokemonList()
-            val pokemonList = response.results.mapIndexed { index, item ->
-                val dexId = index + 1
-                PokemonEntity(
-                    id = dexId.toString(),
-                    dexId = dexId,
-                    number = "%03d".format(dexId),
-                    name = item.name.replaceFirstChar { it.uppercase() },
-                    searchName = item.name.lowercase(),
-                    imageUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$dexId.png",
-                    primaryCardImageUrl = null
-                )
-            }
+            val pokemonList = loadPokemon()
             if (pokemonList.isNotEmpty()) {
-                db.pokemonDao().insertAll(pokemonList)
+                db.pokemonDao().insertAllIfAbsent(pokemonList)
                 val names = pokemonList.map {
-                    PokemonNameEntity(language = "de", name = it.name, dexId = it.dexId)
+                    PokemonNameEntity(language = "en", name = it.name, dexId = it.dexId)
                 }
-                db.pokemonNameDao().insertAll(names)
+                db.pokemonNameDao().insertAllIfAbsent(names)
             }
             true
         } catch (_: Exception) {
             false
+        }
+    }
+
+    private suspend fun fetchPokemonList(): List<PokemonEntity> {
+        val response = ApiService.pokeapi.getPokemonList()
+        return response.results.mapIndexed { index, item ->
+            val dexId = index + 1
+            PokemonEntity(
+                id = dexId.toString(),
+                dexId = dexId,
+                number = "%03d".format(dexId),
+                name = item.name.replaceFirstChar { it.uppercase() },
+                searchName = item.name.lowercase(),
+                imageUrl = "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/$dexId.png",
+                primaryCardImageUrl = null
+            )
         }
     }
 
