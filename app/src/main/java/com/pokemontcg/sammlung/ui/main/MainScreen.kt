@@ -202,6 +202,7 @@ fun MainScreen(
                                     viewModel.setCollapsedGenerations(next)
                                 },
                                 isLoading = false,
+                                primaryImageByDexId = uiState.primaryImageByDexId,
                                 onPokemonClick = { pokemon ->
                                     onNavigateToPokemonDetail(pokemon.dexId)
                                 }

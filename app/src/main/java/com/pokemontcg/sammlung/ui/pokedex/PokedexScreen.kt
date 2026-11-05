@@ -32,6 +32,7 @@ fun PokedexScreen(
     collapsedGenerations: Set<Int>,
     onToggleGeneration: (Int) -> Unit,
     isLoading: Boolean,
+    primaryImageByDexId: Map<Int, String>,
     onPokemonClick: (PokemonEntity) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -84,7 +85,7 @@ fun PokedexScreen(
                     }
                     if (!isCollapsed) {
                         items(section.pokemon, key = { it.id }) { pokemon ->
-                            val primaryImage = pokemon.primaryCardImageUrl
+                            val primaryImage = primaryImageByDexId[pokemon.dexId]
                             Card(
                                 modifier = Modifier
                                     .fillMaxWidth()

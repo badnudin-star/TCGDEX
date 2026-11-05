@@ -15,9 +15,6 @@ interface PokemonDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(pokemon: List<PokemonEntity>)
 
-    @Query("UPDATE pokemon SET primaryCardImageUrl = :imageUrl WHERE id = :pokemonId")
-    suspend fun updatePrimaryCardImage(pokemonId: String, imageUrl: String?)
-
     @Query("UPDATE pokemon SET cardsUpdatedAt = :timestamp WHERE id = :pokemonId")
     suspend fun updateCardsFetchedAt(pokemonId: String, timestamp: Long)
 

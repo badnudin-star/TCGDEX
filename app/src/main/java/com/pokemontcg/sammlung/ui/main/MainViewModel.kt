@@ -25,6 +25,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -54,6 +55,7 @@ data class MainUiState(
     val priceHistory: List<PriceHistoryEntity> = emptyList(),
     val userCards: List<UserCardEntityV2> = emptyList(),
     val cardsWithoutPriceCount: Int = 0,
+    val primaryImageByDexId: Map<Int, String> = emptyMap(),
     val sync: SyncUiState = SyncUiState()
 )
 
@@ -81,6 +83,20 @@ class MainViewModel(
     val userCards: StateFlow<List<UserCardEntityV2>> = collectionRepository.getAllUserCards().stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList()
     )
+
+    private val primaryImageByDexId: StateFlow<Map<Int, String>> = userCards
+        .map { cards ->
+            val primaryCards = cards.filter { it.isPrimary }
+            if (primaryCards.isEmpty()) {
+                emptyMap()
+            } else {
+                val cardsById = catalogRepository
+                    .getCardsByIdsBatched(primaryCards.map { it.cardId })
+                    .associateBy { it.id }
+                derivePrimaryImageByDexId(primaryCards, cardsById)
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     private val syncWorkInfos: StateFlow<List<WorkInfo>> = syncRepository.observeSyncWork()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
@@ -238,14 +254,16 @@ class MainViewModel(
         MainData(visible, sections, hidden, collapsed, countHiddenGenerationMatches(filtered, hidden), value, history, withoutPrice, cards)
     }
 
-    val uiState: StateFlow<MainUiState> = combine(mainData, searchQuery, selectedFilter, syncUiState) { data, query, filter, sync ->
+    val uiState: StateFlow<MainUiState> = combine(
+        mainData, searchQuery, selectedFilter, syncUiState, primaryImageByDexId
+    ) { data, query, filter, sync, primaryImages ->
         MainUiState(
             searchQuery = query, selectedFilter = filter, pokemonList = data.visiblePokemon,
             generationSections = data.sections, hiddenGenerations = data.hidden,
             collapsedGenerations = data.collapsed, hiddenSearchMatches = data.hiddenMatches,
             totalCollectionValue = data.value, priceHistory = data.history,
             userCards = data.cards, cardsWithoutPriceCount = data.withoutPrice,
-            sync = sync
+            primaryImageByDexId = primaryImages, sync = sync
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MainUiState())
 
