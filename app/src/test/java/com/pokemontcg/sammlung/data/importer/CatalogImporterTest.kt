@@ -292,6 +292,51 @@ class CatalogImporterTest {
     }
 
     @Test
+    fun testRedirectResolutionFollowsHttpsAndRelativeLocations() {
+        val importer = CatalogImporter(
+            Mockito.mock(Context::class.java),
+            Mockito.mock(AppDatabase::class.java)
+        )
+        val githubUrl = "https://github.com/owner/repo/releases/download/catalog-latest/manifest.json"
+        val assetUrl = "https://release-assets.githubusercontent.com/github-production-release-asset/1/manifest.json?sig=abc"
+
+        assertEquals(assetUrl, importer.resolveRedirectUrl(githubUrl, assetUrl))
+        assertEquals(
+            "https://example.com/releases/manifest.json",
+            importer.resolveRedirectUrl(
+                "https://example.com/releases/latest/manifest.json",
+                "../manifest.json"
+            )
+        )
+    }
+
+    @Test
+    fun testRedirectResolutionRejectsInsecureOrMalformedTargets() {
+        val importer = CatalogImporter(
+            Mockito.mock(Context::class.java),
+            Mockito.mock(AppDatabase::class.java)
+        )
+        val currentUrl = "https://github.com/owner/repo/releases/download/catalog-latest/manifest.json"
+        val invalidLocations = listOf(
+            null,
+            "",
+            "http://example.com/manifest.json",
+            "https://user:password@example.com/manifest.json",
+            "https://example.com/manifest.json#fragment",
+            "not a url"
+        )
+
+        invalidLocations.forEach { location ->
+            try {
+                importer.resolveRedirectUrl(currentUrl, location)
+                fail("Invalid redirect must be rejected: $location")
+            } catch (expected: IOException) {
+                assertTrue(expected.message?.isNotBlank() == true)
+            }
+        }
+    }
+
+    @Test
     fun testValidateDownloadedCatalogRejectsSizeAndShaMismatch() {
         val importer = CatalogImporter(
             Mockito.mock(Context::class.java),

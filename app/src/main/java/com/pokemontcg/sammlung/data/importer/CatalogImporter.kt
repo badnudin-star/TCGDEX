@@ -103,6 +103,8 @@ class CatalogImporter(
         const val CURRENT_CATALOG_SCHEMA_VERSION = 17
         const val MAX_MANIFEST_BYTES = 256 * 1024L
         const val MAX_CATALOG_BYTES = 512 * 1024 * 1024L
+        private const val MAX_REDIRECTS = 5
+        private val REDIRECT_CODES = setOf(301, 302, 303, 307, 308)
 
         private const val PROTECTED_CARDS_TABLE = "protected_cards"
         private const val PROTECTED_POKEMON_TABLE = "protected_pokemon"
@@ -198,21 +200,24 @@ class CatalogImporter(
 
         val checkedAt = System.currentTimeMillis()
         try {
-            val connection = URL(manifestUrl).openConnection() as HttpURLConnection
-            // Do not silently follow redirects: otherwise an HTTPS URL could downgrade to HTTP.
-            connection.instanceFollowRedirects = false
-            connection.requestMethod = "GET"
-            connection.connectTimeout = 15000
-            connection.readTimeout = 15000
+            // GitHub release URLs answer with a redirect to a signed asset host. Follow
+            // redirects explicitly so every hop stays HTTPS and no downgrade can slip through.
+            val etag = updateState.catalogEtagFlow.first()
+            val requestHeaders = if (!etag.isNullOrBlank()) {
+                mapOf("If-None-Match" to etag)
+            } else {
+                emptyMap()
+            }
+            val connection = openHttpsConnectionFollowingRedirects(
+                initialUrl = manifestUrl,
+                connectTimeout = 15000,
+                readTimeout = 15000,
+                requestHeaders = requestHeaders
+            )
 
             // Always disconnect, including when responseCode/header/body reads throw.
             // Early returns from this block still execute the finally clause.
             val (manifestJson, newEtag) = try {
-                val etag = updateState.catalogEtagFlow.first()
-                if (!etag.isNullOrBlank()) {
-                    connection.setRequestProperty("If-None-Match", etag)
-                }
-
                 val responseCode = connection.responseCode
                 if (responseCode == HttpURLConnection.HTTP_NOT_MODIFIED) {
                     val storedSchemaVersion = updateState.catalogManifestSchemaVersionFlow.first()
@@ -329,12 +334,13 @@ class CatalogImporter(
 
             val cacheFile = File(context.cacheDir, "remote_catalog.sqlite")
             try {
-                val downloadConn = URL(manifest.url).openConnection() as HttpURLConnection
-                // Keep the catalog payload on the exact HTTPS endpoint validated in the manifest.
-                downloadConn.instanceFollowRedirects = false
-                downloadConn.connectTimeout = 30000
-                downloadConn.readTimeout = 30000
-                downloadConn.requestMethod = "GET"
+                // The manifest URL is validated as HTTPS, and every redirect hop is checked
+                // again before the payload is fetched from the final asset host.
+                val downloadConn = openHttpsConnectionFollowingRedirects(
+                    initialUrl = manifest.url,
+                    connectTimeout = 30000,
+                    readTimeout = 30000
+                )
                 try {
                     // Do not accept an HTML error page as a catalog payload.
                     val downloadResponseCode = downloadConn.responseCode
@@ -856,6 +862,64 @@ class CatalogImporter(
             }
         }
         if (lastPercent != 100) onProgress(total, maxBytes)
+    }
+
+    /**
+     * Opens a GET connection and follows redirects manually. Automatic redirect handling
+     * is disabled because it can downgrade HTTPS to HTTP, and every hop must be validated.
+     * The caller owns the returned connection and must disconnect it.
+     */
+    private fun openHttpsConnectionFollowingRedirects(
+        initialUrl: String,
+        connectTimeout: Int,
+        readTimeout: Int,
+        requestHeaders: Map<String, String> = emptyMap()
+    ): HttpURLConnection {
+        if (!isValidHttpsUrl(initialUrl)) {
+            throw IOException("URL must be an absolute HTTPS address")
+        }
+
+        var currentUrl = initialUrl
+        var redirectCount = 0
+        while (true) {
+            val connection = URL(currentUrl).openConnection() as HttpURLConnection
+            connection.instanceFollowRedirects = false
+            connection.requestMethod = "GET"
+            connection.connectTimeout = connectTimeout
+            connection.readTimeout = readTimeout
+            requestHeaders.forEach { (name, value) -> connection.setRequestProperty(name, value) }
+
+            try {
+                val responseCode = connection.responseCode
+                if (responseCode !in REDIRECT_CODES) return connection
+                if (redirectCount >= MAX_REDIRECTS) {
+                    throw IOException("Too many redirects")
+                }
+                val location = connection.getHeaderField("Location")
+                connection.disconnect()
+                currentUrl = resolveRedirectUrl(currentUrl, location)
+                redirectCount++
+            } catch (e: Exception) {
+                connection.disconnect()
+                throw e
+            }
+        }
+    }
+
+    /** Resolves a redirect Location and rejects anything that is not a plain HTTPS URL. */
+    internal fun resolveRedirectUrl(currentUrl: String, location: String?): String {
+        if (location.isNullOrBlank()) {
+            throw IOException("Redirect response without Location header")
+        }
+        val target = try {
+            URL(URL(currentUrl), location).toString()
+        } catch (e: Exception) {
+            throw IOException("Redirect Location is not a valid URL", e)
+        }
+        if (!isValidHttpsUrl(target)) {
+            throw IOException("Redirect target must be an absolute HTTPS URL")
+        }
+        return target
     }
 
     private fun isValidHttpsUrl(candidate: String): Boolean {
