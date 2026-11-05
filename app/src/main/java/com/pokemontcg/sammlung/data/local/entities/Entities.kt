@@ -17,7 +17,7 @@ data class PokemonEntity(
     val searchName: String,
     val imageUrl: String?,
     val primaryCardImageUrl: String?,
-    /** Pokémon collection category used by the overview filters. */
+    /** unused, kept for schema compatibility */
     @ColumnInfo(defaultValue = "'NONE'") val cardType: CardCategory = CardCategory.NONE,
     /** Last successful refresh of this Pokémon's complete card-print list. */
     val cardsUpdatedAt: Long? = null

@@ -36,7 +36,6 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
-import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.UserMigrationHelper
@@ -265,7 +264,9 @@ class MainActivity : ComponentActivity() {
                                             category
                                         )
                                     },
-                                    onClassificationChange = { _ -> }
+                                    onClassificationChange = { category ->
+                                        pokemonDetailViewModel.updatePrimaryCategory(category)
+                                    }
                                 )
                             } else {
                                 Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -459,7 +460,6 @@ class MainActivity : ComponentActivity() {
                                                         pokemonDexId = pokemon.dexId,
                                                         language = card.language,
                                                         quantity = 1,
-                                                        category = pokemon.cardType.name,
                                                         isPrimary = false
                                                     )
                                                 )

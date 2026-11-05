@@ -72,6 +72,7 @@
     <string name="detail_value_title">Wert der ausgewählten Karten</string>
     <string name="detail_value_sub">Lieblingskarte und alle weiteren Karten</string>
     <string name="detail_category_title">Kategorie für die Übersicht</string>
+    <string name="detail_category_requires_primary">Wähle zuerst eine Lieblingskarte</string>
     <string name="title_favorite_card">Lieblingskarte</string>
     <string name="title_other_cards">Weitere Karten</string>
     <string name="detail_btn_select">Auswählen</string>

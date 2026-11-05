@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.work.WorkInfo
 import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
+import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.PriceHistoryEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.model.GenerationSection
@@ -179,9 +180,10 @@ class MainViewModel(
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val filteredPokemon: StateFlow<List<PokemonEntity>> = combine(
-        localizedPokemon, catalogRepository.getAllPokemonNames(), searchQuery, selectedFilter
-    ) { allPokemon, allNames, query, filter ->
+        localizedPokemon, catalogRepository.getAllPokemonNames(), searchQuery, selectedFilter, userCards
+    ) { allPokemon, allNames, query, filter, cards ->
         val namesByDex = allNames.groupBy { it.dexId }
+        val categoryByDex = deriveCategoryByDex(cards)
         var list = allPokemon
         if (query.isNotBlank()) {
             val q = query.trim().lowercase()
@@ -191,7 +193,10 @@ class MainViewModel(
             }
         }
         if (!filter.equals("Alle", ignoreCase = true)) {
-            list = list.filter { it.cardType.name.equals(filter, ignoreCase = true) }
+            list = list.filter { pokemon ->
+                val category = categoryByDex[pokemon.dexId] ?: CardCategory.NONE
+                category.name.equals(filter, ignoreCase = true)
+            }
         }
         list
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())

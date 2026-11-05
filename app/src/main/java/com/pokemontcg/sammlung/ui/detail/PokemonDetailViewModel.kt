@@ -105,6 +105,18 @@ class PokemonDetailViewModel(
         }
     }
 
+    fun updatePrimaryCategory(category: String) {
+        val primary = userCards.value.firstOrNull { it.isPrimary } ?: return
+        updateCardDetails(
+            cardId = primary.cardId,
+            quantity = primary.quantity,
+            condition = primary.condition,
+            language = primary.language,
+            notes = primary.notes,
+            category = category
+        )
+    }
+
     fun toggleWishlist(card: CardEntity) {
         viewModelScope.launch {
             applyWishlistToggle(

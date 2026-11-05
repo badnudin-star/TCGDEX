@@ -69,6 +69,10 @@ fun PokemonDetailScreen(
 
     val primaryUserCard = userCards.firstOrNull { it.isPrimary }
     val primaryCard = cards.firstOrNull { it.id == primaryUserCard?.cardId }
+    val primaryCategory = primaryUserCard?.let { userCard ->
+        CardCategory.entries.firstOrNull { it.name.equals(userCard.category, ignoreCase = true) }
+            ?: CardCategory.NONE
+    }
     val secondaryUserCards = userCards.filter { !it.isPrimary }
     val secondaryCards = secondaryUserCards.mapNotNull { userCard ->
         cards.firstOrNull { it.id == userCard.cardId }?.let { it to userCard }
@@ -173,16 +177,23 @@ fun PokemonDetailScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         listOf(
-                            "Common" to stringResource(R.string.main_filter_common),
-                            "Fullart" to stringResource(R.string.main_filter_fullart),
-                            "NONE" to stringResource(R.string.main_filter_none)
+                            CardCategory.COMMON.name to stringResource(R.string.main_filter_common),
+                            CardCategory.FULLART.name to stringResource(R.string.main_filter_fullart),
+                            CardCategory.NONE.name to stringResource(R.string.main_filter_none)
                         ).forEach { (typeKey, label) ->
                             FilterChip(
-                                selected = pokemon.cardType.name.equals(typeKey, ignoreCase = true),
+                                selected = primaryCategory?.name.equals(typeKey, ignoreCase = true),
                                 onClick = { onClassificationChange(typeKey) },
+                                enabled = primaryUserCard != null,
                                 label = { Text(label) }
                             )
                         }
+                    }
+                    if (primaryUserCard == null) {
+                        Text(
+                            stringResource(R.string.detail_category_requires_primary),
+                            style = MaterialTheme.typography.bodySmall
+                        )
                     }
                 }
             }

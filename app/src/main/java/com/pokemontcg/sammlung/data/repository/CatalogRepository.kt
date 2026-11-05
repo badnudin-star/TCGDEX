@@ -7,7 +7,6 @@ import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 import com.pokemontcg.sammlung.data.local.entities.PokemonNameEntity
 import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.entities.SourceAuditEntity
-import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.model.batchCardIds
 import com.pokemontcg.sammlung.ui.cards.extractOcrSearchTokens
 import kotlinx.coroutines.flow.Flow
@@ -20,15 +19,6 @@ class CatalogRepository(private val db: AppDatabase) {
 
     fun getAvailablePokemonNameLanguages(): Flow<List<String>> =
         db.pokemonNameDao().getAvailableLanguages()
-
-    fun getPokemonWithCommon(): Flow<List<PokemonEntity>> =
-        db.pokemonDao().getPokemonByCardType(CardCategory.COMMON)
-
-    fun getPokemonWithFullart(): Flow<List<PokemonEntity>> =
-        db.pokemonDao().getPokemonByCardType(CardCategory.FULLART)
-
-    fun getPokemonWithNothing(): Flow<List<PokemonEntity>> =
-        db.pokemonDao().getPokemonByCardType(CardCategory.NONE)
 
     fun getAllSets(): Flow<List<SetEntity>> = db.setDao().getAllSets()
 

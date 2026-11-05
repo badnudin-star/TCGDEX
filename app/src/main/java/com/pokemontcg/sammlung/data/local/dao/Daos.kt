@@ -2,7 +2,6 @@ package com.pokemontcg.sammlung.data.local.dao
 
 import androidx.room.*
 import com.pokemontcg.sammlung.data.local.entities.*
-import com.pokemontcg.sammlung.data.local.user.CardCategory
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -10,14 +9,8 @@ interface PokemonDao {
     @Query("SELECT * FROM pokemon ORDER BY dexId ASC")
     fun getAllPokemon(): Flow<List<PokemonEntity>>
 
-    @Query("SELECT * FROM pokemon WHERE cardType = :cardType ORDER BY dexId ASC")
-    fun getPokemonByCardType(cardType: CardCategory): Flow<List<PokemonEntity>>
-
     @Query("SELECT * FROM pokemon WHERE dexId = :dexId LIMIT 1")
     suspend fun getPokemonByDexId(dexId: Int): PokemonEntity?
-
-    @Query("UPDATE pokemon SET cardType = :cardType WHERE id = :pokemonId")
-    suspend fun updateCardType(pokemonId: String, cardType: CardCategory)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(pokemon: List<PokemonEntity>)
