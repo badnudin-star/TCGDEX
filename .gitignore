@@ -30,6 +30,7 @@ keystore.properties
 # ----- Python -----
 __pycache__/
 *.pyc
+.pytest_cache/
 .venv/
 venv/
 
@@ -37,6 +38,8 @@ venv/
 tools/catalog-builder/catalog.sqlite
 tools/catalog-builder/manifest.json
 tools/catalog-builder/coverage_report.md
+tools/catalog-builder/gap_report.md
+tools/catalog-builder/gaps.csv
 tools/catalog-builder/catalog-progress.json
 tools/catalog-builder/.catalog-build-*/
 tools/catalog-builder/.catalog-publish-*
