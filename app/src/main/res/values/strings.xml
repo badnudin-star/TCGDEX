@@ -423,6 +423,9 @@
     <string name="import_msg_failed_detail">Import fehlgeschlagen: %1$s</string>
 
     <string name="price_no_price">Kein Preis verfügbar</string>
+    <!-- Kompakter Platzhalter in den TCG-Auswahllisten: dort soll der Preis-Stellvertreter nur
+         ein Zeichen breit sein, damit lange Karten-/Setnamen nicht verdrängt werden. -->
+    <string name="price_no_price_short">/</string>
     <string name="price_source_cardmarket">Cardmarket</string>
     <string name="price_type_trend">Trend</string>
     <string name="price_date_label">Stand</string>
