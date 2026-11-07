@@ -29,8 +29,15 @@ class PriceRepository(
         val cardIds = (userCards.map { it.cardId } + wishlist.map { it.cardId }).distinct()
         val twoYearsAgo = now - (2L * 365L * 24L * 60L * 60L * 1000L)
 
+        // One batched lookup instead of a SELECT per card: the collection can hold thousands
+        // of distinct ids and the per-card query made this the slowest part of a sync.
+        if (cardIds.isEmpty()) return
+        val cardsById = cardIds.chunked(CARD_ID_BATCH_SIZE).flatMap { batch ->
+            appDb.cardDao().getCardsByIds(batch)
+        }.associateBy { it.id }
+
         for (cardId in cardIds) {
-            val card = appDb.cardDao().getCardById(cardId) ?: continue
+            val card = cardsById[cardId] ?: continue
             val price = card.marketPrice ?: continue
             if (price <= 0.0) continue
 

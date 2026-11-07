@@ -45,6 +45,8 @@ sealed class CatalogImportResult {
     data class Error(val message: String) : CatalogImportResult()
     data class RequiresAppUpdate(val remoteSchemaVersion: Int, val appSchemaVersion: Int) : CatalogImportResult()
     object AlreadyUpToDate : CatalogImportResult()
+    /** The download was interrupted on purpose (time slice / worker stop); retry later. */
+    object Deferred : CatalogImportResult()
 }
 
 enum class CatalogUpdateAction {
@@ -173,7 +175,8 @@ class CatalogImporter(
         protectedCardIds: Set<String> = emptySet(),
         protectedPokemonIds: Set<String> = emptySet(),
         onStage: suspend (SyncStage) -> Unit = {},
-        onDownloadProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> }
+        onDownloadProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit = { _, _ -> },
+        shouldStop: suspend () -> Boolean = { false }
     ): CatalogImportResult =
         importRemoteInternal(
             manifestUrl = manifestUrl,
@@ -181,7 +184,8 @@ class CatalogImporter(
             protectedCardIds = protectedCardIds,
             protectedPokemonIds = protectedPokemonIds,
             onStage = onStage,
-            onDownloadProgress = onDownloadProgress
+            onDownloadProgress = onDownloadProgress,
+            shouldStop = shouldStop
         )
 
     private suspend fun importRemoteInternal(
@@ -190,7 +194,8 @@ class CatalogImporter(
         protectedCardIds: Set<String>,
         protectedPokemonIds: Set<String>,
         onStage: suspend (SyncStage) -> Unit,
-        onDownloadProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit
+        onDownloadProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit,
+        shouldStop: suspend () -> Boolean
     ): CatalogImportResult = withContext(Dispatchers.IO) {
         if (manifestUrl.isBlank()) {
             AppLogger.log("CatalogImporter", "kein Katalog-Manifest konfiguriert")
@@ -357,15 +362,26 @@ class CatalogImporter(
                         return@withContext CatalogImportResult.Error("Catalog HTTP $downloadResponseCode")
                     }
 
-                    FileOutputStream(cacheFile).use { output ->
+                    val downloadCompleted = FileOutputStream(cacheFile).use { output ->
                         downloadConn.inputStream.use { input ->
                             copyStreamLimitedWithProgress(
                                 input = input,
                                 output = output,
                                 maxBytes = manifest.size,
+                                shouldStop = shouldStop,
                                 onProgress = onDownloadProgress
                             )
                         }
+                    }
+                    if (!downloadCompleted) {
+                        // A partial file must never be validated or imported: it would fail the
+                        // sha256 check and burn a full 60 MB download on the next attempt anyway.
+                        cacheFile.delete()
+                        AppLogger.log(
+                            "CatalogImporter",
+                            "Katalog-Download abgebrochen (Zeitscheibe oder Worker-Stopp). Teil-Datei verworfen."
+                        )
+                        return@withContext CatalogImportResult.Deferred
                     }
                 } finally {
                     // Also release the connection when opening the response or reading headers fails.
@@ -848,14 +864,18 @@ class CatalogImporter(
         input: InputStream,
         output: OutputStream,
         maxBytes: Long,
+        shouldStop: suspend () -> Boolean = { false },
         onProgress: suspend (downloadedBytes: Long, totalBytes: Long) -> Unit
-    ) {
+    ): Boolean {
         require(maxBytes >= 0L) { "maxBytes must not be negative" }
         val buffer = ByteArray(8192)
         var total = 0L
         var lastPercent = -1
         onProgress(0L, maxBytes)
         while (true) {
+            // Checked once per 8 KB chunk so an 8-minute time slice or a cancelled worker can
+            // stop a 60 MB download instead of letting it run to completion.
+            if (shouldStop()) return false
             val read = input.read(buffer)
             if (read < 0) break
             if (total + read > maxBytes) {
@@ -871,6 +891,7 @@ class CatalogImporter(
             }
         }
         if (lastPercent != 100) onProgress(total, maxBytes)
+        return true
     }
 
     /**

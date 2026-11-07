@@ -21,6 +21,9 @@ import androidx.lifecycle.LifecycleEventObserver
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
+import androidx.camera.core.resolutionselector.AspectRatioStrategy
+import androidx.camera.core.resolutionselector.ResolutionSelector
+import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.border
@@ -316,9 +319,23 @@ private fun CameraPreview(
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
-                @Suppress("DEPRECATION")
+                // Analysefotos duerfen nicht auf ein Querformat (1280x720) festgenagelt werden:
+                // Karten werden hochkant vor die Kamera gehalten, wodurch die OCR-Zeile mit der
+                // Kartennummer nach einem Querformat-Downscale unlesbar wurde. Der
+                // ResolutionSelector haelt die laengere Kante bei ~1280 px und laesst die
+                // Ausrichtung offen, damit das Sensorformat in beiden Lagen passt.
+                val analysisResolution = ResolutionSelector.Builder()
+                    .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
+                    .setResolutionStrategy(
+                        ResolutionStrategy(
+                            Size(1280, 1280),
+                            ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
+                        )
+                    )
+                    .build()
+
                 val imageAnalysis = ImageAnalysis.Builder()
-                    .setTargetResolution(Size(1280, 720))
+                    .setResolutionSelector(analysisResolution)
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
                     .build()
 

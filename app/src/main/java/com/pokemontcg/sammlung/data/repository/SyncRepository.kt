@@ -111,7 +111,8 @@ class SyncRepository(
             percent: Int,
             downloadedBytes: Long?,
             totalBytes: Long?
-        ) -> Unit
+        ) -> Unit,
+        shouldStop: suspend () -> Boolean = { false }
     ): Boolean {
         val manifestUrl = BuildConfig.CATALOG_MANIFEST_URL
         if (manifestUrl.isBlank()) {
@@ -148,21 +149,23 @@ class SyncRepository(
                         null,
                         null
                     )
-                }
-            ) { downloadedBytes, totalBytes ->
-                val percent = if (totalBytes > 0L) {
-                    ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
-                } else {
-                    0
-                }
-                onProgress(
-                    SyncStage.DOWNLOADING,
-                    context.getString(R.string.ui_sync_catalog_downloading),
-                    percent,
-                    downloadedBytes,
-                    totalBytes
-                )
-            }
+                },
+                onDownloadProgress = { downloadedBytes, totalBytes ->
+                    val percent = if (totalBytes > 0L) {
+                        ((downloadedBytes * 100) / totalBytes).toInt().coerceIn(0, 100)
+                    } else {
+                        0
+                    }
+                    onProgress(
+                        SyncStage.DOWNLOADING,
+                        context.getString(R.string.ui_sync_catalog_downloading),
+                        percent,
+                        downloadedBytes,
+                        totalBytes
+                    )
+                },
+                shouldStop = shouldStop
+            )
         ) {
             is CatalogImportResult.Success -> {
                 onProgress(
@@ -198,6 +201,13 @@ class SyncRepository(
                 )
                 // Keep the rest of the sync running; diagnostics shows the blocking state.
                 true
+            }
+            CatalogImportResult.Deferred -> {
+                com.pokemontcg.sammlung.util.AppLogger.log(
+                    "SyncRepository",
+                    "Katalog-Download für den Folgelauf zurückgestellt (Zeitscheibe/Stopp)"
+                )
+                false
             }
             is CatalogImportResult.Error -> {
                 com.pokemontcg.sammlung.util.AppLogger.log(

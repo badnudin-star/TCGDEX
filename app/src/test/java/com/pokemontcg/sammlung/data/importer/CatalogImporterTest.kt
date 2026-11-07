@@ -4,6 +4,7 @@ import android.content.Context
 import com.pokemontcg.sammlung.data.local.AppDatabase
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
@@ -163,6 +164,52 @@ class CatalogImporterTest {
         assertEquals(input.size.toLong(), events.last().second)
         assertTrue("Progress must be emitted between start and end", events.size > 2)
         assertTrue(events.zipWithNext().all { (before, after) -> after.first >= before.first })
+    }
+
+    @Test
+    fun testCopyStreamLimitedWithProgressAbortsWhenTimeSliceIsSpent() = runTest {
+        val importer = CatalogImporter(
+            Mockito.mock(Context::class.java),
+            Mockito.mock(AppDatabase::class.java)
+        )
+        val input = ByteArray(1_000_000) { (it % 251).toByte() }
+        val output = ByteArrayOutputStream()
+        var checks = 0
+
+        val completed = importer.copyStreamLimitedWithProgress(
+            input = ByteArrayInputStream(input),
+            output = output,
+            maxBytes = input.size.toLong(),
+            shouldStop = {
+                checks++
+                checks >= 3
+            },
+            onProgress = { _, _ -> }
+        )
+
+        assertFalse("An interrupted download must report false", completed)
+        assertTrue("The abort must happen before the whole stream is written", output.size() < input.size)
+        assertTrue("Stop condition must actually be polled", checks >= 3)
+    }
+
+    @Test
+    fun testCopyStreamLimitedWithProgressCompletesWithoutStopRequest() = runTest {
+        val importer = CatalogImporter(
+            Mockito.mock(Context::class.java),
+            Mockito.mock(AppDatabase::class.java)
+        )
+        val input = ByteArray(32_000) { (it % 251).toByte() }
+        val output = ByteArrayOutputStream()
+
+        val completed = importer.copyStreamLimitedWithProgress(
+            input = ByteArrayInputStream(input),
+            output = output,
+            maxBytes = input.size.toLong(),
+            shouldStop = { false }
+        ) { _, _ -> }
+
+        assertTrue(completed)
+        assertEquals(input.size, output.size())
     }
 
     @Test

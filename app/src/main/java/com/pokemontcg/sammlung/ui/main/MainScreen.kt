@@ -59,7 +59,11 @@ fun MainScreen(
             .mapValues { (_, cards) -> cards.sumOf { it.quantity } }
     }
 
-    NotificationPermissionHandler()
+    // Only ask for the notification permission once price alerts are actually enabled;
+    // otherwise the rationale dialog reappears on every launch that the user declined.
+    if (uiState.priceAlertsEnabled) {
+        NotificationPermissionHandler()
+    }
 
     if (showGenerationDialog) {
         GenerationFilterDialog(

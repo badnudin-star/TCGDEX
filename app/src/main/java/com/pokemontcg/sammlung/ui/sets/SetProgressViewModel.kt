@@ -8,6 +8,7 @@ import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.repository.CatalogRepository
 import com.pokemontcg.sammlung.data.repository.CollectionRepository
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -27,19 +28,26 @@ class SetProgressViewModel(
         val isLoading: Boolean = true
     )
 
+    /**
+     * The per-set catalog counts only depend on the catalog, not on the user's collection.
+     * Loading them on every collection change meant a full catalog aggregate per added card,
+     * so they are now only recomputed when the set list itself re-emits.
+     */
+    private val catalogCardCountBySet: Flow<Map<String, Int>> =
+        catalogRepository.getAllSets().map { catalogRepository.getCardCountsBySet() }
+
     val uiState: StateFlow<UiState> = combine(
         catalogRepository.getAllSets(),
-        collectionRepository.getAllUserCards()
-    ) { sets, userCards ->
-        sets to userCards
-    }.map { (sets, userCards) ->
+        collectionRepository.getAllUserCards(),
+        catalogCardCountBySet
+    ) { sets, userCards, cardCountBySet ->
         val cardIds = userCards.map { it.cardId }.distinct()
         val cards = catalogRepository.getCardsByIdsBatched(cardIds)
         UiState(
             sets = sets,
             userCards = userCards,
             cardsMap = cards.associateBy { it.id },
-            catalogCardCountBySet = catalogRepository.getCardCountsBySet(),
+            catalogCardCountBySet = cardCountBySet,
             isLoading = false
         )
     }.stateIn(
