@@ -253,6 +253,9 @@ class ResumableCatalogWorker(
                     is CatalogImportResult.Success,
                     CatalogImportResult.AlreadyUpToDate -> true
                     is CatalogImportResult.RequiresAppUpdate -> true
+                    // Deferred only comes out of the remote download path, never from the
+                    // starter catalog; treating it as retryable keeps the when exhaustive.
+                    CatalogImportResult.Deferred -> false
                     is CatalogImportResult.Error -> false
                 }
             }

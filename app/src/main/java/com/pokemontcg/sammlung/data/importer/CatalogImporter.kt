@@ -266,7 +266,8 @@ class CatalogImporter(
                                     protectedCardIds = protectedCardIds,
                                     protectedPokemonIds = protectedPokemonIds,
                                     onStage = onStage,
-                                    onDownloadProgress = onDownloadProgress
+                                    onDownloadProgress = onDownloadProgress,
+                                    shouldStop = shouldStop
                                 )
                             } else {
                                 CatalogImportResult.Error("Manifest returned 304 without a usable local catalog")
