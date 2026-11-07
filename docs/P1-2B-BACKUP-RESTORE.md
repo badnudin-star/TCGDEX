@@ -3,9 +3,9 @@
 ## Inhalt der Sicherung
 
 - `user_database`, `user_database-wal` und `user_database-shm`: die aktive V2-Sammlung.
-- `sharedpref/`: einschließlich des Migrationsstatus, damit ein Restore nicht unbeabsichtigt erneut die Legacy-Migration auslöst.
+- `sharedpref/`: allgemeine App-Preferences. Ein Migrationsstatus wird nicht mehr gespeichert, seit die Legacy-Migration entfernt ist (siehe `docs/FEATURES-2026-11-07.md`).
 - `files/datastore/`: Preferences DataStore, aktuell `user_settings.preferences_pb`.
-- `tcg_sammlung_database` einschließlich `-journal`, `-wal` und `-shm` wird ausgeschlossen. Die Datenbank enthält weiterhin Legacy-Daten und den Katalog; die V2-Sammlung ist die maßgebliche Nutzerdatenbank.
+- `tcg_sammlung_database` einschließlich `-journal`, `-wal` und `-shm` wird ausgeschlossen. Die Datei enthält den herunterladbaren Kartenkatalog (und eine leere `user_cards`-Tabelle, die nur aus Schema-Hash-Gründen erhalten bleibt); die Sammlung liegt ausschließlich in `user_database`.
 - Es gibt keine Backup-Regel für `catalog_database`; dieser nicht vorhandene Datenbankname wird nicht referenziert.
 
 Android dokumentiert, dass bei einer Kombination aus Include- und Exclude-Regeln Excludes Vorrang haben und Verzeichnispfade rekursiv wirken: https://developer.android.com/identity/data/autobackup
@@ -45,7 +45,7 @@ Android dokumentiert, dass bei einer Kombination aus Include- und Exclude-Regeln
 
    Alternativ kann bei einem unterstützten Cloud-Transport nach Deinstallation/Neuinstallation die Systemwiederherstellung ausgelöst werden. Das hängt von den Geräteeinstellungen und dem Transport ab.
 
-6. App öffnen und prüfen: dieselben Sammlungseinträge, Kategorien, Primärmarkierungen, Wunschliste und Einstellungen wie vor dem Test. Die Legacy-Datenbank muss nicht wiederhergestellt werden; V2 muss ohne leere Sammlung starten.
+6. App öffnen und prüfen: dieselben Sammlungseinträge, Kategorien, Primärmarkierungen, Wunschliste und Einstellungen wie vor dem Test. Die Katalog-Datenbank muss nicht wiederhergestellt werden — der Katalog lädt sich nach dem Restore neu, und die Sammlung darf nicht leer starten.
 7. Nach dem Test JSON-Export und dokumentierte Vorher-/Nachher-Zahlen vergleichen. Den Test als bestanden markieren, wenn alle Werte übereinstimmen.
 
 ## Grenzen

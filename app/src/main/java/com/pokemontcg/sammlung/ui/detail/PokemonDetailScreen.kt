@@ -33,6 +33,7 @@ import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
+import com.pokemontcg.sammlung.ui.cards.CardCategoryDialog
 import com.pokemontcg.sammlung.ui.cards.CardSelectionDialog
 import com.pokemontcg.sammlung.ui.cards.PrimaryCardSelectionDialog
 import com.pokemontcg.sammlung.ui.cards.SecondaryCardDialog
@@ -47,7 +48,7 @@ fun PokemonDetailScreen(
     wishlistCardIds: Set<String>,
     totalPrice: Double?,
     onBackClick: () -> Unit,
-    onSelectPrimary: (CardEntity) -> Unit,
+    onSelectPrimary: (CardEntity, CardCategory) -> Unit,
     onRemovePrimary: () -> Unit,
     onAddSecondary: (CardEntity, CardCategory) -> Unit,
     onRemoveSecondary: (String) -> Unit,
@@ -60,6 +61,8 @@ fun PokemonDetailScreen(
     var showSecondaryDialog by remember { mutableStateOf(false) }
     var selectedCardForEdit by remember { mutableStateOf<CardEntity?>(null) }
     var pendingCategory by remember { mutableStateOf(CardCategory.NONE.name) }
+    // Card picked as favourite but not classified yet; the category popup follows immediately.
+    var pendingPrimaryCard by remember { mutableStateOf<CardEntity?>(null) }
 
     fun openCardEditor(card: CardEntity) {
         pendingCategory = userCards.firstOrNull { it.cardId == card.id }?.category
@@ -83,10 +86,28 @@ fun PokemonDetailScreen(
             cards = cards,
             currentPrimaryId = primaryCard?.id,
             onSelect = { card ->
-                onSelectPrimary(card)
                 showPrimaryDialog = false
+                pendingPrimaryCard = card
             },
             onDismiss = { showPrimaryDialog = false }
+        )
+    }
+
+    pendingPrimaryCard?.let { card ->
+        // Re-selecting the same favourite keeps its stored category instead of resetting it.
+        val storedCategory = userCards
+            .firstOrNull { it.cardId == card.id }
+            ?.let { userCard ->
+                CardCategory.entries.firstOrNull { it.name.equals(userCard.category, ignoreCase = true) }
+            } ?: CardCategory.NONE
+        CardCategoryDialog(
+            card = card,
+            initialCategory = storedCategory,
+            onConfirm = { category ->
+                onSelectPrimary(card, category)
+                pendingPrimaryCard = null
+            },
+            onDismiss = { pendingPrimaryCard = null }
         )
     }
 
@@ -111,7 +132,13 @@ fun PokemonDetailScreen(
             initialLanguage = uc?.language ?: "de",
             initialNotes = uc?.notes,
             onPrimaryChange = { isPrimary ->
-                if (isPrimary) onSelectPrimary(card) else onRemovePrimary()
+                if (isPrimary) {
+                    val category = CardCategory.entries.firstOrNull { it.name == pendingCategory }
+                        ?: CardCategory.NONE
+                    onSelectPrimary(card, category)
+                } else {
+                    onRemovePrimary()
+                }
             },
             onCategoryChange = { selectedCategory -> pendingCategory = selectedCategory },
             onDetailsChange = { quantity, condition, language, notes ->

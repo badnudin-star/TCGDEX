@@ -16,20 +16,23 @@ class AppPreferencesRepositoryTest {
     @Test
     fun testPreferencesKeysDefined() {
         assertNotNull(AppPreferencesRepository.KEY_WIFI_ONLY)
-        assertNotNull(AppPreferencesRepository.KEY_UPDATE_HOUR)
         assertNotNull(AppPreferencesRepository.KEY_PREFERRED_LANGUAGE)
         assertNotNull(AppPreferencesRepository.KEY_CURRENCY_SOURCE)
-        assertNotNull(AppPreferencesRepository.KEY_HIDDEN_GENERATIONS)
+        assertNotNull(AppPreferencesRepository.KEY_DAILY_PRICE_REPORT_ENABLED)
+        assertNotNull(AppPreferencesRepository.KEY_DAILY_PRICE_REPORT_LAST_TIMESTAMP)
         assertNotNull(AppPreferencesRepository.KEY_COLLAPSED_GENERATIONS)
         assertNotNull(AppPreferencesRepository.KEY_CATALOG_INSTALLED_AT)
         assertNotNull(AppPreferencesRepository.KEY_CATALOG_REMOTE_VERSION)
         assertNotNull(AppPreferencesRepository.KEY_CATALOG_REMOTE_SIZE_BYTES)
 
         assertEquals("wifi_only_updates", AppPreferencesRepository.KEY_WIFI_ONLY.name)
-        assertEquals("scheduled_update_hour", AppPreferencesRepository.KEY_UPDATE_HOUR.name)
         assertEquals("preferred_language", AppPreferencesRepository.KEY_PREFERRED_LANGUAGE.name)
         assertEquals("currency_source", AppPreferencesRepository.KEY_CURRENCY_SOURCE.name)
-        assertEquals("hidden_generations", AppPreferencesRepository.KEY_HIDDEN_GENERATIONS.name)
+        assertEquals("daily_price_report_enabled", AppPreferencesRepository.KEY_DAILY_PRICE_REPORT_ENABLED.name)
+        assertEquals(
+            "daily_price_report_last_timestamp",
+            AppPreferencesRepository.KEY_DAILY_PRICE_REPORT_LAST_TIMESTAMP.name
+        )
         assertEquals("collapsed_generations", AppPreferencesRepository.KEY_COLLAPSED_GENERATIONS.name)
         assertEquals("catalog_installed_at", AppPreferencesRepository.KEY_CATALOG_INSTALLED_AT.name)
         assertEquals("catalog_remote_version", AppPreferencesRepository.KEY_CATALOG_REMOTE_VERSION.name)
@@ -47,12 +50,13 @@ class AppPreferencesRepositoryTest {
         val repository = AppPreferencesRepository(dataStore)
 
         assertEquals(true, repository.wifiOnlyFlow.first())
-        assertEquals(3, repository.scheduledUpdateHourFlow.first())
         assertEquals("de", repository.preferredLanguageFlow.first())
         assertEquals("EUR_CARDMARKET", repository.currencySourceFlow.first())
-        assertEquals(emptySet<Int>(), repository.hiddenGenerationsFlow.first())
         assertEquals(emptySet<Int>(), repository.collapsedGenerationsFlow.first())
         assertEquals(false, repository.priceAlertsEnabledFlow.first())
+        // The nightly report ships enabled: the user wants to know daily whether values moved.
+        assertEquals(true, repository.dailyPriceReportEnabledFlow.first())
+        assertEquals(0L, repository.dailyPriceReportLastTimestampFlow.first())
         assertEquals(10, repository.priceAlertThresholdPercentFlow.first())
         assertEquals(1, repository.priceAlertWindowDaysFlow.first())
         assertEquals(0L, repository.priceAlertLastTimestampFlow.first())
@@ -77,24 +81,24 @@ class AppPreferencesRepositoryTest {
         val repository = AppPreferencesRepository(dataStore)
 
         repository.setWifiOnly(false)
-        repository.setScheduledUpdateHour(17)
         repository.setPreferredLanguage("en")
-        repository.setHiddenGenerations(setOf(2, 5))
         repository.setCollapsedGenerations(setOf(3))
         repository.setPriceAlertsEnabled(true)
         repository.setPriceAlertThresholdPercent(20)
         repository.setPriceAlertWindowDays(7)
         repository.setPriceAlertLastTimestamp(123L)
+        repository.setDailyPriceReportEnabled(false)
+        repository.setDailyPriceReportLastTimestamp(456L)
 
         assertEquals(false, repository.wifiOnlyFlow.first())
-        assertEquals(17, repository.scheduledUpdateHourFlow.first())
         assertEquals("en", repository.preferredLanguageFlow.first())
-        assertEquals(setOf(2, 5), repository.hiddenGenerationsFlow.first())
         assertEquals(setOf(3), repository.collapsedGenerationsFlow.first())
         assertEquals(true, repository.priceAlertsEnabledFlow.first())
         assertEquals(20, repository.priceAlertThresholdPercentFlow.first())
         assertEquals(7, repository.priceAlertWindowDaysFlow.first())
         assertEquals(123L, repository.priceAlertLastTimestampFlow.first())
+        assertEquals(false, repository.dailyPriceReportEnabledFlow.first())
+        assertEquals(456L, repository.dailyPriceReportLastTimestampFlow.first())
         assertEquals(true, tempFile.exists())
     }
 
@@ -127,6 +131,21 @@ class AppPreferencesRepositoryTest {
 
         repository.setCatalogEtag(null)
         assertEquals(null, repository.catalogEtagFlow.first())
+    }
+
+    @Test
+    fun testNegativeDailyReportTimestampIsClampedToZero() = runTest {
+        val tempFile = File.createTempFile("tcg-daily-report", ".preferences_pb")
+        tempFile.delete()
+        val dataStore = PreferenceDataStoreFactory.create(
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.IO),
+            produceFile = { tempFile }
+        )
+        val repository = AppPreferencesRepository(dataStore)
+
+        repository.setDailyPriceReportLastTimestamp(-5L)
+
+        assertEquals(0L, repository.dailyPriceReportLastTimestampFlow.first())
     }
 
     @Test

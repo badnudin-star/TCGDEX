@@ -12,7 +12,6 @@ Es liegt keine echte v14-Datenbankdatei im Projektarchiv vor. Die Instrumentatio
 - `testRoomBuilderMigratesRealV14FixtureThroughLatestSchema`: öffnet v14 über die produktive komplette Migrationskette, prüft Sortierung und mehrere Pokémon-Zuordnungen.
 - `testV14OpenFailsWhenRequiredMigrationIsRemoved`: entfernt absichtlich 14→15 aus der Testkette und erwartet, dass Room das Öffnen der v14-Datenbank verweigert.
 - `testUserDatabaseMigration1To2`: prüft, dass ein vorhandener Sammlungseintrag mit seinen Feldern erhalten bleibt.
-- `testLegacyToV2EndToEndMigrationFixture`: prüft mindestens fünf Einträge, Sprache, dexId, Kategorien, Primärmarkierung, Idempotenz und Unverändertheit der Legacy-Quelle. Die Test-Fixture und ihr SharedPreferences-Flag sind isoliert und greifen nicht auf die produktive Legacy-Datenbank zu.
 
 ## Ausführung
 
@@ -21,3 +20,10 @@ Es liegt keine echte v14-Datenbankdatei im Projektarchiv vor. Die Instrumentatio
 ```
 
 Abnahme erwartet: `BUILD SUCCESSFUL` und alle Tests in `DatabaseMigrationTest` grün. Die Tests wurden in der Arbeitsumgebung dieses Schritts nicht ausgeführt, weil der Gradle-Wrapper die Distribution `gradle-8.7-bin.zip` von `services.gradle.org` laden müsste und DNS dort mit `UnknownHostException` scheitert. Daher ist der Status bis zur Ausführung auf einem Android-Gerät/Emulator **implementiert, aber nicht ausgeführt**.
+
+## Entfernt (2026-11-07)
+
+`testLegacyToV2EndToEndMigrationFixture` ist zusammen mit der Legacy-Migration selbst gelöscht
+(`UserMigrationHelper.kt`, siehe `docs/FEATURES-2026-11-07.md`). Die Room-Migrationstests für
+`AppDatabase` 14→17 und `UserDatabase` 1→2 bleiben unverändert bestehen.
+

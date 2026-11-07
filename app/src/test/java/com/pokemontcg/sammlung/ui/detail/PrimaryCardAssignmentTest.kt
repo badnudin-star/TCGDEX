@@ -1,5 +1,6 @@
 package com.pokemontcg.sammlung.ui.detail
 
+import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.repository.PrimaryCardPersistence
 import com.pokemontcg.sammlung.data.repository.planPrimaryCardAssignment
@@ -93,5 +94,55 @@ class PrimaryCardAssignmentTest {
         assertEquals(6, resolved.pokemonDexId)
         assertEquals("6", resolved.pokemonId)
         assertFalse(resolved.isPrimary.not())
+    }
+
+    @Test
+    fun pickedCategoryOverwritesStoredCategoryOnUpdate() {
+        val existing = owned(category = "FULLART")
+
+        val resolved = planPrimaryCardAssignment(
+            cardId = "base1-4",
+            language = "de",
+            pokemonDexId = 6,
+            pokemonId = "6",
+            existingCard = existing,
+            now = now,
+            category = CardCategory.COMMON
+        )
+
+        assertEquals("COMMON", resolved.category)
+        assertEquals(4, resolved.quantity)
+        assertEquals("Erstausgabe", resolved.notes)
+        assertTrue(resolved.isPrimary)
+    }
+
+    @Test
+    fun pickedCategoryIsStoredOnInsert() {
+        val resolved = planPrimaryCardAssignment(
+            cardId = "base1-4",
+            language = "de",
+            pokemonDexId = 6,
+            pokemonId = "6",
+            existingCard = null,
+            now = now,
+            category = CardCategory.FULLART
+        )
+
+        assertEquals("FULLART", resolved.category)
+        assertTrue(primaryCardPersistence(null, resolved) is PrimaryCardPersistence.Insert)
+    }
+
+    @Test
+    fun insertWithoutPickedCategoryFallsBackToNone() {
+        val resolved = planPrimaryCardAssignment(
+            cardId = "base1-4",
+            language = "de",
+            pokemonDexId = 6,
+            pokemonId = "6",
+            existingCard = null,
+            now = now
+        )
+
+        assertEquals(CardCategory.NONE.name, resolved.category)
     }
 }

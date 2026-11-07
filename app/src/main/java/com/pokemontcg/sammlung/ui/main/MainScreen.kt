@@ -21,8 +21,6 @@ import com.pokemontcg.sammlung.ui.main.components.MainFilterChips
 import com.pokemontcg.sammlung.ui.main.components.MainSyncBanner
 import com.pokemontcg.sammlung.ui.main.components.PriceDevelopmentTab
 import com.pokemontcg.sammlung.ui.pokedex.PokedexScreen
-import com.pokemontcg.sammlung.ui.pokedex.GenerationFilterDialog
-import com.pokemontcg.sammlung.data.model.GenerationModel
 
 enum class MainTab {
     POKEMONS,
@@ -52,25 +50,16 @@ fun MainScreen(
 
     var selectedTab by rememberSaveable { mutableStateOf(MainTab.POKEMONS) }
     var isSearchExpanded by rememberSaveable { mutableStateOf(false) }
-    var showGenerationDialog by rememberSaveable { mutableStateOf(false) }
 
     val quantitiesMap = remember(userCards) {
         userCards.groupBy { it.cardId }
             .mapValues { (_, cards) -> cards.sumOf { it.quantity } }
     }
 
-    // Only ask for the notification permission once price alerts are actually enabled;
+    // Only ask for the notification permission once a notification feature is actually enabled;
     // otherwise the rationale dialog reappears on every launch that the user declined.
-    if (uiState.priceAlertsEnabled) {
+    if (uiState.notificationsEnabled) {
         NotificationPermissionHandler()
-    }
-
-    if (showGenerationDialog) {
-        GenerationFilterDialog(
-            hiddenGenerations = uiState.hiddenGenerations,
-            onHiddenGenerationsChange = viewModel::setHiddenGenerations,
-            onDismiss = { showGenerationDialog = false }
-        )
     }
 
     Scaffold(
@@ -94,9 +83,6 @@ fun MainScreen(
                     }
                     IconButton(onClick = onNavigateToSets) {
                         Icon(painterResource(R.drawable.ic_tcg_sets), contentDescription = stringResource(R.string.ui_icon_sets))
-                    }
-                    IconButton(onClick = { showGenerationDialog = true }) {
-                        Icon(painterResource(R.drawable.ic_tcg_filter), contentDescription = stringResource(R.string.generation_show_hide_content_description))
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.ui_icon_settings))
@@ -166,32 +152,13 @@ fun MainScreen(
                             )
                         }
 
-                        if (uiState.hiddenGenerations.isNotEmpty()) {
-                            AssistChip(
-                                onClick = { showGenerationDialog = true },
-                                label = { Text(stringResource(R.string.generation_hidden_chip, uiState.hiddenGenerations.size)) },
-                                leadingIcon = { Icon(painterResource(R.drawable.ic_tcg_filter), contentDescription = stringResource(R.string.ui_icon_filter)) }
-                            )
-                        }
-                        if (uiState.hiddenSearchMatches > 0) {
-                            TextButton(onClick = { showGenerationDialog = true }) {
-                                Text(stringResource(R.string.generation_hidden_search_matches, uiState.hiddenSearchMatches),
-                                    color = MaterialTheme.colorScheme.primary)
-                            }
-                        }
-
                         MainFilterChips(
                             selectedFilter = selectedFilter,
                             onFilterSelected = { viewModel.setSelectedFilter(it) }
                         )
 
                         Box(modifier = Modifier.weight(1f)) {
-                            if (!catalogIsEmpty && uiState.generationSections.isEmpty() && uiState.hiddenGenerations.containsAll(GenerationModel.GENERATIONS.map { it.id }.toSet()) && uiState.hiddenSearchMatches == 0 && searchQuery.isBlank()) {
-                                Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.Center, horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally) {
-                                    Text(stringResource(R.string.generation_empty_all_hidden))
-                                    TextButton(onClick = { viewModel.setHiddenGenerations(emptySet()) }) { Text(stringResource(R.string.generation_show_all)) }
-                                }
-                            } else PokedexScreen(
+                            PokedexScreen(
                                 generationSections = uiState.generationSections,
                                 collapsedGenerations = uiState.collapsedGenerations,
                                 onToggleGeneration = { genId ->
@@ -217,9 +184,6 @@ fun MainScreen(
                     }
                 }
                 MainTab.PRICE_DEVELOPMENT -> {
-                    if (uiState.hiddenGenerations.isNotEmpty()) {
-                        Text(stringResource(R.string.generation_total_value_hidden_hint), style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(horizontal = 12.dp))
-                    }
                     PriceDevelopmentTab(
                         totalValue = totalValue,
                         priceHistory = priceHistory,

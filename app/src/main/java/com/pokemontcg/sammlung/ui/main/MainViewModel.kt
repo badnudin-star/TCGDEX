@@ -12,7 +12,6 @@ import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.PriceHistoryEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.model.GenerationSection
-import com.pokemontcg.sammlung.data.model.countHiddenGenerationMatches
 import com.pokemontcg.sammlung.data.model.groupPokemonByGeneration
 import com.pokemontcg.sammlung.data.preferences.AppPreferencesRepository
 import com.pokemontcg.sammlung.data.repository.CatalogRepository
@@ -63,9 +62,7 @@ data class MainUiState(
     val selectedFilter: String = "Alle",
     val pokemonList: List<PokemonEntity> = emptyList(),
     val generationSections: List<GenerationSection> = emptyList(),
-    val hiddenGenerations: Set<Int> = emptySet(),
     val collapsedGenerations: Set<Int> = emptySet(),
-    val hiddenSearchMatches: Int = 0,
     val totalCollectionValue: Double? = null,
     val priceHistory: List<PriceHistoryEntity> = emptyList(),
     val userCards: List<UserCardEntityV2> = emptyList(),
@@ -73,11 +70,11 @@ data class MainUiState(
     val primaryImageByDexId: Map<Int, String> = emptyMap(),
     val sync: SyncUiState = SyncUiState(),
     /**
-     * True once the persisted "price alerts" preference is known to be enabled.
-     * Defaults to false, so the notification rationale is not shown to every user
-     * on every launch while price alerts ship disabled.
+     * True once a persisted notification feature is known to be enabled (threshold price alerts
+     * or the daily 03:00 price report). Defaults to false, so the notification rationale is not
+     * shown on every launch to users who turned both off.
      */
-    val priceAlertsEnabled: Boolean = false
+    val notificationsEnabled: Boolean = false
 )
 
 class MainViewModel(
@@ -339,49 +336,45 @@ class MainViewModel(
         list
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    private val hiddenGenerations = preferencesRepository.hiddenGenerationsFlow.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet()
-    )
     private val collapsedGenerations = preferencesRepository.collapsedGenerationsFlow.stateIn(
         viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet()
     )
 
-    /** Exposed so the notification rationale is only requested when alerts are on. */
-    private val priceAlertsEnabled = preferencesRepository.priceAlertsEnabledFlow.stateIn(
-        viewModelScope, SharingStarted.WhileSubscribed(5000), false
-    )
+    /** Exposed so the notification rationale is only requested when a report is actually on. */
+    private val notificationsEnabled = combine(
+        preferencesRepository.priceAlertsEnabledFlow,
+        preferencesRepository.dailyPriceReportEnabledFlow
+    ) { priceAlerts, dailyReport -> priceAlerts || dailyReport }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
     private data class MainData(
         val visiblePokemon: List<PokemonEntity>, val sections: List<GenerationSection>,
-        val hidden: Set<Int>, val collapsed: Set<Int>, val hiddenMatches: Int,
-        val value: Double?, val history: List<PriceHistoryEntity>, val withoutPrice: Int,
-        val cards: List<UserCardEntityV2>, val alertsEnabled: Boolean
+        val collapsed: Set<Int>, val value: Double?, val history: List<PriceHistoryEntity>,
+        val withoutPrice: Int, val cards: List<UserCardEntityV2>, val notificationsEnabled: Boolean
     )
 
     // The array-based combine overload is used on purpose: the typed overloads stop at five
-    // flows, and this needs nine. Keep the index mapping below in sync with the argument order.
+    // flows, and this needs eight. Keep the index mapping below in sync with the argument order.
     private val mainData = combine(
-        localizedPokemon, filteredPokemon, hiddenGenerations, collapsedGenerations, totalCollectionValue,
-        priceHistory, cardsWithoutPriceCount, userCards, priceAlertsEnabled
+        localizedPokemon, filteredPokemon, collapsedGenerations, totalCollectionValue,
+        priceHistory, cardsWithoutPriceCount, userCards, notificationsEnabled
     ) { values ->
         @Suppress("UNCHECKED_CAST")
         val catalog = values[0] as List<PokemonEntity>
         @Suppress("UNCHECKED_CAST")
         val filtered = values[1] as List<PokemonEntity>
         @Suppress("UNCHECKED_CAST")
-        val hidden = values[2] as Set<Int>
+        val collapsed = values[2] as Set<Int>
+        val value = values[3] as Double?
         @Suppress("UNCHECKED_CAST")
-        val collapsed = values[3] as Set<Int>
-        val value = values[4] as Double?
+        val history = values[4] as List<PriceHistoryEntity>
+        val withoutPrice = values[5] as Int
         @Suppress("UNCHECKED_CAST")
-        val history = values[5] as List<PriceHistoryEntity>
-        val withoutPrice = values[6] as Int
-        @Suppress("UNCHECKED_CAST")
-        val cards = values[7] as List<UserCardEntityV2>
-        val alertsEnabled = values[8] as Boolean
-        val sections = groupPokemonByGeneration(catalog, filtered, cards, hidden)
+        val cards = values[6] as List<UserCardEntityV2>
+        val notifications = values[7] as Boolean
+        val sections = groupPokemonByGeneration(catalog, filtered, cards)
         val visible = sections.flatMap { it.pokemon }
-        MainData(visible, sections, hidden, collapsed, countHiddenGenerationMatches(filtered, hidden), value, history, withoutPrice, cards, alertsEnabled)
+        MainData(visible, sections, collapsed, value, history, withoutPrice, cards, notifications)
     }
 
     val uiState: StateFlow<MainUiState> = combine(
@@ -389,20 +382,17 @@ class MainViewModel(
     ) { data, query, filter, sync, primaryImages ->
         MainUiState(
             searchQuery = query, selectedFilter = filter, pokemonList = data.visiblePokemon,
-            generationSections = data.sections, hiddenGenerations = data.hidden,
-            collapsedGenerations = data.collapsed, hiddenSearchMatches = data.hiddenMatches,
+            generationSections = data.sections,
+            collapsedGenerations = data.collapsed,
             totalCollectionValue = data.value, priceHistory = data.history,
             userCards = data.cards, cardsWithoutPriceCount = data.withoutPrice,
             primaryImageByDexId = primaryImages, sync = sync,
-            priceAlertsEnabled = data.alertsEnabled
+            notificationsEnabled = data.notificationsEnabled
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), MainUiState())
 
     fun setSearchQuery(query: String) { savedStateHandle["search_query"] = query }
     fun setSelectedFilter(filter: String) { savedStateHandle["selected_filter"] = filter }
-    fun setHiddenGenerations(hidden: Set<Int>) {
-        viewModelScope.launch { preferencesRepository.setHiddenGenerations(hidden) }
-    }
     fun setCollapsedGenerations(collapsed: Set<Int>) {
         viewModelScope.launch { preferencesRepository.setCollapsedGenerations(collapsed) }
     }

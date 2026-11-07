@@ -110,12 +110,6 @@ fun DiagnosticsScreen(
                                 Text(stringResource(R.string.diag_catalog_version, version))
                             }
                         }
-                        Text(
-                            stringResource(
-                                R.string.ui_diag_migration_status,
-                                m.migrationStatus ?: stringResource(R.string.diag_migration_unknown)
-                            )
-                        )
                         Text(stringResource(R.string.ui_diag_last_update, formatTimestamp(m.lastUpdateAt, context)))
                         Text(stringResource(R.string.ui_diag_last_source_check, formatTimestamp(m.lastSourceCheckAt, context)))
                     } ?: CircularProgressIndicator()

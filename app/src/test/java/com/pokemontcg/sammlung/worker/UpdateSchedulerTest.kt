@@ -48,4 +48,18 @@ class UpdateSchedulerTest {
         val delayHours = TimeUnit.MILLISECONDS.toHours(delayMs)
         assertEquals(24L, delayHours)
     }
+
+    @Test
+    fun testDefaultTargetHourIsTheNightlyThreeOClockRun() {
+        val now = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        val delayMs = UpdateScheduler.calculateInitialDelay(nowCalendar = now)
+
+        assertEquals(3L, TimeUnit.MILLISECONDS.toHours(delayMs))
+    }
 }

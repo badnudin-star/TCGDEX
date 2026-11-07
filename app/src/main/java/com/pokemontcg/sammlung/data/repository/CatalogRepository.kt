@@ -1,6 +1,7 @@
 package com.pokemontcg.sammlung.data.repository
 
 import com.pokemontcg.sammlung.data.local.AppDatabase
+import com.pokemontcg.sammlung.data.local.dao.CardSearchRow
 import com.pokemontcg.sammlung.data.local.dao.SetIdName
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
@@ -81,4 +82,31 @@ class CatalogRepository(private val db: AppDatabase) {
 
     fun getSourceAudits(): Flow<List<SourceAuditEntity>> =
         db.sourceAuditDao().getAllSourceAudits()
+
+    /** Every rarity in the catalog, used by the wishlist search filter. */
+    fun getAllRarities(): Flow<List<String>> = db.cardDao().getAllRarities()
+
+    /**
+     * Searches the catalog by text, rarity (multi-select) and price ceiling. Results are already
+     * ordered by National Pokédex id so they can be grouped per Pokémon like the main screen.
+     */
+    fun searchCatalogCards(
+        query: String,
+        rarities: Set<String>,
+        maxPrice: Double?,
+        limit: Int = CATALOG_SEARCH_LIMIT
+    ): Flow<List<CardSearchRow>> = db.cardDao().searchCatalogCardIds(
+        query = query.trim(),
+        // Room expands an empty list to "IN ()", which SQLite rejects, so the clause is
+        // switched off through hasRarityFilter and bound to a placeholder instead.
+        rarities = rarities.filter { it.isNotBlank() }.ifEmpty { listOf(RARITY_FILTER_PLACEHOLDER) },
+        hasRarityFilter = rarities.any { it.isNotBlank() },
+        maxPrice = maxPrice?.takeIf { it.isFinite() && it > 0.0 },
+        limit = limit
+    )
+
+    private companion object {
+        const val CATALOG_SEARCH_LIMIT = 400
+        const val RARITY_FILTER_PLACEHOLDER = ""
+    }
 }

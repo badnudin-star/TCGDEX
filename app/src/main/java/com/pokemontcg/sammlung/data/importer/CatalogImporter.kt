@@ -507,7 +507,8 @@ class CatalogImporter(
             }
 
             // ATTACH must happen outside the transaction. Only catalog tables are copied;
-            // user_cards, legacy tables, and the separate UserDatabase are never touched.
+            // Only catalog tables are replaced. The retained user_cards table of the catalog
+            // schema and the separate UserDatabase (the real collection) are never touched.
             val escapedPath = sourceFile.absolutePath.replace("'", "''")
             db.execSQL("ATTACH DATABASE '$escapedPath' AS $alias")
             attached = true

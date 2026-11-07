@@ -6,8 +6,6 @@ import android.os.Bundle
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -37,8 +35,6 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
-import com.pokemontcg.sammlung.data.local.user.UserMigrationHelper
-import com.pokemontcg.sammlung.data.local.user.WishlistEntity
 import com.pokemontcg.sammlung.ui.about.AboutAndSourcesDialog
 import com.pokemontcg.sammlung.ui.catalog.CatalogManagerScreen
 import com.pokemontcg.sammlung.ui.cards.CardScannerScreen
@@ -57,6 +53,7 @@ import com.pokemontcg.sammlung.ui.settings.SettingsScreen
 import com.pokemontcg.sammlung.ui.settings.SettingsViewModel
 import com.pokemontcg.sammlung.ui.theme.TCGSammlungTheme
 import com.pokemontcg.sammlung.ui.wishlist.WishlistScreen
+import com.pokemontcg.sammlung.ui.wishlist.WishlistViewModel
 import com.pokemontcg.sammlung.worker.UpdateScheduler
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -86,12 +83,7 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     val scope = rememberCoroutineScope()
 
-                    var wishlist by remember { mutableStateOf<List<WishlistEntity>>(emptyList()) }
-                    var cardMap by remember { mutableStateOf<Map<String, CardEntity>>(emptyMap()) }
                     var showAboutDialog by rememberSaveable { mutableStateOf(false) }
-                    var migrationAttempt by remember { mutableIntStateOf(0) }
-                    var migrationState by remember { mutableStateOf<MigrationUiState>(MigrationUiState.Running) }
-                    var migrationError by remember { mutableStateOf("") }
                     var scannedCardMatches by remember { mutableStateOf<List<CardEntity>>(emptyList()) }
                     var showScanResults by remember { mutableStateOf(false) }
                     var selectedScannedCard by remember { mutableStateOf<CardEntity?>(null) }
@@ -113,42 +105,6 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    val legacyExportLauncher = rememberLauncherForActivityResult(
-                        contract = ActivityResultContracts.CreateDocument("text/csv")
-                    ) { uri ->
-                        if (uri != null) {
-                            scope.launch {
-                                runCatching { UserMigrationHelper.exportLegacyCsv(applicationContext) }
-                                    .onSuccess { csv ->
-                                        runCatching {
-                                            contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(csv) }
-                                                ?: error(getString(R.string.ui_file_open_error))
-                                        }.onSuccess {
-                                            Toast.makeText(applicationContext, getString(R.string.ui_legacy_export_created), Toast.LENGTH_LONG).show()
-                                        }.onFailure { error ->
-                                            Toast.makeText(applicationContext, getString(R.string.ui_export_failed, error.message.orEmpty()), Toast.LENGTH_LONG).show()
-                                        }
-                                    }
-                                    .onFailure { error ->
-                                        Toast.makeText(applicationContext, getString(R.string.ui_legacy_export_failed, error.message.orEmpty()), Toast.LENGTH_LONG).show()
-                                    }
-                            }
-                        }
-                    }
-
-                    LaunchedEffect(migrationAttempt) {
-                        migrationState = MigrationUiState.Running
-                        when (val result = UserMigrationHelper.migrateLegacyUserCardsIfNeeded(
-                            applicationContext, appContainer.userDatabase, appContainer.appDatabase
-                        )) {
-                            is UserMigrationHelper.MigrationResult.Error -> {
-                                migrationError = result.message
-                                migrationState = MigrationUiState.Failed
-                            }
-                            else -> migrationState = MigrationUiState.Ready
-                        }
-                    }
-
                     val settingsViewModel: SettingsViewModel = viewModel(
                         factory = SettingsViewModel.Factory(prefRepo, catalogRepo, applicationContext)
                     )
@@ -157,45 +113,14 @@ class MainActivity : ComponentActivity() {
                         factory = MainViewModel.Factory(catalogRepo, collectionRepo, priceRepo, syncRepo, prefRepo)
                     )
 
-                    when (migrationState) {
-                        MigrationUiState.Running -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            CircularProgressIndicator()
-                        }
-                        MigrationUiState.Failed -> AlertDialog(
-                            onDismissRequest = {},
-                            title = {
-                                Text(
-                                    stringResource(R.string.ui_sammlung_konnte_nicht_bernommen_werd_74969d),
-                                    modifier = Modifier.semantics { heading() }
-                                )
-                            },
-                            text = { Text(stringResource(R.string.ui_migration_blocked_error, migrationError)) },
-                            confirmButton = {
-                                Button(onClick = { migrationAttempt++ }) { Text(stringResource(R.string.ui_erneut_versuchen_3234b7)) }
-                            },
-                            dismissButton = {
-                                Button(onClick = { legacyExportLauncher.launch("tcg-legacy-export.csv") }) { Text(stringResource(R.string.ui_legacy_export_3c790d)) }
-                            }
-                        )
-                        MigrationUiState.Ready -> {
                     if (showAboutDialog) {
                         AboutAndSourcesDialog(onDismiss = { showAboutDialog = false })
                     }
 
                     LaunchedEffect(Unit) {
+                        // Catalog and prices refresh daily at 03:00; only Wi-Fi-only is a choice.
                         val wifi = prefRepo.wifiOnlyFlow.first()
-                        val hour = prefRepo.scheduledUpdateHourFlow.first()
-                        UpdateScheduler.schedulePeriodicSync(applicationContext, wifi, hour)
-                    }
-
-                    LaunchedEffect(Unit) {
-                        collectionRepo.getWishlist().collect { list ->
-                            wishlist = list
-                            val ids = list.map { it.cardId }
-                            // Always reassign so an emptied wishlist cannot leave stale cards
-                            // behind; batched lookups stay below SQLite's parameter limit.
-                            cardMap = catalogRepo.getCardsByIdsBatched(ids).associateBy { it.id }
-                        }
+                        UpdateScheduler.schedulePeriodicSync(applicationContext, wifi)
                     }
 
                     NavHost(
@@ -237,7 +162,7 @@ class MainActivity : ComponentActivity() {
                                     wishlistCardIds = wishlistCardIds,
                                     totalPrice = totalPrice,
                                     onBackClick = { navController.popBackStack() },
-                                    onSelectPrimary = { card -> pokemonDetailViewModel.setPrimaryCard(card) },
+                                    onSelectPrimary = { card, category -> pokemonDetailViewModel.setPrimaryCard(card, category) },
                                     onRemovePrimary = { pokemonDetailViewModel.removePrimaryCard() },
                                     onAddSecondary = { card, category ->
                                         pokemonDetailViewModel.addSecondaryCard(card, category)
@@ -296,19 +221,11 @@ class MainActivity : ComponentActivity() {
                         }
 
                         composable("wishlist") {
+                            val wishlistViewModel: WishlistViewModel = viewModel(
+                                factory = WishlistViewModel.Factory(catalogRepo, collectionRepo, prefRepo)
+                            )
                             WishlistScreen(
-                                wishlist = wishlist,
-                                cardMap = cardMap,
-                                onRemoveWish = { cardId ->
-                                    scope.launch {
-                                        collectionRepo.removeFromWishlist(cardId)
-                                    }
-                                },
-                                onUpdateWish = { wish ->
-                                    scope.launch {
-                                        collectionRepo.addToWishlist(wish)
-                                    }
-                                },
+                                viewModel = wishlistViewModel,
                                 onBackClick = { navController.popBackStack() }
                             )
                         }
@@ -471,12 +388,8 @@ class MainActivity : ComponentActivity() {
                             }
                         )
                     }
-                        }
-                    }
                 }
             }
         }
     }
-
-    private enum class MigrationUiState { Running, Ready, Failed }
 }

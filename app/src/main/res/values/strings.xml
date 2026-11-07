@@ -3,25 +3,12 @@
     <string name="app_name">TCG Sammlung</string>
 
     <!-- Common Buttons & Dialogs -->
-    <string name="btn_save">Speichern</string>
-    <string name="btn_cancel">Abbrechen</string>
     <string name="btn_ok">OK</string>
-    <string name="btn_close">Schließen</string>
     <string name="btn_back">Zurück</string>
     <string name="common_dialog_notice">Hinweis</string>
 
     <!-- Main Screen -->
-    <string name="main_title">TCG Sammlung</string>
-    <string name="main_search_hint">Pokémon suchen …</string>
-    <string name="main_search_desc">Suchen</string>
-    <string name="main_scanner_desc">Kartenscanner</string>
-    <string name="main_wishlist_desc">Wunschliste</string>
-    <string name="main_sets_desc">Set-Fortschritt</string>
-    <string name="main_settings_desc">Einstellungen</string>
     <string name="main_collection_value_title">Gesamtwert deiner Sammlung</string>
-    <string name="main_total_cards">Gesammelte Karten: %1$d</string>
-    <string name="main_cards_without_price">Ohne Marktpreis: %1$d</string>
-    <string name="main_filter_all">Alle</string>
     <string name="main_filter_common">Common</string>
     <string name="main_filter_fullart">Full Art</string>
     <string name="main_filter_none">Ohne Kategorie</string>
@@ -30,13 +17,10 @@
     <string name="settings_section_update">Aktualisierung</string>
     <string name="settings_wifi_only">Updates nur im WLAN</string>
     <string name="settings_wifi_only_desc">Spart mobile Daten beim Katalog-Sync</string>
-    <string name="settings_update_time_title">Tägliche Update-Uhrzeit:</string>
-    <string name="settings_update_time_value">Frühestens um %1$02d:00 Uhr</string>
+    <string name="settings_update_time_fixed">Katalog und Preise werden täglich um 03:00 Uhr aktualisiert.</string>
     <string name="settings_btn_update_now">Jetzt aktualisieren</string>
     <string name="settings_section_display">Anzeige &amp; Katalog</string>
     <string name="settings_language">Bevorzugte Katalogsprache:</string>
-    <string name="settings_lang_de">Deutsch</string>
-    <string name="settings_lang_en">Englisch</string>
     <string name="settings_currency_source">Währung &amp; Quelle: Euro (Cardmarket)</string>
     <string name="settings_section_backup">Sammlung sichern</string>
     <string name="settings_export_json">Sammlung exportieren (JSON)</string>
@@ -47,17 +31,7 @@
     <string name="settings_about">Über TCG Sammlung &amp; Quellen</string>
 
     <!-- Export & Import -->
-    <string name="import_dialog_title">Sammlung importieren – Vorschau</string>
-    <string name="import_dialog_total_read">Gelesene Datensätze: %1$d</string>
-    <string name="import_dialog_new">• neu: %1$d</string>
-    <string name="import_dialog_existing">• bereits vorhanden: %1$d</string>
-    <string name="import_dialog_unknown">• nicht im Katalog: %1$d</string>
     <string name="import_dialog_summary">neu: %1$d · bereits vorhanden: %2$d · nicht im Katalog: %3$d</string>
-    <string name="import_dialog_strategy_title">Import-Strategie wählen:</string>
-    <string name="import_strategy_skip">Nur Neues hinzufügen</string>
-    <string name="import_strategy_overwrite">Vorhandene überschreiben</string>
-    <string name="import_strategy_merge">Vorhandene zusammenführen (Anzahl addieren)</string>
-    <string name="import_btn_start">Import starten</string>
     <string name="export_msg_nothing">Nichts zu exportieren</string>
     <string name="export_msg_exported">%1$d Einträge exportiert</string>
     <string name="export_msg_failed">Export fehlgeschlagen</string>
@@ -66,49 +40,19 @@
     <string name="import_msg_failed">Import fehlgeschlagen</string>
 
     <!-- Detail Screen -->
-    <string name="detail_value_title">Wert der ausgewählten Karten</string>
-    <string name="detail_value_sub">Lieblingskarte und alle weiteren Karten</string>
-    <string name="detail_category_title">Kategorie für die Übersicht</string>
     <string name="detail_category_requires_primary">Wähle zuerst eine Lieblingskarte</string>
-    <string name="title_favorite_card">Lieblingskarte</string>
-    <string name="title_other_cards">Weitere Karten</string>
-    <string name="detail_btn_select">Auswählen</string>
-    <string name="detail_primary_none">Noch keine Lieblingskarte ausgewählt.</string>
-    <string name="detail_btn_manage">Verwalten</string>
-    <string name="detail_secondary_none">Noch keine weiteren Karten ausgewählt.</string>
-    <string name="detail_btn_deselect">Abwählen</string>
-    <string name="detail_btn_remove">Entfernen</string>
+    <string name="category_dialog_title">%1$s einordnen</string>
+    <string name="category_dialog_description">Leg fest, ob deine Lieblingskarte ein Full Art oder eine Common ist. Das steuert die Filter im Hauptbildschirm.</string>
+    <string name="category_dialog_card">%1$s · %2$s (#%3$s)</string>
+    <string name="category_dialog_option_common">Common</string>
+    <string name="category_dialog_option_fullart">Full Art</string>
+    <string name="category_dialog_option_none">Ohne Kategorie</string>
     <string name="detail_wishlist_add">Zur Wunschliste hinzufügen: %1$s</string>
     <string name="detail_wishlist_remove">Von der Wunschliste entfernen: %1$s</string>
 
-    <!-- Wishlist -->
-    <string name="wishlist_title">Meine Wunschliste (%1$d)</string>
-    <string name="wishlist_empty">Deine Wunschliste ist leer.</string>
-    <string name="wishlist_sort_added">Zuletzt hinzugefügt</string>
-    <string name="wishlist_sort_price">Preis aufsteigend</string>
-    <string name="wishlist_sort_reached">Ziel erreicht zuerst</string>
-    <string name="wishlist_target_title">Zielpreis festlegen</string>
-    <string name="wishlist_target_label">Zielpreis in € (leer = kein Ziel)</string>
-    <string name="wishlist_notes_title">Notiz bearbeiten</string>
-    <string name="wishlist_chip_target">Zielpreis</string>
-    <string name="wishlist_chip_notes">Notiz</string>
-    <string name="wishlist_chip_reached">Ziel erreicht</string>
-    <string name="wishlist_msg_removed">Entfernt</string>
-    <string name="wishlist_action_undo">Rückgängig</string>
-
     <!-- Set Progress -->
-    <string name="sets_title">Set-Fortschritt</string>
-    <string name="sets_empty">Keine Erweiterungen vorhanden.</string>
-    <string name="sets_all_languages">Alle Sprachen</string>
-    <string name="sets_sort_progress">Fortschritt absteigend</string>
-    <string name="sets_sort_date">Erscheinungsdatum (neueste zuerst)</string>
-    <string name="sets_sort_name">Set-Name</string>
-    <string name="sets_catalog_incomplete">Katalog unvollständig</string>
 
     <!-- Release Calendar -->
-    <string name="calendar_title">Veröffentlichungskalender</string>
-    <string name="calendar_empty">Keine Erweiterungen im Kalender vorhanden.</string>
-    <string name="calendar_btn_reminder">Erinnerung</string>
     <string name="ui_coming_releases">Kommende Releases</string>
     <string name="ui_coming_releases_hint">Zukünftige Erweiterungen aus deinem Katalog. Du kannst direkt eine Erinnerung anlegen.</string>
 
@@ -126,27 +70,11 @@
     <string name="scanner_placeholder">Halte eine Karte vor die Kamera …</string>
 
     <!-- Diagnostics -->
-    <string name="diag_title">Diagnose &amp; Daten-Check</string>
-    <string name="diag_summary_title">System-Übersicht &amp; Kennzahlen</string>
-    <string name="diag_integrity_title">Integritätsprüfung</string>
-    <string name="diag_integrity_desc">Prüft die physikalische Datenbankstruktur und erkennt unzugeordnete Sammlungszeilen.</string>
-    <string name="diag_btn_check">Jetzt prüfen</string>
-    <string name="diag_checking">Prüfung läuft …</string>
-    <string name="diag_sources_title">Quellenbericht</string>
-    <string name="diag_sources_desc">Status und Vollständigkeit der Datenquellen.</string>
-    <string name="diag_sources_empty">Noch kein Quellenbericht vorhanden.</string>
     <string name="diag_catalog_update_requires_app_update">Katalog-Update benötigt App-Update (Manifest-Schema %1$d, App-Schema %2$d).</string>
     <string name="diag_catalog_version">Installierte Katalogversion: %1$s</string>
-    <string name="btn_share_log">Diagnose-Log teilen</string>
-
-    <!-- About Dialog -->
-    <string name="about_title">Über TCG Sammlung &amp; Quellen</string>
-    <string name="about_desc">TCG Sammlung ist eine inoffizielle, nicht-kommerzielle Android-App zur Verwaltung persönlicher Pokémon TCG Sammelkarten.</string>
-    <string name="about_sources_title">Datenquellen &amp; Urheberrechte:</string>
-    <string name="about_disclaimer_title">Haftungsausschluss:</string>
-    <string name="about_disclaimer">Pokémon und Pokémon TCG sind eingetragene Warenzeichen von Nintendo, Creatures Inc. und GAME FREAK. Diese Anwendung steht in keiner Verbindung zu Nintendo oder The Pokémon Company.</string>
 
     <!-- Price alerts -->
+    <string name="settings_notifications_title">Benachrichtigungen</string>
     <string name="settings_price_alerts_title">Preisalarm</string>
     <string name="settings_price_alerts_desc">Eine Sammelbenachrichtigung bei größeren Preisänderungen deiner Sammlung und Wunschliste.</string>
     <string name="settings_price_alerts_enabled">Preisalarm aktivieren</string>
@@ -165,13 +93,22 @@
     <string name="price_alert_entry">%1$s %2$s%3$.1f%%</string>
     <string name="price_alert_more">%1$s … und %2$d weitere</string>
 
-    <string name="generation_hidden_chip">%1$d Generationen ausgeblendet · Anzeigen</string>
-    <string name="generation_hidden_search_matches">%1$d Treffer in ausgeblendeten Generationen · Anzeigen</string>
-    <string name="generation_total_value_hidden_hint">Gesamtwert inklusive ausgeblendeter Generationen</string>
+    <!-- Daily price report -->
+    <string name="settings_daily_report_title">Täglicher Preisbericht</string>
+    <string name="settings_daily_report_desc">Fasst jeden Morgen um 03:00 Uhr zusammen, ob sich Kartenwerte deiner Sammlung geändert haben.</string>
+    <string name="settings_daily_report_enabled">Täglichen Preisbericht senden</string>
+    <string name="daily_report_channel_name">Täglicher Preisbericht</string>
+    <string name="daily_report_channel_description">Einmal täglich: haben sich die Werte deiner Karten geändert?</string>
+    <string name="daily_report_title_unchanged">Keine Preisänderungen in den letzten 24 Stunden</string>
+    <plurals name="daily_report_title_changed">
+        <item quantity="one">Preisänderung bei %1$d Karte</item>
+        <item quantity="other">Preisänderungen bei %1$d Karten</item>
+    </plurals>
+    <string name="daily_report_value_line">Sammlungswert %1$s · %2$s</string>
+    <string name="daily_report_value_change">%1$s%2$.1f %%</string>
+    <string name="daily_report_value_unchanged">unverändert</string>
+
     <string name="generation_collected_progress">%1$d/%2$d gesammelt</string>
-    <string name="generation_show_hide_content_description">Generationen einblenden oder ausblenden</string>
-    <string name="generation_empty_all_hidden">Alle Generationen sind ausgeblendet.</string>
-    <string name="generation_show_all">Alle einblenden</string>
     <string name="generation_no_pokemon_found">Keine Pokémon gefunden</string>
     <string name="catalog_empty_title">Kartenkatalog fehlt</string>
     <string name="catalog_empty_description">Der Kartenkatalog ist noch nicht geladen. Der vollständige Katalog ist mehrere hundert MB groß. Zum Herunterladen wird eine WLAN-Verbindung empfohlen.</string>
@@ -200,17 +137,9 @@
     <string name="catalog_manager_app_update_hint">Der verfügbare Katalog benötigt eine neuere App-Version.</string>
     <string name="catalog_manager_update_now">Jetzt aktualisieren</string>
     <string name="catalog_manager_wifi_hint">Der vollständige Katalog ist mehrere hundert MB groß. Für den Download wird eine WLAN-Verbindung empfohlen.</string>
-    <string name="generation_hide_dialog_title">Generationen ausblenden</string>
-    <string name="generation_hide_dialog_description">Ausgeblendete Generationen werden im Pokédex, in der Suche und in den Fortschrittszählern ausgeblendet.</string>
-    <string name="generation_dex_range">Dex #%1$s – #%2$s</string>
-    <string name="generation_apply">Anwenden</string>
-    <string name="generation_favorite_card_description">Lieblingskarte von %1$s</string>
 
 
     <!-- UI strings extracted in P4-19 -->
-    <string name="ui_sammlung_konnte_nicht_bernommen_werd_74969d">Sammlung konnte nicht übernommen werden</string>
-    <string name="ui_erneut_versuchen_3234b7">Erneut versuchen</string>
-    <string name="ui_legacy_export_3c790d">Legacy-Export</string>
     <string name="ui_prim_rkarte_ausw_hlen_672838">Lieblingskarte auswählen</string>
     <string name="ui_karte_oder_set_suchen_dc3b5f">Karte oder Set suchen</string>
     <string name="ui_name_set_nummer_sprache_058f1e">Name, Set, Nummer, Sprache …</string>
@@ -290,14 +219,10 @@
     <string name="ui_gesammelte_karten_be34ab">Gesammelte Karten</string>
     <string name="ui_karten_ohne_marktpreis_a57cf0">Karten ohne Marktpreis</string>
     <string name="ui_historische_datenpunkte_6c563a">Historische Datenpunkte</string>
-    <string name="ui_migration_blocked_error">Die App bleibt gesperrt, damit keine leere Sammlung angezeigt oder gespeichert wird. Fehler: %1$s</string>
     <string name="ui_card_number_rarity">Nr. %1$s - %2$s</string>
     <string name="ui_card_set_number">Set: %1$s (%2$s)</string>
-    <string name="ui_quantity_number">%1$d</string>
     <string name="ui_total_cards_short">%1$d Stk.</string>
     <string name="ui_read_records">Gelesene Datensätze: %1$d</string>
-    <string name="ui_existing_cards_count">• bereits vorhanden: %1$d</string>
-    <string name="ui_unknown_cards_count">• nicht im Katalog: %1$d</string>
     <string name="ui_diag_sets_count">• Sets im Katalog: %1$d</string>
     <string name="ui_diag_pokemon_count">• Pokémon im Pokédex: %1$d</string>
     <string name="ui_diag_catalog_cards">• Geladene Katalogkarten: %1$d</string>
@@ -310,7 +235,6 @@
     <string name="ui_diag_price_history_count">• Preishistorie-Punkte: %1$d</string>
     <string name="ui_diag_cards_by_language">• Karten je Sprache: %1$s</string>
     <string name="ui_diag_db_versions">• Datenbankversionen: Katalog v%1$d, Sammlung v%2$d</string>
-    <string name="ui_diag_migration_status">• Legacy-Migration: %1$s</string>
     <string name="ui_diag_last_update">• Letztes Update: %1$s</string>
     <string name="ui_diag_last_source_check">• Letzter Quellencheck: %1$s</string>
     <string name="ui_audit_checked_at">Geprüft am: %1$s</string>
@@ -324,6 +248,23 @@
     <string name="ui_set_card_counts">Kartenanzahl: %1$d (Gesamt: %2$d)</string>
     <string name="ui_wishlist_title_count">Meine Wunschliste (%1$d)</string>
     <string name="ui_wishlist_note">Notiz: %1$s</string>
+    <string name="wishlist_tab_list">Meine Liste</string>
+    <string name="wishlist_tab_database">Datenbank</string>
+    <string name="wishlist_empty_hint_database">Über den Reiter „Datenbank“ findest du Karten im Katalog und fügst sie direkt hinzu.</string>
+    <string name="wishlist_search_clear_filters">Filter zurücksetzen</string>
+    <string name="wishlist_search_field_label">Katalog durchsuchen</string>
+    <string name="wishlist_search_max_price_label">Maximalpreis in €</string>
+    <string name="wishlist_search_max_price_hint">Nur Karten mit Marktpreis bis zu diesem Wert. Leer lassen für alle Preise.</string>
+    <string name="wishlist_search_rarity_title">Seltenheit (Mehrfachauswahl)</string>
+    <string name="wishlist_search_rarity_clear">Auswahl löschen</string>
+    <string name="wishlist_search_result_count">%1$d Karten gefunden</string>
+    <string name="wishlist_search_excluded_fullart">%1$d Pokémon ausgeblendet, weil sie bereits als Full Art markiert sind</string>
+    <string name="wishlist_search_no_results">Keine Karten für diese Filter gefunden.</string>
+    <string name="wishlist_search_catalog_empty">Der Katalog ist noch leer. Lade zuerst den Katalog, um ihn zu durchsuchen.</string>
+    <string name="wishlist_search_group_without_pokedex">Ohne Pokédex-Nummer</string>
+    <string name="wishlist_search_pokemon_header">#%1$d %2$s</string>
+    <string name="wishlist_search_add_card">%1$s zur Wunschliste hinzufügen</string>
+    <string name="wishlist_search_remove_card">%1$s aus der Wunschliste entfernen</string>
     <string name="ui_generation_title_region">%1$s · %2$s</string>
     <string name="ui_pokemon_number">#%1$s</string>
     <string name="ui_price_history_count">%1$d</string>
@@ -331,7 +272,6 @@
     <string name="ui_card_id_description">Karte %1$s</string>
     <string name="ui_set_symbol_description">Set-Symbol: %1$s</string>
     <string name="ui_primary_card_description">Lieblingskarte: %1$s, Nr. %2$s, %3$s</string>
-    <string name="ui_pokemon_card_description">%1$s, Nr. %2$s, %3$s</string>
     <string name="ui_keine_oder_noch_ohne_">Keine</string>
     <string name="ui_keine_karten">keine Karten</string>
     <string name="ui_set_series">Reihe: %1$s</string>
@@ -340,14 +280,10 @@
     <string name="ui_icon_primary_card">Lieblingskarte</string>
     <string name="ui_icon_remove">Entfernen</string>
     <string name="ui_icon_search">Suchen</string>
-    <string name="ui_icon_filter">Filter öffnen</string>
     <string name="ui_icon_settings">Einstellungen</string>
     <string name="ui_icon_back">Zurück</string>
-    <string name="ui_icon_deselect">Abwählen</string>
     <string name="ui_icon_clear">Löschen</string>
     <string name="ui_icon_sort">Sortieren</string>
-    <string name="ui_icon_favorite">Favoritenkarte</string>
-    <string name="ui_icon_add_card">Karte hinzufügen</string>
     <string name="ui_icon_scanner">Kartenscanner</string>
     <string name="ui_icon_wishlist">Wunschliste</string>
     <string name="ui_icon_sets">Set-Fortschritt</string>
@@ -357,7 +293,6 @@
         <item quantity="one">%d Karte</item>
         <item quantity="other">%d Karten</item>
     </plurals>
-    <string name="ui_price_development_title">Preisentwicklung deiner Sammlung</string>
     <string name="ui_current_total_value">Aktueller Gesamtwert</string>
     <string name="ui_collection_statistics">Sammlungs-Statistik</string>
     <string name="ui_collection_value_chart_description">Wert deiner heutigen Sammlung zu damaligen Preisen</string>
@@ -397,7 +332,6 @@
     <string name="ui_diagnostic_running">Prüfung läuft …</string>
     <string name="ui_diagnostic_run_now">Jetzt prüfen</string>
     <string name="ui_never">Noch nie</string>
-    <string name="ui_release_date_label">Erscheinungsdatum: %1$s</string>
     <string name="ui_set_catalog_count">Katalog: %1$d</string>
     <string name="ui_wishlist_target_price">Zielpreis: %1$s</string>
     <string name="ui_wishlist_removed">Entfernt</string>
@@ -436,17 +370,12 @@
     <string name="ui_calendar_unavailable">Keine Kalender-App verfügbar. Bitte installiere oder aktiviere eine Kalender-App.</string>
     <string name="ui_calendar_event_title">Pokémon TCG Release: %1$s</string>
     <string name="ui_calendar_event_description">Erweiterung %1$s (%2$s) erscheint heute.</string>
-    <string name="ui_legacy_export_created">Legacy-Export erstellt</string>
     <string name="ui_export_failed">Export fehlgeschlagen: %1$s</string>
-    <string name="ui_legacy_export_failed">Legacy-Export fehlgeschlagen: %1$s</string>
-    <string name="ui_detected_card_number">Erkannt: %1$s</string>
     <string name="ui_file_open_error">Datei konnte nicht geöffnet werden</string>
     <string name="ui_settings_export_error_json">Export-Fehler (JSON): %1$s</string>
     <string name="ui_settings_export_error_csv">Export-Fehler (CSV): %1$s</string>
     <string name="ui_settings_import_error">Import-Fehler: %1$s</string>
     <string name="ui_settings_import_execution_error">Import Execution Error: %1$s</string>
-    <string name="ui_target_price_label">Zielpreis: %1$s</string>
-    <string name="ui_set_progress_catalog">Katalog: %1$d</string>
     <string name="ui_filter_all">Alle</string>
     <string name="ui_filter_no_category">Ohne Kategorie</string>
     <string name="ui_quantity_decrease">Anzahl verringern</string>
@@ -454,7 +383,6 @@
     <string name="ui_remove_card_named">Karte %1$s entfernen</string>
     <string name="ui_remove_primary_card_named">Lieblingskarte %1$s entfernen</string>
     <string name="ui_remove_secondary_card_named">Weitere Karte %1$s entfernen</string>
-    <string name="ui_import_new_cards_count">• neu: %1$d</string>
     <string name="ui_set_progress_count">%1$d / %2$d</string>
     <string name="ui_scanner_matches_title">Gefundene Karten</string>
     <string name="ui_scanner_card_candidate">%1$s · Nr. %2$s · %3$s</string>
@@ -472,14 +400,9 @@
     <!-- T13: user-visible texts moved out of Kotlin sources -->
     <string name="diag_integrity_ok">✓ Beide Datenbanken sind intakt. Unzugeordnet: %1$d</string>
     <string name="diag_integrity_failed">⚠ Integritätsprüfung meldet Fehler!</string>
-    <string name="diag_migration_done">Abgeschlossen</string>
-    <string name="diag_migration_pending">Nicht bestätigt</string>
-    <string name="diag_migration_unknown">Unbekannt</string>
     <string name="diag_language_unknown">unbekannt</string>
 
     <!-- T14: accessibility state descriptions -->
-    <string name="a11y_state_visible">sichtbar</string>
-    <string name="a11y_state_hidden">ausgeblendet</string>
     <string name="a11y_state_collapsed">eingeklappt</string>
     <string name="a11y_state_expanded">ausgeklappt</string>
     <string name="a11y_state_on">aktiviert</string>
@@ -494,11 +417,6 @@
     </plurals>
     <string name="log_share_chooser">Log teilen</string>
 
-    <string name="migration_error_duplicate_pairs">Legacy-Daten enthalten doppelte (cardId, pokemonId)-Paare. Es wurde nichts migriert; bitte Legacy-Export sichern.</string>
-    <string name="migration_error_verification">Verifikation fehlgeschlagen: Legacy-Zeilen=%1$d, Zielzeilen=%2$d, Paare=%3$d/%4$d</string>
-    <string name="migration_error_unknown">Unbekannter Migrationsfehler</string>
-    <string name="migration_error_no_legacy_db">Keine Legacy-Datenbank gefunden</string>
-    <string name="migration_error_detail">Migration fehlgeschlagen: %1$s</string>
 
     <string name="import_error_invalid_format">Ungültiges Dateiformat</string>
     <string name="import_error_newer_version">Datei stammt aus einer neueren App-Version</string>

@@ -14,8 +14,7 @@ data class GenerationSection(
 fun groupPokemonByGeneration(
     catalogPokemon: List<PokemonEntity>,
     displayedPokemon: List<PokemonEntity>,
-    userCards: List<UserCardEntityV2>,
-    hiddenGenerations: Set<Int>
+    userCards: List<UserCardEntityV2>
 ): List<GenerationSection> {
     // Rows imported from a backup used to carry an empty pokemonId; falling back to the
     // Pokédex id keeps those collections counted instead of showing "0 gesammelt".
@@ -26,22 +25,19 @@ fun groupPokemonByGeneration(
         .filter { it.isNotBlank() }
         .toSet()
     val catalogByGeneration = catalogPokemon.asSequence()
-        .filter { GenerationModel.generationOf(it.dexId) !in hiddenGenerations }
         .groupBy { GenerationModel.generationOf(it.dexId) }
     val displayedByGeneration = displayedPokemon.asSequence()
-        .filter { GenerationModel.generationOf(it.dexId) !in hiddenGenerations }
         .groupBy { GenerationModel.generationOf(it.dexId) }
-    return catalogByGeneration.toSortedMap().filter { (generationId, _) -> displayedByGeneration[generationId].orEmpty().isNotEmpty() }.map { (generationId, allMembers) ->
-        val displayed = displayedByGeneration[generationId].orEmpty()
-            .sortedWith(compareBy<PokemonEntity> { it.dexId }.thenBy { it.id })
-        GenerationSection(
-            generationId = generationId,
-            pokemon = displayed,
-            collectedCount = allMembers.count { it.id in collectedPokemonIds },
-            totalCount = allMembers.size
-        )
-    }
+    return catalogByGeneration.toSortedMap()
+        .filter { (generationId, _) -> displayedByGeneration[generationId].orEmpty().isNotEmpty() }
+        .map { (generationId, allMembers) ->
+            val displayed = displayedByGeneration[generationId].orEmpty()
+                .sortedWith(compareBy<PokemonEntity> { it.dexId }.thenBy { it.id })
+            GenerationSection(
+                generationId = generationId,
+                pokemon = displayed,
+                collectedCount = allMembers.count { it.id in collectedPokemonIds },
+                totalCount = allMembers.size
+            )
+        }
 }
-
-fun countHiddenGenerationMatches(pokemon: List<PokemonEntity>, hiddenGenerations: Set<Int>): Int =
-    pokemon.count { GenerationModel.generationOf(it.dexId) in hiddenGenerations }
