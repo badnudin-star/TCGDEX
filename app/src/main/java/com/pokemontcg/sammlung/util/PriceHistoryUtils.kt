@@ -4,6 +4,14 @@ import com.pokemontcg.sammlung.data.local.user.PriceHistoryEntity
 import com.pokemontcg.sammlung.ui.components.ValuePoint
 import kotlin.math.ceil
 
+/**
+ * Daily collection value for the chart: for every day the last known price of each card is carried
+ * forward, so gaps between measurements stay flat instead of dropping to zero.
+ *
+ * Days before the first measurement of any card are **not** emitted. Back then nothing was
+ * measured, and filling those days with the earliest known price used to fake a longer, flatter
+ * history than the data supports.
+ */
 fun buildValueSeries(
     history: List<PriceHistoryEntity>,
     quantities: Map<String, Int>,
@@ -25,18 +33,26 @@ fun buildValueSeries(
     for (dayIndex in (effectiveDays - 1) downTo 0) {
         val dayEndTs = now - (dayIndex * msPerDay)
         var dayTotal = 0.0
+        var measured = false
 
         for ((cardId, qty) in quantities) {
             val cardHistory = historyByCard[cardId] ?: continue
+            // Only measurements taken at or before this day count. A card that was first recorded
+            // later contributes nothing here; it must not be projected backwards, because that
+            // invents a value for a day nobody ever measured (bug review 2026-11-07, finding E).
             val pointBeforeDay = cardHistory.filter { it.timestamp <= dayEndTs }.maxByOrNull { it.timestamp }
-                ?: cardHistory.minByOrNull { it.timestamp }
 
             if (pointBeforeDay != null) {
                 dayTotal += pointBeforeDay.marketPrice * qty
+                measured = true
             }
         }
 
-        points.add(ValuePoint(timestamp = dayEndTs, totalValue = dayTotal))
+        // Days before the very first measurement are left out instead of being padded. The chart
+        // plots its points by index, so a shorter series simply starts at the first real value.
+        if (measured) {
+            points.add(ValuePoint(timestamp = dayEndTs, totalValue = dayTotal))
+        }
     }
 
     return points

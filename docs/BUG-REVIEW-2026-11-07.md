@@ -236,6 +236,13 @@ Sammlung bleibt erhalten. Keine Änderung nötig.
   Legacy-Bereinigung gelöscht. Die Prüfung war korrekt, betrifft aber keinen Code mehr.
 - Befund **8** (offener Rest) ist erledigt: Der Wishlist-State inklusive `collect`-Aufruf ist aus
   `MainActivity` in ein `WishlistViewModel` gewandert.
-- Weiter offen: Befund **E** (`PriceHistoryUtils.buildValueSeries` schreibt den ersten Messpunkt
-  rückwärts fort).
+- Befund **E** ist behoben: `buildValueSeries` projiziert den frühesten Messpunkt nicht mehr auf
+  Tage vor der ersten Messung. Karten, die später dazukamen, tragen erst ab ihrem ersten Messpunkt
+  bei, und Tage ohne jede Messung entfallen ganz, statt mit einem erfundenen Wert gefüllt zu werden.
+  Der Chart zeichnet seine Punkte nach Index, eine kürzere Serie beginnt also einfach beim ersten
+  echten Wert. Ein einzelner Messpunkt ergibt jetzt einen Punkt — der Chart meldet dann „zu wenig
+  Daten“ statt einer flachen Linie über den ganzen Zeitraum.
+  `PriceHistoryAndAlertTest` hat den alten Fallback in `testBuildValueSeriesNewCardUsesFirstPriceBeforeFirstPoint`
+  sogar festgeschrieben; der Test ist durch `…DoesNotProjectTheFirstPriceBackwards`,
+  `…DropsDaysBeforeTheFirstMeasurement` und `…SingleMeasurementIsOnePointNotAFakeLine` ersetzt.
 
