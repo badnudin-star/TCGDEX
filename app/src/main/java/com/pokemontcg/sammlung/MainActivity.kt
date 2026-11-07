@@ -192,10 +192,9 @@ class MainActivity : ComponentActivity() {
                         collectionRepo.getWishlist().collect { list ->
                             wishlist = list
                             val ids = list.map { it.cardId }
-                            if (ids.isNotEmpty()) {
-                                val cards = catalogRepo.getCardsByIds(ids)
-                                cardMap = cards.associateBy { it.id }
-                            }
+                            // Always reassign so an emptied wishlist cannot leave stale cards
+                            // behind; batched lookups stay below SQLite's parameter limit.
+                            cardMap = catalogRepo.getCardsByIdsBatched(ids).associateBy { it.id }
                         }
                     }
 

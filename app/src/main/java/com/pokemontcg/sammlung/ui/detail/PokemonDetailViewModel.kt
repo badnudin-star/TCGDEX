@@ -130,7 +130,13 @@ class PokemonDetailViewModel(
 
     fun addSecondaryCard(card: CardEntity, category: CardCategory) {
         viewModelScope.launch {
-            collectionRepository.addSecondaryCard(card.id, pokemonIdStr, category)
+            // Keep the language of the selected card instead of hard-coding German.
+            collectionRepository.addSecondaryCard(
+                cardId = card.id,
+                pokemonId = pokemonIdStr,
+                category = category,
+                language = card.language
+            )
         }
     }
 

@@ -44,12 +44,15 @@ tools/catalog-builder/catalog-progress.json
 tools/catalog-builder/.catalog-build-*/
 tools/catalog-builder/.catalog-publish-*
 
-# ----- Datenbank-Dateien (gross), ausser dem kleinen Test-Fixture -----
+# ----- Datenbank-Dateien (gross), ausser Test-Fixture und Start-Katalog -----
+# Der Start-Katalog wird von tools/catalog-builder/make_start_catalog.py erzeugt und
+# ist das einzige SQLite-Asset, das die App im APK braucht (Offline-Erststart).
 *.sqlite
 *.sqlite-journal
 *.sqlite-wal
 *.sqlite-shm
 !app/src/androidTest/assets/*.sqlite
+!app/src/main/assets/start_catalog.sqlite
 
 # ----- System- und Log-Dateien -----
 .DS_Store
