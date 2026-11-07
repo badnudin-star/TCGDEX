@@ -25,15 +25,16 @@ class AppPreferencesRepository(
 
     companion object {
         val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only_updates")
-        val KEY_UPDATE_HOUR = intPreferencesKey("scheduled_update_hour")
         val KEY_PREFERRED_LANGUAGE = stringPreferencesKey("preferred_language")
         val KEY_CURRENCY_SOURCE = stringPreferencesKey("currency_source")
-        val KEY_HIDDEN_GENERATIONS = stringSetPreferencesKey("hidden_generations")
         val KEY_COLLAPSED_GENERATIONS = stringSetPreferencesKey("collapsed_generations")
         val KEY_PRICE_ALERTS_ENABLED = booleanPreferencesKey("price_alerts_enabled")
         val KEY_PRICE_ALERT_THRESHOLD = intPreferencesKey("price_alert_threshold_percent")
         val KEY_PRICE_ALERT_WINDOW_DAYS = intPreferencesKey("price_alert_window_days")
         val KEY_PRICE_ALERT_LAST_TIMESTAMP = longPreferencesKey("price_alert_last_timestamp")
+        val KEY_DAILY_PRICE_REPORT_ENABLED = booleanPreferencesKey("daily_price_report_enabled")
+        val KEY_DAILY_PRICE_REPORT_LAST_TIMESTAMP =
+            longPreferencesKey("daily_price_report_last_timestamp")
         val KEY_LAST_DATA_CHECK_RESULT = stringPreferencesKey("last_data_check_result")
         val KEY_CATALOG_ETAG = stringPreferencesKey("catalog_etag")
         val KEY_CATALOG_INSTALLED_VERSION = stringPreferencesKey("catalog_installed_version")
@@ -49,20 +50,12 @@ class AppPreferencesRepository(
         prefs[KEY_WIFI_ONLY] ?: true
     }
 
-    val scheduledUpdateHourFlow: Flow<Int> = dataStore.data.map { prefs ->
-        prefs[KEY_UPDATE_HOUR] ?: 3
-    }
-
     val preferredLanguageFlow: Flow<String> = dataStore.data.map { prefs ->
         prefs[KEY_PREFERRED_LANGUAGE] ?: "de"
     }
 
     val currencySourceFlow: Flow<String> = dataStore.data.map { prefs ->
         prefs[KEY_CURRENCY_SOURCE] ?: "EUR_CARDMARKET"
-    }
-
-    val hiddenGenerationsFlow: Flow<Set<Int>> = dataStore.data.map { prefs ->
-        prefs[KEY_HIDDEN_GENERATIONS]?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
     }
 
     val collapsedGenerationsFlow: Flow<Set<Int>> = dataStore.data.map { prefs ->
@@ -123,15 +116,21 @@ class AppPreferencesRepository(
         prefs[KEY_PRICE_ALERT_LAST_TIMESTAMP] ?: 0L
     }
 
+    /**
+     * The nightly report is on by default: it answers "did any card value change?" once a day,
+     * independently from the threshold based price alerts.
+     */
+    val dailyPriceReportEnabledFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_DAILY_PRICE_REPORT_ENABLED] ?: true
+    }
+
+    val dailyPriceReportLastTimestampFlow: Flow<Long> = dataStore.data.map { prefs ->
+        prefs[KEY_DAILY_PRICE_REPORT_LAST_TIMESTAMP] ?: 0L
+    }
+
     suspend fun setWifiOnly(wifiOnly: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_WIFI_ONLY] = wifiOnly
-        }
-    }
-
-    suspend fun setScheduledUpdateHour(hour: Int) {
-        dataStore.edit { prefs ->
-            prefs[KEY_UPDATE_HOUR] = hour
         }
     }
 
@@ -144,12 +143,6 @@ class AppPreferencesRepository(
     suspend fun setCurrencySource(currencySource: String) {
         dataStore.edit { prefs ->
             prefs[KEY_CURRENCY_SOURCE] = currencySource
-        }
-    }
-
-    suspend fun setHiddenGenerations(hidden: Set<Int>) {
-        dataStore.edit { prefs ->
-            prefs[KEY_HIDDEN_GENERATIONS] = hidden.map { it.toString() }.toSet()
         }
     }
 
@@ -214,5 +207,13 @@ class AppPreferencesRepository(
 
     suspend fun setPriceAlertLastTimestamp(timestamp: Long) {
         dataStore.edit { it[KEY_PRICE_ALERT_LAST_TIMESTAMP] = timestamp.coerceAtLeast(0L) }
+    }
+
+    suspend fun setDailyPriceReportEnabled(enabled: Boolean) {
+        dataStore.edit { it[KEY_DAILY_PRICE_REPORT_ENABLED] = enabled }
+    }
+
+    suspend fun setDailyPriceReportLastTimestamp(timestamp: Long) {
+        dataStore.edit { it[KEY_DAILY_PRICE_REPORT_LAST_TIMESTAMP] = timestamp.coerceAtLeast(0L) }
     }
 }

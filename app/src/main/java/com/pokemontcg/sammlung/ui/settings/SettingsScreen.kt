@@ -273,13 +273,11 @@ fun SettingsScreen(
                             )
                         }
                         HorizontalDivider()
-                        Text(stringResource(R.string.settings_update_time_title), style = MaterialTheme.typography.titleSmall)
-                        Text(stringResource(R.string.settings_update_time_value, uiState.scheduledUpdateHour), style = MaterialTheme.typography.bodyMedium)
-                        Slider(
-                            value = uiState.scheduledUpdateHour.toFloat(),
-                            onValueChange = { viewModel.setScheduledUpdateHour(it.toInt()) },
-                            valueRange = 0f..23f,
-                            steps = 22
+                        // The nightly run is pinned to 03:00 so every device records its price
+                        // points in the same window; there is nothing to configure here.
+                        Text(
+                            stringResource(R.string.settings_update_time_fixed),
+                            style = MaterialTheme.typography.bodyMedium
                         )
                         Button(
                             onClick = onTriggerSync,
@@ -327,10 +325,41 @@ fun SettingsScreen(
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Text(
-                            stringResource(R.string.settings_price_alerts_title),
+                            stringResource(R.string.settings_notifications_title),
                             modifier = Modifier.semantics { heading() },
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.titleMedium
+                        )
+                        Text(
+                            stringResource(R.string.settings_daily_report_title),
+                            style = MaterialTheme.typography.titleSmall
+                        )
+                        Text(stringResource(R.string.settings_daily_report_desc), style = MaterialTheme.typography.bodySmall)
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                stringResource(R.string.settings_daily_report_enabled),
+                                modifier = Modifier.weight(1f)
+                            )
+                            Switch(
+                                checked = uiState.dailyPriceReportEnabled,
+                                onCheckedChange = viewModel::setDailyPriceReportEnabled,
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .semantics {
+                                        stateDescription = context.getString(
+                                            if (uiState.dailyPriceReportEnabled) R.string.a11y_state_on else R.string.a11y_state_off
+                                        )
+                                    }
+                            )
+                        }
+                        HorizontalDivider()
+                        Text(
+                            stringResource(R.string.settings_price_alerts_title),
+                            style = MaterialTheme.typography.titleSmall
                         )
                         Text(stringResource(R.string.settings_price_alerts_desc), style = MaterialTheme.typography.bodySmall)
                         Row(

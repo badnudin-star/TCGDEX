@@ -227,3 +227,15 @@ Sammlung bleibt erhalten. Keine Änderung nötig.
   ignoriert den Generationen-Filter) — weiterhin Produktentscheidung.
 - `start_catalog.sqlite` ist nicht eingecheckt; per `tools/catalog-builder/make_start_catalog.py`
   erzeugen (CI prüft nur, dass das Asset nicht ignoriert wird).
+
+### 5.4 Nachtrag (Feature-Runde 2026-11-07)
+
+- Befund **F** ist erledigt: Der Generationen-Filter ist auf Nutzerwunsch komplett entfernt, ein
+  Gesamtwert kann ihn also nicht mehr ignorieren (`docs/FEATURES-2026-11-07.md`).
+- Befund **3** ist überholt: `UserMigrationHelper.kt` und `UserMigrationTest.kt` sind im Zuge der
+  Legacy-Bereinigung gelöscht. Die Prüfung war korrekt, betrifft aber keinen Code mehr.
+- Befund **8** (offener Rest) ist erledigt: Der Wishlist-State inklusive `collect`-Aufruf ist aus
+  `MainActivity` in ein `WishlistViewModel` gewandert.
+- Weiter offen: Befund **E** (`PriceHistoryUtils.buildValueSeries` schreibt den ersten Messpunkt
+  rückwärts fort).
+

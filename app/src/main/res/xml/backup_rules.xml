@@ -1,17 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <full-backup-content>
-    <!-- Preserve the migrated user collection database and its SQLite sidecars. -->
+    <!-- The collection lives here: user_cards, price_history and wishlist. -->
     <include domain="database" path="user_database" />
     <include domain="database" path="user_database-wal" />
     <include domain="database" path="user_database-shm" />
 
-    <!-- Keep app preferences, including migration state. -->
+    <!-- Keep app preferences (DataStore mirrors and any SharedPreferences). -->
     <include domain="sharedpref" path="." />
 
     <!-- Preferences DataStore files live below files/datastore/. -->
     <include domain="file" path="datastore" />
 
-    <!-- The legacy database contains the old user_cards table; V2 is authoritative. -->
+    <!-- tcg_sammlung_database is the downloadable card catalog, not user data:
+         it is fetched again after a restore, so backing up 60 MB is pointless. -->
     <exclude domain="database" path="tcg_sammlung_database" />
     <exclude domain="database" path="tcg_sammlung_database-journal" />
     <exclude domain="database" path="tcg_sammlung_database-wal" />

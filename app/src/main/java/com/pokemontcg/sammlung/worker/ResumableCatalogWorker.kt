@@ -22,6 +22,7 @@ import com.pokemontcg.sammlung.data.preferences.AppPreferencesRepository
 import com.pokemontcg.sammlung.util.AppLogger
 import com.pokemontcg.sammlung.util.PriceAlertManager
 import com.pokemontcg.sammlung.util.PriceAlertSettings
+import com.pokemontcg.sammlung.util.buildDailyPriceReport
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -260,7 +261,8 @@ class ResumableCatalogWorker(
                 }
             }
             unit == "prices" -> {
-                priceRepository.recordPricePoints()
+                val recordedAt = System.currentTimeMillis()
+                priceRepository.recordPricePoints(recordedAt)
                 val history = priceRepository.getAllHistoryOnce()
                 val userCards = collectionRepository.getAllUserCardsOnce()
                 val wishlist = collectionRepository.getWishlistOnce()
@@ -285,11 +287,39 @@ class ResumableCatalogWorker(
                         thresholdPercent = threshold.toDouble(),
                         windowDays = windowDays,
                         lastAlertTimestamp = lastAlertTimestamp
-                    )
+                    ),
+                    now = recordedAt
                 )
                 if (didNotify) {
-                    preferencesRepository.setPriceAlertLastTimestamp(System.currentTimeMillis())
+                    preferencesRepository.setPriceAlertLastTimestamp(recordedAt)
                 }
+
+                // Daily 03:00 report: the collection is grouped per owned card, because the
+                // report answers "did the value of my cards change?" for the collection itself.
+                val quantities = userCards
+                    .groupBy { it.cardId }
+                    .mapValues { (_, rows) -> rows.sumOf { it.quantity } }
+                val report = buildDailyPriceReport(
+                    history = relevantHistory,
+                    quantities = quantities,
+                    now = recordedAt
+                )
+                val didReport = PriceAlertManager.sendDailyPriceReport(
+                    context = applicationContext,
+                    report = report,
+                    cardNames = cardNames,
+                    enabled = preferencesRepository.dailyPriceReportEnabledFlow.first(),
+                    lastSentTimestamp = preferencesRepository.dailyPriceReportLastTimestampFlow.first(),
+                    now = recordedAt
+                )
+                if (didReport) {
+                    preferencesRepository.setDailyPriceReportLastTimestamp(recordedAt)
+                }
+                AppLogger.log(
+                    "ResumableCatalogWorker",
+                    "Täglicher Preisbericht: ${report.changedCardIds.size} Karten geändert, " +
+                        "Wert ${report.totalValue}, versendet=$didReport"
+                )
                 true
             }
             else -> true

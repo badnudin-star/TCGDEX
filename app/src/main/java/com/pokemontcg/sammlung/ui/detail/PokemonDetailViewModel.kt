@@ -70,9 +70,10 @@ class PokemonDetailViewModel(
         }
     }
 
-    fun setPrimaryCard(card: CardEntity) {
+    /** Persists the favourite together with the category picked in the follow-up popup. */
+    fun setPrimaryCard(card: CardEntity, category: CardCategory) {
         viewModelScope.launch {
-            collectionRepository.setAsPrimaryCard(card, pokemonIdStr)
+            collectionRepository.setAsPrimaryCard(card, pokemonIdStr, category)
         }
     }
 

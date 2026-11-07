@@ -134,6 +134,9 @@ object CollectionExporter {
                 // Try CSV fallback
             }
         } else if (trimmed.startsWith("[")) {
+            // Older app versions exported a bare JSON array without the CollectionExportData
+            // envelope. Such a file is still a valid backup of a real collection, so it stays
+            // readable instead of being rejected as an unknown format.
             try {
                 val legacyArray = gson.fromJson(trimmed, Array<ExportedUserCardItem>::class.java)
                 if (legacyArray != null) {

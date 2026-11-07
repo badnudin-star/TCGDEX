@@ -43,7 +43,15 @@ class CollectionRepository(private val userDb: UserDatabase) {
     suspend fun clearPrimary(dexId: Int, pokemonIdStr: String) =
         userDb.userCardDao().clearPrimary(dexId, pokemonIdStr)
 
-    suspend fun setAsPrimaryCard(card: CardEntity, pokemonId: String) {
+    /**
+     * Marks a card as favourite and stores the category chosen right after the selection in the
+     * same write, so the main screen filter never shows a stale Common/Full Art state.
+     */
+    suspend fun setAsPrimaryCard(
+        card: CardEntity,
+        pokemonId: String,
+        category: CardCategory? = null
+    ) {
         val dexId = pokemonId.toIntOrNull() ?: 0
         val dao = userDb.userCardDao()
         val existing = dao.findUserCard(card.id, card.language)
@@ -53,7 +61,8 @@ class CollectionRepository(private val userDb: UserDatabase) {
             pokemonDexId = dexId,
             pokemonId = pokemonId,
             existingCard = existing,
-            now = System.currentTimeMillis()
+            now = System.currentTimeMillis(),
+            category = category
         )
         when (val persistence = primaryCardPersistence(existing, resolved)) {
             is PrimaryCardPersistence.Insert -> {

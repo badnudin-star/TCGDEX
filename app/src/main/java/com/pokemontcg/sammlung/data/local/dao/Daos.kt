@@ -95,6 +95,40 @@ interface CardDao {
     suspend fun getCardsForSetOnce(setId: String): List<CardEntity>
     @Query("SELECT * FROM cards WHERE imageUrl IS NULL OR imageUrl = ''")
     suspend fun getCardsWithMissingImagesOnce(): List<CardEntity>
+
+    /** Every rarity present in the catalog, for the wishlist search filter chips. */
+    @Query("SELECT DISTINCT rarity FROM cards WHERE rarity IS NOT NULL AND TRIM(rarity) <> '' ORDER BY rarity COLLATE NOCASE ASC")
+    fun getAllRarities(): Flow<List<String>>
+
+    /**
+     * Catalog search for the wishlist: rarity multi-select plus a price ceiling, already ordered
+     * by National Pokédex id so the result can be grouped per Pokémon like the main screen.
+     * Cards without a Pokédex link (trainer/energy cards) sort last.
+     *
+     * `hasRarityFilter` keeps the `IN` clause valid: Room expands an empty list to `IN ()`,
+     * which SQLite rejects, so callers pass a placeholder list together with `false`.
+     */
+    @Query(
+        "SELECT c.id AS cardId, MIN(cp.dexId) AS dexId FROM cards c " +
+            "LEFT JOIN card_pokemon cp ON c.id = cp.cardId " +
+            "WHERE (:hasRarityFilter = 0 OR c.rarity IN (:rarities)) " +
+            "AND (:maxPrice IS NULL OR (c.marketPrice IS NOT NULL AND c.marketPrice <= :maxPrice)) " +
+            "AND (:query = '' OR LOWER(c.name) LIKE '%' || LOWER(:query) || '%' " +
+            "OR LOWER(c.setName) LIKE '%' || LOWER(:query) || '%' " +
+            "OR LOWER(c.number) LIKE '%' || LOWER(:query) || '%') " +
+            "GROUP BY c.id " +
+            "ORDER BY CASE WHEN MIN(cp.dexId) IS NULL THEN 1 ELSE 0 END, MIN(cp.dexId) ASC, " +
+            "COALESCE(c.setReleaseDate, '') DESC, c.setName COLLATE NOCASE ASC, " +
+            "c.sortNumber ASC, c.number COLLATE NOCASE ASC " +
+            "LIMIT :limit"
+    )
+    fun searchCatalogCardIds(
+        query: String,
+        rarities: List<String>,
+        hasRarityFilter: Boolean,
+        maxPrice: Double?,
+        limit: Int
+    ): Flow<List<CardSearchRow>>
 }
 
 @Dao
@@ -131,38 +165,8 @@ data class SetIdName(val setId: String, val setName: String, val releaseDate: St
 
 data class SetCardCount(val setId: String, val count: Int)
 
-@Dao
-interface UserCardDao {
-    @Query("SELECT * FROM user_cards WHERE pokemonId = :pokemonId")
-    fun getUserCardsForPokemon(pokemonId: String): Flow<List<UserCardEntity>>
-
-    @Query("SELECT * FROM user_cards WHERE pokemonId = :pokemonId AND isPrimary = 1")
-    fun getPrimaryCard(pokemonId: String): Flow<UserCardEntity?>
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertUserCard(userCard: UserCardEntity)
-
-    @Query("DELETE FROM user_cards WHERE cardId = :cardId AND pokemonId = :pokemonId")
-    suspend fun deleteUserCard(cardId: String, pokemonId: String)
-
-    @Query("SELECT SUM(c.marketPrice) FROM user_cards uc JOIN cards c ON uc.cardId = c.id WHERE uc.pokemonId = :pokemonId")
-    fun getTotalPriceForPokemon(pokemonId: String): Flow<Double?>
-
-    @Query("SELECT SUM(marketPrice) FROM cards WHERE id IN (SELECT DISTINCT cardId FROM user_cards)")
-    fun getTotalCollectionPrice(): Flow<Double?>
-
-    @Query("SELECT COUNT(DISTINCT uc.cardId) FROM user_cards uc JOIN cards c ON uc.cardId = c.id WHERE c.marketPrice IS NULL")
-    fun getCardsWithoutPriceCount(): Flow<Int>
-
-    @Query("UPDATE user_cards SET isPrimary = 0 WHERE pokemonId = :pokemonId")
-    suspend fun clearPrimary(pokemonId: String)
-
-    @Query("SELECT DISTINCT cardId FROM user_cards")
-    suspend fun getCollectedCardIds(): List<String>
-
-    @Query("SELECT COUNT(*) FROM user_cards")
-    suspend fun getUserCardCount(): Int
-}
+/** One catalog search hit: the card plus the Pokédex id it is grouped under. */
+data class CardSearchRow(val cardId: String, val dexId: Int?)
 
 @Dao
 interface LastUpdateDao {

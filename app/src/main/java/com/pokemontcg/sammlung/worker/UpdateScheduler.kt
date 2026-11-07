@@ -13,7 +13,17 @@ object UpdateScheduler {
 
     const val PERIODIC_WORK_NAME = "catalog_update_periodic"
 
-    fun calculateInitialDelay(targetHour: Int, nowCalendar: Calendar = Calendar.getInstance()): Long {
+    /**
+     * Catalog and prices are refreshed once per day at 03:00 local time. The hour is fixed on
+     * purpose: the daily price report is only meaningful when every device collects its price
+     * points in the same nightly window.
+     */
+    const val DAILY_UPDATE_HOUR = 3
+
+    fun calculateInitialDelay(
+        targetHour: Int = DAILY_UPDATE_HOUR,
+        nowCalendar: Calendar = Calendar.getInstance()
+    ): Long {
         val target = nowCalendar.clone() as Calendar
         target.set(Calendar.HOUR_OF_DAY, targetHour)
         target.set(Calendar.MINUTE, 0)
@@ -27,13 +37,13 @@ object UpdateScheduler {
         return target.timeInMillis - nowCalendar.timeInMillis
     }
 
-    fun schedulePeriodicSync(context: Context, wifiOnly: Boolean, targetHour: Int) {
+    fun schedulePeriodicSync(context: Context, wifiOnly: Boolean) {
         val networkType = if (wifiOnly) NetworkType.UNMETERED else NetworkType.CONNECTED
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(networkType)
             .build()
 
-        val initialDelayMs = calculateInitialDelay(targetHour)
+        val initialDelayMs = calculateInitialDelay()
 
         val request = PeriodicWorkRequestBuilder<ResumableCatalogWorker>(24, TimeUnit.HOURS)
             .addTag(ResumableCatalogWorker.SYNC_TAG)

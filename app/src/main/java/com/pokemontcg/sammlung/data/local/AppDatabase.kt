@@ -16,6 +16,9 @@ import com.pokemontcg.sammlung.data.local.entities.*
         PokemonEntity::class,
         SetEntity::class,
         CardEntity::class,
+        // Kept only to preserve the published catalog schema (version 17) and its Room identity
+        // hash: catalog artifacts embed that hash and are rejected when it changes. No code reads
+        // or writes this table any more - the collection lives in UserDatabase.
         UserCardEntity::class,
         LastUpdateEntity::class,
         SourceAuditEntity::class,
@@ -31,7 +34,6 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun pokemonDao(): PokemonDao
     abstract fun setDao(): SetDao
     abstract fun cardDao(): CardDao
-    abstract fun userCardDao(): UserCardDao
     abstract fun lastUpdateDao(): LastUpdateDao
     abstract fun sourceAuditDao(): SourceAuditDao
     abstract fun cardPokemonDao(): CardPokemonDao

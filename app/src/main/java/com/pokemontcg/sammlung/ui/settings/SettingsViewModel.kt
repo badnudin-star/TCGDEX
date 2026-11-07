@@ -10,16 +10,15 @@ import com.pokemontcg.sammlung.worker.UpdateScheduler
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val wifiOnly: Boolean = true,
-    val scheduledUpdateHour: Int = 3,
     val preferredLanguage: String = "de",
     val currencySource: String = "EUR_CARDMARKET",
     val priceAlertsEnabled: Boolean = false,
+    val dailyPriceReportEnabled: Boolean = true,
     val priceAlertThresholdPercent: Int = 10,
     val priceAlertWindowDays: Int = 1,
     val availableLanguages: List<String> = emptyList(),
@@ -28,7 +27,6 @@ data class SettingsUiState(
 
 private data class SettingsCore(
     val wifiOnly: Boolean,
-    val scheduledUpdateHour: Int,
     val preferredLanguage: String,
     val currencySource: String
 )
@@ -41,28 +39,41 @@ class SettingsViewModel(
 
     private val corePreferences = combine(
         preferencesRepository.wifiOnlyFlow,
-        preferencesRepository.scheduledUpdateHourFlow,
         preferencesRepository.preferredLanguageFlow,
         preferencesRepository.currencySourceFlow
-    ) { wifi, hour, lang, currency ->
-        SettingsCore(wifi, hour, lang, currency)
+    ) { wifi, lang, currency ->
+        SettingsCore(wifi, lang, currency)
+    }
+
+    private data class AlertPreferences(
+        val enabled: Boolean,
+        val thresholdPercent: Int,
+        val windowDays: Int,
+        val dailyReportEnabled: Boolean
+    )
+
+    private val alertPreferences = combine(
+        preferencesRepository.priceAlertsEnabledFlow,
+        preferencesRepository.priceAlertThresholdPercentFlow,
+        preferencesRepository.priceAlertWindowDaysFlow,
+        preferencesRepository.dailyPriceReportEnabledFlow
+    ) { enabled, threshold, window, dailyReport ->
+        AlertPreferences(enabled, threshold, window, dailyReport)
     }
 
     val uiState: StateFlow<SettingsUiState> = combine(
         corePreferences,
-        preferencesRepository.priceAlertsEnabledFlow,
-        preferencesRepository.priceAlertThresholdPercentFlow,
-        preferencesRepository.priceAlertWindowDaysFlow,
+        alertPreferences,
         catalogRepository.getAvailablePokemonNameLanguages()
-    ) { core, alertsEnabled, alertThreshold, alertWindow, languages ->
+    ) { core, alerts, languages ->
         SettingsUiState(
             wifiOnly = core.wifiOnly,
-            scheduledUpdateHour = core.scheduledUpdateHour,
             preferredLanguage = core.preferredLanguage,
             currencySource = core.currencySource,
-            priceAlertsEnabled = alertsEnabled,
-            priceAlertThresholdPercent = alertThreshold,
-            priceAlertWindowDays = alertWindow,
+            priceAlertsEnabled = alerts.enabled,
+            priceAlertThresholdPercent = alerts.thresholdPercent,
+            priceAlertWindowDays = alerts.windowDays,
+            dailyPriceReportEnabled = alerts.dailyReportEnabled,
             availableLanguages = languages,
             isLoaded = true
         )
@@ -75,17 +86,13 @@ class SettingsViewModel(
     fun setWifiOnly(wifiOnly: Boolean) {
         viewModelScope.launch {
             preferencesRepository.setWifiOnly(wifiOnly)
-            val currentHour = preferencesRepository.scheduledUpdateHourFlow.first()
-            UpdateScheduler.schedulePeriodicSync(context, wifiOnly, currentHour)
+            // The nightly run is pinned to 03:00; only the network constraint is configurable.
+            UpdateScheduler.schedulePeriodicSync(context, wifiOnly)
         }
     }
 
-    fun setScheduledUpdateHour(hour: Int) {
-        viewModelScope.launch {
-            preferencesRepository.setScheduledUpdateHour(hour)
-            val currentWifi = preferencesRepository.wifiOnlyFlow.first()
-            UpdateScheduler.schedulePeriodicSync(context, currentWifi, hour)
-        }
+    fun setDailyPriceReportEnabled(enabled: Boolean) {
+        viewModelScope.launch { preferencesRepository.setDailyPriceReportEnabled(enabled) }
     }
 
     fun setPreferredLanguage(language: String) {

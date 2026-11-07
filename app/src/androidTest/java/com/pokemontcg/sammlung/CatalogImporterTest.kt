@@ -6,7 +6,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.pokemontcg.sammlung.data.importer.CatalogImportResult
 import com.pokemontcg.sammlung.data.importer.CatalogImporter
 import com.pokemontcg.sammlung.data.local.AppDatabase
-import com.pokemontcg.sammlung.data.local.entities.UserCardEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.UserDatabase
 import java.io.File
@@ -339,15 +338,10 @@ class CatalogImporterTest {
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
 
         // Populate both the retained legacy collection table and the current UserDatabase.
-        appDb.userCardDao().insertUserCard(
-            UserCardEntity(
-                cardId = "legacy-card-1",
-                pokemonId = "25",
-                isPrimary = true,
-                isCommon = true,
-                isFullart = false,
-                addedAt = 100L
-            )
+        // The legacy table has no DAO any more, so the fixture row is written directly.
+        appDb.openHelper.writableDatabase.execSQL(
+            "INSERT INTO user_cards (cardId, pokemonId, isPrimary, isCommon, isFullart, addedAt) " +
+                "VALUES ('legacy-card-1', '25', 1, 1, 0, 100)"
         )
         userDb.userCardDao().insertUserCard(
             UserCardEntityV2(
@@ -362,7 +356,7 @@ class CatalogImporterTest {
             )
         )
 
-        val legacyCountBefore = appDb.userCardDao().getUserCardCount()
+        val legacyCountBefore = legacyUserCardCount()
         val userDbCountBefore = userDb.userCardDao().getAllUserCardsOnce().size
         val fixture = File(targetContext.cacheDir, "catalog_import_fixture.sqlite")
         instrumentationContext.assets.open("catalog_import_fixture.sqlite").use { input ->
@@ -375,7 +369,7 @@ class CatalogImporterTest {
         assertEquals("Fixture set should be imported", 1, appDb.setDao().getAllSets().first().size)
         assertEquals("Fixture card should be imported", 1, appDb.cardDao().getAllCardsOnce().size)
         assertEquals("Fixture card-to-Pokémon link should be imported", listOf(25), appDb.cardDao().getCachedPokedexNumbers())
-        assertEquals("Legacy collection rows must remain unchanged", legacyCountBefore, appDb.userCardDao().getUserCardCount())
+        assertEquals("Legacy collection rows must remain unchanged", legacyCountBefore, legacyUserCardCount())
         assertEquals("Current UserDatabase rows must remain unchanged", userDbCountBefore, userDb.userCardDao().getAllUserCardsOnce().size)
 
         // A catalog with a mismatched Room identity must be rejected without changing live rows.
@@ -396,10 +390,16 @@ class CatalogImporterTest {
         assertTrue("Invalid schema must be rejected, got $rejected", rejected is CatalogImportResult.Error)
         assertEquals("Rejected catalog must not change existing sets", 1, appDb.setDao().getAllSets().first().size)
         assertEquals("Rejected catalog must not change existing cards", 1, appDb.cardDao().getAllCardsOnce().size)
-        assertEquals("Legacy collection rows must remain unchanged after rejection", legacyCountBefore, appDb.userCardDao().getUserCardCount())
+        assertEquals("Legacy collection rows must remain unchanged after rejection", legacyCountBefore, legacyUserCardCount())
         assertEquals("Current UserDatabase rows must remain unchanged after rejection", userDbCountBefore, userDb.userCardDao().getAllUserCardsOnce().size)
 
         fixture.delete()
         invalidFixture.delete()
     }
+
+    /** Row count of the retained legacy collection table inside the catalog database. */
+    private fun legacyUserCardCount(): Int =
+        appDb.openHelper.readableDatabase
+            .rawQuery("SELECT COUNT(*) FROM user_cards", null)
+            .use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else 0 }
 }

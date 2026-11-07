@@ -1,5 +1,6 @@
 package com.pokemontcg.sammlung.data.repository
 
+import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 
 /**
@@ -10,17 +11,23 @@ import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
  * would duplicate the collection entry, reset its quantity to 1 and lose its notes.
  * Therefore an already owned card is updated in place and keeps its details.
  */
+/**
+ * `category` is null when the caller does not re-classify the card; an already stored category
+ * then survives the assignment instead of being reset to NONE.
+ */
 internal fun planPrimaryCardAssignment(
     cardId: String,
     language: String,
     pokemonDexId: Int,
     pokemonId: String,
     existingCard: UserCardEntityV2?,
-    now: Long
+    now: Long,
+    category: CardCategory? = null
 ): UserCardEntityV2 = if (existingCard != null) {
     existingCard.copy(
         pokemonDexId = if (pokemonDexId > 0) pokemonDexId else existingCard.pokemonDexId,
         pokemonId = if (pokemonId.isNotBlank()) pokemonId else existingCard.pokemonId,
+        category = category?.name ?: existingCard.category,
         isPrimary = true
     )
 } else {
@@ -30,6 +37,7 @@ internal fun planPrimaryCardAssignment(
         pokemonDexId = pokemonDexId,
         language = language,
         quantity = 1,
+        category = (category ?: CardCategory.NONE).name,
         isPrimary = true,
         addedAt = now
     )
