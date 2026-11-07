@@ -397,9 +397,14 @@ class CatalogImporterTest {
         invalidFixture.delete()
     }
 
-    /** Row count of the retained legacy collection table inside the catalog database. */
+    /**
+     * Row count of the retained legacy collection table inside the catalog database.
+     *
+     * `SupportSQLiteDatabase` exposes `query`, not the framework `rawQuery`, and the table has no
+     * DAO any more - see the comment on `UserCardEntity` in `AppDatabase`.
+     */
     private fun legacyUserCardCount(): Int =
         appDb.openHelper.readableDatabase
-            .rawQuery("SELECT COUNT(*) FROM user_cards", null)
+            .query("SELECT COUNT(*) FROM user_cards")
             .use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else 0 }
 }
