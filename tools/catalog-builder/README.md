@@ -30,7 +30,7 @@ Für einen Lauf ohne den optionalen Bulbapedia-Abgleich:
 python tools/catalog-builder/build_catalog.py --skip-bulbapedia
 ```
 
-Die Ausgabe enthält `catalog.sqlite`, `manifest.json` und `coverage_report.md`. Die Datenbank wird aus `app/schemas/com.pokemontcg.sammlung.data.local.AppDatabase/17.json` erstellt und enthält ausschließlich die Katalogtabellen `sets`, `cards`, `pokemon`, `card_pokemon`, `pokemon_names` sowie `room_master_table` für Room. Tabellen mit Sammlungs- oder sonstigen Nutzerdaten sind ausgeschlossen.
+Die Ausgabe enthält `catalog.sqlite`, `manifest.json` und `coverage_report.md`. Die Datenbank wird aus `app/schemas/com.pokemontcg.sammlung.data.local.AppDatabase/18.json` erstellt und enthält ausschließlich die Katalogtabellen `sets`, `cards`, `pokemon`, `card_pokemon`, `pokemon_names` sowie `room_master_table` für Room. Tabellen mit Sammlungs- oder sonstigen Nutzerdaten sind ausgeschlossen.
 
 ## Start-Katalog für die App erzeugen
 

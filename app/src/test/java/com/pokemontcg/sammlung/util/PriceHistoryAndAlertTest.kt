@@ -30,8 +30,11 @@ class PriceHistoryAndAlertTest {
 
         val series7 = buildValueSeries(history, quantities, rangeDays = 7, now = now)
 
-        assertEquals(7, series7.size)
-        assertEquals(35.0, series7.first { it.timestamp == now - 3 * oneDayMs }.totalValue, 0.001)
+        // card2 is only measured from day 2 on, so days 6..3 hold no data at all and day 3
+        // contains card1 alone: 10.0 * 2 = 20.0.
+        assertEquals(4, series7.size)
+        assertEquals(20.0, series7.first { it.timestamp == now - 3 * oneDayMs }.totalValue, 0.001)
+        assertEquals(35.0, series7.first { it.timestamp == now - 2 * oneDayMs }.totalValue, 0.001)
         assertEquals(39.0, series7.first { it.timestamp == now - oneDayMs }.totalValue, 0.001)
     }
 
@@ -62,12 +65,43 @@ class PriceHistoryAndAlertTest {
     }
 
     @Test
-    fun testBuildValueSeriesNewCardUsesFirstPriceBeforeFirstPoint() {
+    fun testBuildValueSeriesDoesNotProjectTheFirstPriceBackwards() {
         val history = listOf(point(1, "new-card", 7.0, 2))
 
         val series = buildValueSeries(history, mapOf("new-card" to 2), rangeDays = 7, now = now)
 
+        // Three measured days (2, 1 and today) instead of seven invented ones.
+        assertEquals(3, series.size)
+        assertEquals(now - 2 * oneDayMs, series.first().timestamp)
         assertTrue(series.all { it.totalValue == 14.0 })
+    }
+
+    @Test
+    fun testBuildValueSeriesDropsDaysBeforeTheFirstMeasurement() {
+        val history = listOf(
+            point(1, "card1", 10.0, 4),
+            point(2, "card2", 5.0, 1)
+        )
+
+        val series = buildValueSeries(history, mapOf("card1" to 1, "card2" to 1), rangeDays = 30, now = now)
+
+        assertEquals(now - 4 * oneDayMs, series.first().timestamp)
+        assertEquals(5, series.size)
+        // card1 carries forward, card2 joins from its own first measurement on.
+        assertEquals(10.0, series.first { it.timestamp == now - 2 * oneDayMs }.totalValue, 0.001)
+        assertEquals(15.0, series.first { it.timestamp == now - oneDayMs }.totalValue, 0.001)
+    }
+
+    @Test
+    fun testBuildValueSeriesSingleMeasurementIsOnePointNotAFakeLine() {
+        val history = listOf(point(1, "card1", 12.0, 0))
+
+        val series = buildValueSeries(history, mapOf("card1" to 1), rangeDays = 90, now = now)
+
+        // One point means the chart reports "not enough data" instead of drawing a flat line
+        // across 90 days that were never measured.
+        assertEquals(1, series.size)
+        assertEquals(12.0, series.first().totalValue, 0.001)
     }
 
     @Test

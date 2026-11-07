@@ -16,17 +16,13 @@ import com.pokemontcg.sammlung.data.local.entities.*
         PokemonEntity::class,
         SetEntity::class,
         CardEntity::class,
-        // Kept only to preserve the published catalog schema (version 17) and its Room identity
-        // hash: catalog artifacts embed that hash and are rejected when it changes. No code reads
-        // or writes this table any more - the collection lives in UserDatabase.
-        UserCardEntity::class,
         LastUpdateEntity::class,
         SourceAuditEntity::class,
         CardPokemonEntity::class,
         PokemonNameEntity::class,
         SyncCheckpointEntity::class,
     ],
-    version = 17,
+    version = 18,
     exportSchema = true
 )
 @TypeConverters(CardCategoryConverter::class)
@@ -295,6 +291,22 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Removes the legacy AppDatabase `user_cards` table. The live collection has lived in
+         * [com.pokemontcg.sammlung.data.local.user.UserDatabase] since schema 17; this table was
+         * only kept so the published catalog artifacts (schema 17) kept their Room identity hash.
+         *
+         * Dropping the table is deliberately destructive: devices that still carry unmigrated
+         * rows from pre-UserDatabase versions lose them. Those rows have been unreadable legacy
+         * data since the collection moved - no code transported them into UserDatabase and none
+         * ever will.
+         */
+        val MIGRATION_17_18 = object : Migration(17, 18) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("DROP TABLE IF EXISTS user_cards")
+            }
+        }
+
         /** The exact migration chain used by production and instrumentation tests. */
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_6_7,
@@ -307,7 +319,8 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_13_14,
             MIGRATION_14_15,
             MIGRATION_15_16,
-            MIGRATION_16_17
+            MIGRATION_16_17,
+            MIGRATION_17_18
         )
 
         @Volatile private var INSTANCE: AppDatabase? = null

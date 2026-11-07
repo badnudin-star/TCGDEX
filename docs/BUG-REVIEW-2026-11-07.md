@@ -141,12 +141,14 @@ nachvollziehbar (Filter-Chips suggerieren eine Einschränkung).
 
 ### 🟡 G — `EXPECTED_ROOM_IDENTITY_HASH` ist ein stiller Drift-Punkt
 
-`CatalogImporter.kt:103` dupliziert den Hash aus `app/schemas/.../AppDatabase/17.json`,
-`CURRENT_CATALOG_SCHEMA_VERSION = 17` dupliziert die Version. Die Pipeline prüft den Hash beim
+`CatalogImporter.kt:103` dupliziert den Hash aus `app/schemas/.../AppDatabase/17.json` (mittlerweile
+`18.json`), `CURRENT_CATALOG_SCHEMA_VERSION` dupliziert die Version. Die Pipeline prüft den Hash beim
 Bauen, aber **kein CI-Schritt vergleicht die Kotlin-Konstanten mit dem Schema-JSON**. Bei einem
 Schema-Bump ohne Anpassung dieser Konstanten lehnt die App jeden neuen Katalog mit
 „Catalog schema identity mismatch" ab — der Fehler fällt erst beim Nutzer auf.
 Empfehlung: kleiner Guard (wie `tools/verify_migration_16_17.py`) im Android-Validation-Workflow.
+*(Umgesetzt als `tools/check_catalog_schema_constants.py`; außerdem gilt seit Schema 18 der echte
+Room-Algorithmus-Hash in `18.json` — die detaillierte Analyse steht in Abschnitt 5.5.)*
 
 ### 🔵 H — Kleinere Punkte
 
@@ -236,6 +238,43 @@ Sammlung bleibt erhalten. Keine Änderung nötig.
   Legacy-Bereinigung gelöscht. Die Prüfung war korrekt, betrifft aber keinen Code mehr.
 - Befund **8** (offener Rest) ist erledigt: Der Wishlist-State inklusive `collect`-Aufruf ist aus
   `MainActivity` in ein `WishlistViewModel` gewandert.
-- Weiter offen: Befund **E** (`PriceHistoryUtils.buildValueSeries` schreibt den ersten Messpunkt
-  rückwärts fort).
+- Befund **E** ist behoben: `buildValueSeries` projiziert den frühesten Messpunkt nicht mehr auf
+  Tage vor der ersten Messung. Karten, die später dazukamen, tragen erst ab ihrem ersten Messpunkt
+  bei, und Tage ohne jede Messung entfallen ganz, statt mit einem erfundenen Wert gefüllt zu werden.
+  Der Chart zeichnet seine Punkte nach Index, eine kürzere Serie beginnt also einfach beim ersten
+  echten Wert. Ein einzelner Messpunkt ergibt jetzt einen Punkt — der Chart meldet dann „zu wenig
+  Daten“ statt einer flachen Linie über den ganzen Zeitraum.
+  `PriceHistoryAndAlertTest` hat den alten Fallback in `testBuildValueSeriesNewCardUsesFirstPriceBeforeFirstPoint`
+  sogar festgeschrieben; der Test ist durch `…DoesNotProjectTheFirstPriceBackwards`,
+  `…DropsDaysBeforeTheFirstMeasurement` und `…SingleMeasurementIsOnePointNotAFakeLine` ersetzt.
+
+### 5.5 Schema 18: Legacy-`user_cards` entfernt, Identity-Hash-Analyse (2026-11-07)
+
+**Umsetzung.** `AppDatabase` ist auf Version 18 gehoben: `UserCardEntity` ist aus der Entity-Liste
+und aus `Entities.kt` gelöscht, `MIGRATION_17_18` (`DROP TABLE IF EXISTS user_cards`) ist in
+`ALL_MIGRATIONS` registriert. Der Drop ist bewusst destruktiv und dokumentiert — die Sammlung
+lebt seit Schema 17 in der separaten `UserDatabase`, die App-`user_cards`-Zeilen waren danach
+unlesbar (Details: `docs/N4-MIGRATION-TESTS.md`). `18.json` wurde per Textchirurgie aus `17.json`
+erzeugt (Entity-Block entfernt, Version 17→18, Hash neu). `CatalogImporter` trägt jetzt
+`CURRENT_CATALOG_SCHEMA_VERSION = 18` und `EXPECTED_ROOM_IDENTITY_HASH = 0d080a9ddf8b390e301cfea29a7c7179`;
+`build_catalog.py` und der androidTest-Katalog-Fixture folgen. Neu: `tools/verify_migration_17_18.py`
+(im Workflow registriert), `testAppDatabaseMigration17To18DropsLegacyUserCards` und eine
+Drop-Assertion im v14-Full-Chain-Test. **Nach dem Merge muss die Katalog-Pipeline manuell
+ausgelöst werden** (`gh workflow run "Build Catalog Pipeline"`), sonst lehnt die App das
+veröffentlichte Artefakt (noch Schema 17 / alter Hash) bis zum Sonntagslauf ab.
+
+**Befund zum Identity-Hash von `17.json` (nachgetragen).** Der Room-2.6.1-Algorithmus
+(`SchemaIdentityKey`/`getIdKey()` aus `room-compiler`, Stand `ad24dd81c2`) wurde nach Python
+portiert und gegen sechs unabhängige Vektoren validiert: die WorkManager-Schema-JSONs 6/10/14/17/21/24
+aus dem androidx-Repo (inkl. Foreign Keys und `defaultValue`) sowie unsere `15.json`/`16.json`.
+Ergebnis: Der in `17.json` gespeicherte Hash `545f4e1e…` **passt nicht zu seinem eigenen Inhalt**
+(berechnet: `b080bcf8…`). Er wurde bei der damaligen handgestützten Erzeugung von `17.json`
+eingetragen und fiel nie auf, weil (a) Rooms Schema-Export das Schreiben überspringt, wenn nur
+Entities/Views gleich sind — `DatabaseBundle.isSchemaEqual` vergleicht den Hash **nicht** — und
+(b) kein CI-Schritt den JSON-Hash mit dem kompilierten Hash vergleicht. Für Nutzer war das folgenlos:
+Die echte App schreibt beim Erstellen/Migrieren immer den kompilierten Hash in `room_master_table`.
+Da `17.json` historisch ist und nur noch den 16→17-Tests als Tabellen-Fixture dient, bleibt die
+Datei unangetastet. `18.json` trägt dagegen den **echten** Algorithmus-Hash (`0d080a9d…`): Die Datei
+ist damit bytestabil gegen Rooms Regenerierung, und selbst eine aus dem JSON geseedete v18-Test-DB
+stimmt mit dem kompilierten Hash überein.
 

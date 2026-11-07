@@ -247,6 +247,35 @@ class DatabaseMigrationTest {
     }
 
     @Test
+    fun testAppDatabaseMigration17To18DropsLegacyUserCards() {
+        helper.createDatabase(TEST_DB, 17).apply {
+            execSQL(
+                "INSERT INTO cards (id, name, supertype, number, setId, setName, series, language, sortNumber, detailLoaded) " +
+                    "VALUES ('xy1-keep', 'Pikachu', 'Pokémon', '2', 'xy1', 'XY', 'XY', 'de', 1, 1)"
+            )
+            // Legacy collection row: schema 18 deliberately drops this unreadable data. The live
+            // collection has lived in UserDatabase since schema 17 and is not affected.
+            execSQL(
+                "INSERT INTO user_cards (cardId, pokemonId, isPrimary, isCommon, isFullart, addedAt) " +
+                    "VALUES ('xy1-keep', '25', 1, 1, 0, 1700000000000)"
+            )
+            close()
+        }
+
+        val db18 = helper.runMigrationsAndValidate(TEST_DB, 18, true, AppDatabase.MIGRATION_17_18)
+
+        db18.query(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'user_cards'"
+        ).use { cursor ->
+            assertEquals("Legacy user_cards table must be dropped in schema 18", false, cursor.moveToFirst())
+        }
+        db18.query("SELECT COUNT(*) FROM cards").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Catalog rows must survive the legacy table drop", 1, cursor.getInt(0))
+        }
+    }
+
+    @Test
     fun testRoomBuilderMigratesRealV14FixtureThroughLatestSchema() {
         val context = InstrumentationRegistry.getInstrumentation().targetContext
         val databaseName = "migration-v14-full-chain"
@@ -286,6 +315,11 @@ class DatabaseMigrationTest {
             targetDb.query("SELECT COUNT(*) FROM card_pokemon WHERE cardId = 'v14-card-2'").use { cursor ->
                 assertTrue(cursor.moveToFirst())
                 assertEquals("Multi-Pokémon card must retain both dex links", 2, cursor.getInt(0))
+            }
+            targetDb.query(
+                "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'user_cards'"
+            ).use { cursor ->
+                assertEquals("Full chain must end at schema 18 without the legacy table", false, cursor.moveToFirst())
             }
         } finally {
             migratedDb.close()
