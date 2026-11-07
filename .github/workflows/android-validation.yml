@@ -35,7 +35,10 @@ jobs:
         run: python -m unittest discover -s tools/catalog-builder -p 'test_*.py' -v
 
       - name: Check Python syntax
-        run: python -m py_compile tools/catalog-builder/build_catalog.py tools/catalog-builder/test_build_catalog.py tools/catalog-builder/verify_catalog_artifacts.py tools/catalog-builder/make_start_catalog.py tools/verify_migration_16_17.py tools/check_migration_source.py tools/test_check_migration_source.py tools/check_catalog_schema_constants.py tools/test_check_catalog_schema_constants.py scripts/accessibility-check.py
+        run: python -m py_compile tools/catalog-builder/build_catalog.py tools/catalog-builder/test_build_catalog.py tools/catalog-builder/verify_catalog_artifacts.py tools/catalog-builder/make_start_catalog.py tools/verify_migration_16_17.py tools/check_migration_source.py tools/test_check_migration_source.py tools/check_catalog_schema_constants.py tools/test_check_catalog_schema_constants.py scripts/accessibility-check.py scripts/report_instrumented_failures.py scripts/test_report_instrumented_failures.py
+
+      - name: Test instrumented failure reporter
+        run: python -m unittest scripts.test_report_instrumented_failures -v
 
       - name: Test production migration source guard
         run: python -m unittest tools.test_check_migration_source -v
@@ -75,7 +78,7 @@ jobs:
           # GitHub runs this with `bash -e`, so the build must be guarded explicitly:
           # otherwise the shell exits before the diagnostics below can report anything.
           set +e
-          ./gradlew --console=plain testDebugUnitTest assembleDebug assembleRelease 2>&1 | tee /tmp/gradle-build.log
+          ./gradlew --console=plain testDebugUnitTest assembleDebug assembleDebugAndroidTest assembleRelease 2>&1 | tee /tmp/gradle-build.log
           outcome=${PIPESTATUS[0]}
           set -e
           if [ "$outcome" -ne 0 ]; then
@@ -126,7 +129,9 @@ jobs:
           arch: x86_64
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
-          script: ./gradlew connectedDebugAndroidTest
+          # Wrapper statt Inline-Aufruf: die Action nutzt /usr/bin/sh (kein PIPESTATUS) und
+          # ein reiner Misserfolg bliebe ohne lesbare Ursache (Log-Download ist gesperrt).
+          script: bash scripts/run-instrumented-tests.sh
 
       - name: Verify R8 preserves Gson/Retrofit API model names
         run: ./scripts/verify-release-mapping.sh
