@@ -45,18 +45,27 @@ class CollectionRepository(private val userDb: UserDatabase) {
 
     suspend fun setAsPrimaryCard(card: CardEntity, pokemonId: String) {
         val dexId = pokemonId.toIntOrNull() ?: 0
-        userDb.userCardDao().clearPrimary(dexId, pokemonId)
-        userDb.userCardDao().insertUserCard(
-            UserCardEntityV2(
-                cardId = card.id,
-                pokemonId = pokemonId,
-                pokemonDexId = dexId,
-                language = card.language,
-                quantity = 1,
-                isPrimary = true,
-                addedAt = System.currentTimeMillis()
-            )
+        val dao = userDb.userCardDao()
+        val existing = dao.findUserCard(card.id, card.language)
+        val resolved = planPrimaryCardAssignment(
+            cardId = card.id,
+            language = card.language,
+            pokemonDexId = dexId,
+            pokemonId = pokemonId,
+            existingCard = existing,
+            now = System.currentTimeMillis()
         )
+        when (val persistence = primaryCardPersistence(existing, resolved)) {
+            is PrimaryCardPersistence.Insert -> {
+                dao.clearPrimary(dexId, pokemonId)
+                dao.insertUserCard(persistence.card)
+            }
+            is PrimaryCardPersistence.Update -> {
+                dao.updateUserCard(persistence.card)
+                // Only this row stays the favourite; the previous row must lose the flag.
+                dao.clearOtherPrimaryRows(dexId, pokemonId, persistence.card.id)
+            }
+        }
     }
 
     suspend fun removePrimaryCard(pokemonId: String) {
@@ -64,20 +73,41 @@ class CollectionRepository(private val userDb: UserDatabase) {
         userDb.userCardDao().clearPrimary(dexId, pokemonId)
     }
 
-    suspend fun addSecondaryCard(cardId: String, pokemonId: String, category: CardCategory) {
+    /**
+     * Adds a non-favourite card for the requested language. An already owned variant keeps its
+     * row and only gains one copy, so repeated use cannot duplicate the collection entry.
+     */
+    suspend fun addSecondaryCard(
+        cardId: String,
+        pokemonId: String,
+        category: CardCategory,
+        language: String = "de"
+    ) {
         val dexId = pokemonId.toIntOrNull() ?: 0
-        userDb.userCardDao().insertUserCard(
-            UserCardEntityV2(
-                cardId = cardId,
-                pokemonId = pokemonId,
-                pokemonDexId = dexId,
-                language = "de",
-                quantity = 1,
-                isPrimary = false,
-                category = category.name,
-                addedAt = System.currentTimeMillis()
+        val dao = userDb.userCardDao()
+        val resolvedLanguage = language.ifBlank { "de" }
+        val existing = dao.findUserCard(cardId, resolvedLanguage)
+        if (existing != null) {
+            dao.updateUserCard(
+                existing.copy(
+                    quantity = existing.quantity + 1,
+                    category = if (existing.category == CardCategory.NONE.name) category.name else existing.category
+                )
             )
-        )
+        } else {
+            dao.insertUserCard(
+                UserCardEntityV2(
+                    cardId = cardId,
+                    pokemonId = pokemonId,
+                    pokemonDexId = dexId,
+                    language = resolvedLanguage,
+                    quantity = 1,
+                    isPrimary = false,
+                    category = category.name,
+                    addedAt = System.currentTimeMillis()
+                )
+            )
+        }
     }
 
     suspend fun addToWishlist(wish: WishlistEntity) =

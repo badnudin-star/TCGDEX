@@ -394,7 +394,9 @@ object CollectionExporter {
             } else {
                 val newEntity = UserCardEntityV2(
                     cardId = item.cardId,
-                    pokemonId = "",
+                    // Detail screens, the scanner and the Pokédex progress count all expect the
+                    // Pokédex id here; an empty value made imported cards look uncatalogued.
+                    pokemonId = item.pokemonDexId.takeIf { it > 0 }?.toString().orEmpty(),
                     pokemonDexId = item.pokemonDexId,
                     language = item.language.ifBlank { "de" },
                     quantity = item.quantity.coerceAtLeast(1),

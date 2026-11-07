@@ -44,6 +44,8 @@ python tools/catalog-builder/make_start_catalog.py \
 
 Das Skript kopiert die verifizierte Datenbank, behält nur `de`- und `en`-Karten sowie die zugehörigen Sets und Pokémon-Namen, prüft `PRAGMA integrity_check` und entfernt verwaiste Verknüpfungen. Danach die App neu bauen. Die Datei ist ein Build-Artefakt und sollte nur nach einem erfolgreichen Schema- und Coverage-Check aktualisiert werden. Fehlt `start_catalog.sqlite`, behandelt die App dies als optionalen Startkatalog und kann den normalen Sync fortsetzen.
 
+`app/src/main/assets/start_catalog.sqlite` ist in `.gitignore` ausdrücklich von der allgemeinen `*.sqlite`-Regel ausgenommen, damit der Startkatalog im Repository und damit im APK landet. Ohne diese Ausnahme hätte ein frisch gebautes APK keinen Offline-Katalog.
+
 ## Automatisierter Build
 
 `.github/workflows/catalog.yml` läuft wöchentlich und manuell. Er führt die Offline-Tests aus, baut Datenbank und Berichte und veröffentlicht diese in der GitHub-Release `catalog-latest`. Der Manifest-Link verwendet `releases/download/catalog-latest/catalog.sqlite`, passend zum festen Release-Tag.

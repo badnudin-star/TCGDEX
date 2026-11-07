@@ -35,13 +35,19 @@ jobs:
         run: python -m unittest discover -s tools/catalog-builder -p 'test_*.py' -v
 
       - name: Check Python syntax
-        run: python -m py_compile tools/catalog-builder/build_catalog.py tools/catalog-builder/test_build_catalog.py tools/catalog-builder/verify_catalog_artifacts.py tools/catalog-builder/make_start_catalog.py tools/verify_migration_16_17.py tools/check_migration_source.py tools/test_check_migration_source.py scripts/accessibility-check.py
+        run: python -m py_compile tools/catalog-builder/build_catalog.py tools/catalog-builder/test_build_catalog.py tools/catalog-builder/verify_catalog_artifacts.py tools/catalog-builder/make_start_catalog.py tools/verify_migration_16_17.py tools/check_migration_source.py tools/test_check_migration_source.py tools/check_catalog_schema_constants.py tools/test_check_catalog_schema_constants.py scripts/accessibility-check.py
 
       - name: Test production migration source guard
         run: python -m unittest tools.test_check_migration_source -v
 
       - name: Verify production Room migration source
         run: python tools/check_migration_source.py
+
+      - name: Test catalog schema constant guard
+        run: python -m unittest discover -s tools -p 'test_check_catalog_schema_constants.py' -v
+
+      - name: Verify catalog schema constants match the Room schema
+        run: python tools/check_catalog_schema_constants.py
 
       - name: Verify Room 16→17 migration SQL and schema offline
         run: python tools/verify_migration_16_17.py
@@ -67,6 +73,16 @@ jobs:
       - name: Run unit tests and build debug/release variants
         run: ./gradlew testDebugUnitTest assembleDebug assembleRelease
 
+      - name: Verify starter catalog asset is not gitignored
+        run: |
+          if git check-ignore -q app/src/main/assets/start_catalog.sqlite; then
+            echo 'app/src/main/assets/start_catalog.sqlite is excluded by .gitignore; the APK would ship without an offline starter catalog.' >&2
+            exit 1
+          fi
+          if [ ! -f app/src/main/assets/start_catalog.sqlite ]; then
+            echo '::warning::start_catalog.sqlite is not committed; first launch requires the online catalog.'
+          fi
+
       - name: Verify Room schema export is committed and up to date
         run: |
           if ! git diff --exit-code -- app/schemas; then
@@ -78,6 +94,20 @@ jobs:
             git ls-files --others --exclude-standard -- app/schemas >&2
             exit 1
           fi
+
+      # The instrumented tests cover catalog import, the real Room migrations and the
+      # Pokémon name sync. They were previously not executed by any workflow.
+      # The runner action enables KVM itself and boots the emulator with a headless
+      # profile; disable-animations keeps the boot inside the timeout.
+      - name: Run instrumented tests on Android emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 34
+          target: default
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: ./gradlew connectedDebugAndroidTest
 
       - name: Verify R8 preserves Gson/Retrofit API model names
         run: ./scripts/verify-release-mapping.sh

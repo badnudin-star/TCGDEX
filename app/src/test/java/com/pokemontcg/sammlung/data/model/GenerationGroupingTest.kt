@@ -28,6 +28,20 @@ class GenerationGroupingTest {
     }
 
     @Test
+    fun importedCardsWithoutPokemonIdStillCountAsCollected() {
+        val catalog = listOf(pokemon("25", 25), pokemon("26", 26))
+        // Rows imported from a backup before the fix carry an empty pokemonId.
+        val cards = listOf(
+            UserCardEntityV2(cardId = "card-25", pokemonId = "", pokemonDexId = 25),
+            UserCardEntityV2(cardId = "card-26", pokemonId = "", pokemonDexId = 26)
+        )
+
+        val groups = groupPokemonByGeneration(catalog, catalog, cards, emptySet())
+
+        assertEquals(2, groups.single().collectedCount)
+    }
+
+    @Test
     fun hiddenGenerationsAreExcludedAndMatchesCounted() {
         val list = listOf(pokemon("a", 1), pokemon("b", 252), pokemon("c", 253))
         val groups = groupPokemonByGeneration(list, list, emptyList(), setOf(3))

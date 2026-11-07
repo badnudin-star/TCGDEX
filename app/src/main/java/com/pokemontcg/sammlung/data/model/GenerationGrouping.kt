@@ -17,7 +17,14 @@ fun groupPokemonByGeneration(
     userCards: List<UserCardEntityV2>,
     hiddenGenerations: Set<Int>
 ): List<GenerationSection> {
-    val collectedPokemonIds = userCards.map { it.pokemonId }.toSet()
+    // Rows imported from a backup used to carry an empty pokemonId; falling back to the
+    // Pokédex id keeps those collections counted instead of showing "0 gesammelt".
+    val collectedPokemonIds = userCards.asSequence()
+        .flatMap { card ->
+            sequenceOf(card.pokemonId, card.pokemonDexId.takeIf { it > 0 }?.toString().orEmpty())
+        }
+        .filter { it.isNotBlank() }
+        .toSet()
     val catalogByGeneration = catalogPokemon.asSequence()
         .filter { GenerationModel.generationOf(it.dexId) !in hiddenGenerations }
         .groupBy { GenerationModel.generationOf(it.dexId) }
