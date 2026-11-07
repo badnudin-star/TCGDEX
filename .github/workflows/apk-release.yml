@@ -1,0 +1,86 @@
+name: APK Release
+
+# Baut die Debug-APK und veröffentlicht sie am stabilen Release-Tag `app-latest`:
+#   https://github.com/badnudin-star/TCGDEX/releases/download/app-latest/TCG-Sammlung-debug.apk
+# Bewusst ein Debug-Build ohne festen Release-Signaturschluessel (Nutzerentscheidung):
+# Die App installiert direkt, aber Android verlangt bei einem Update aus einem neuen
+# Build Deinstallieren + Neuinstallieren - vorher die Sammlung exportieren.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: apk-release
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build debug APK
+        run: |
+          set +e
+          ./gradlew --console=plain assembleDebug 2>&1 | tee /tmp/gradle-apk.log
+          outcome=${PIPESTATUS[0]}
+          set -e
+          if [ "$outcome" -ne 0 ]; then
+            problems=$(grep -E '^e: |error:|What went wrong|Execution failed|> Task .* FAILED' /tmp/gradle-apk.log \
+              | head -10 | tr '\n' '|' | sed 's/%/%25/g; s/\r//g')
+            echo "::error::Debug-APK-Build fehlgeschlagen (exit $outcome): $problems"
+            exit 1
+          fi
+
+      - name: Collect APK and build metadata
+        run: |
+          apk="app/build/outputs/apk/debug/app-debug.apk"
+          if [ ! -f "$apk" ]; then
+            echo "::error::Debug-APK fehlt unter $apk" >&2
+            exit 1
+          fi
+          cp "$apk" TCG-Sammlung-debug.apk
+          version_name=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
+          version_code=$(grep -m1 'versionCode' app/build.gradle.kts | sed 's/[^0-9]*\([0-9]*\).*/\1/')
+          commit_sha=$(git rev-parse --short HEAD)
+          build_date=$(date -u '+%Y-%m-%d %H:%M UTC')
+          {
+            echo "## TCG Sammlung – Debug-APK"
+            echo ""
+            echo "- **Version:** $version_name (VersionCode $version_code)"
+            echo "- **Build:** Commit \`$commit_sha\` vom $build_date"
+            echo "- **Variante:** Debug-Build (installationsfähig, ohne festen Release-Signaturschlüssel)"
+            echo ""
+            echo "### Installation"
+            echo ""
+            echo "1. APK herunterladen und öffnen."
+            echo "2. Falls gefragt: Installation aus **unbekannten Quellen** für deinen Browser/dateimanager erlauben."
+            echo ""
+            echo "### Wichtig bei Updates"
+            echo ""
+            echo "Jeder Build wird mit einem frischen Debug-Schlüssel signiert. Android akzeptiert daher **kein** Update über eine installierte ältere APK: Vor der Neuinstallation die Sammlung exportieren (Einstellungen → Sammlung exportieren), die alte App deinstallieren, die neue installieren und die Sammlung wieder importieren."
+          } > release-notes.md
+          echo "APK: $(ls -la TCG-Sammlung-debug.apk)"
+
+      - name: Publish APK release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: app-latest
+          name: TCG Sammlung – Debug-APK (latest)
+          body_path: release-notes.md
+          files: TCG-Sammlung-debug.apk
+          overwrite_files: true
+          make_latest: true
