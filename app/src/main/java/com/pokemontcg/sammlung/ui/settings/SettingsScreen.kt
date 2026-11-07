@@ -138,7 +138,7 @@ fun SettingsScreen(
                         ?: throw IllegalArgumentException(msgReadError)
                     val exportData = CollectionExporter.parseExportJson(content)
                     val existing = collectionRepo.getAllUserCardsOnce()
-                    val validIds = catalogRepo.getAllCardIds().toSet()
+                    val validIds = catalogRepo.getAllCardIds()
                     val preview = CollectionExporter.generatePreview(exportData, existing, validIds)
                     withContext(Dispatchers.Main) {
                         pendingImportData = exportData
@@ -165,7 +165,7 @@ fun SettingsScreen(
                 pendingImportPreview = null
                 scope.launch(Dispatchers.IO) {
                     try {
-                        val validIds = catalogRepo.getAllCardIds().toSet()
+                        val validIds = catalogRepo.getAllCardIds()
                         val result = collectionRepo.executeCollectionImport(
                             exportData = dataToImport,
                             validCatalogCardIds = validIds,

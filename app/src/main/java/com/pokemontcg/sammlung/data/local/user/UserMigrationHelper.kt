@@ -48,6 +48,18 @@ object UserMigrationHelper {
             )
 
             db.use { sqliteDb ->
+                // A missing table used to surface as a caught SQLiteException and left the app
+                // behind a blocking error dialog on every single launch. Read-only probing lets
+                // an unusable legacy file be skipped cleanly instead.
+                if (!legacySchemaIsReadable(sqliteDb)) {
+                    com.pokemontcg.sammlung.util.AppLogger.log(
+                        "UserMigrationHelper",
+                        "Legacy-Datenbank vorhanden, aber user_cards/Spalten fehlen. Migration wird übersprungen."
+                    )
+                    prefs.edit().putBoolean(KEY_MIGRATION_DONE, true).apply()
+                    return@withContext MigrationResult.NoLegacyDatabaseFound
+                }
+
                 // Read pokemon dexId & cardType
                 sqliteDb.rawQuery("SELECT id, dexId, cardType FROM pokemon", null).use { cursor ->
                     val idIdx = cursor.getColumnIndex("id")
@@ -198,6 +210,27 @@ object UserMigrationHelper {
         }
     }
 
+    /**
+     * Read-only probe of the legacy schema. Returns false when the file is not a usable
+     * legacy database (e.g. a 0-byte file left behind by an interrupted first start).
+     */
+    internal fun legacySchemaIsReadable(db: SQLiteDatabase): Boolean {
+        val presentTables = mutableSetOf<String>()
+        db.rawQuery("SELECT name FROM sqlite_master WHERE type = 'table'", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                cursor.getString(0)?.let { presentTables += it }
+            }
+        }
+        val userCardColumns = mutableSetOf<String>()
+        db.rawQuery("PRAGMA table_info(user_cards)", null).use { cursor ->
+            val nameIdx = cursor.getColumnIndex("name")
+            while (cursor.moveToNext()) {
+                if (nameIdx != -1) cursor.getString(nameIdx)?.let { userCardColumns += it }
+            }
+        }
+        return isLegacySchemaSufficient(presentTables, userCardColumns)
+    }
+
     /** Exports the untouched legacy user_cards table to CSV when migration needs recovery. */
     suspend fun exportLegacyCsv(context: Context): String = withContext(Dispatchers.IO) {
         val oldDbFile = context.getDatabasePath("tcg_sammlung_database")
@@ -238,6 +271,19 @@ object UserMigrationHelper {
             pokemonCardType.equals("Fullart", ignoreCase = true) -> CardCategory.FULLART
             else -> CardCategory.NONE
         }
+    }
+
+    /**
+     * Pure schema decision shared with the unit tests. `isCommon`/`isFullart` arrived in a
+     * later legacy schema version, so they stay optional; without `cardId`/`pokemonId` the
+     * migration cannot map a single row and must not be attempted at all.
+     */
+    internal fun isLegacySchemaSufficient(
+        tables: Set<String>,
+        userCardColumns: Set<String>
+    ): Boolean {
+        if (!tables.containsAll(listOf("user_cards", "pokemon", "cards"))) return false
+        return userCardColumns.containsAll(listOf("cardId", "pokemonId"))
     }
 
     private data class LegacyUserCardRecord(

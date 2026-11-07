@@ -122,7 +122,7 @@ class ResumableCatalogWorker(
             ))
 
             val unitSuccess = try {
-                executeUnit(unit, db, userDb, syncRepository, priceRepository, collectionRepository, preferencesRepository)
+                executeUnit(unit, startTime, db, userDb, syncRepository, priceRepository, collectionRepository, preferencesRepository)
             } catch (e: Exception) {
                 AppLogger.log("ResumableCatalogWorker", "Fehler in Einheit $unit: ${e.message}")
                 false
@@ -208,6 +208,7 @@ class ResumableCatalogWorker(
 
     private suspend fun executeUnit(
         unit: String,
+        startTime: Long,
         db: AppDatabase,
         userDb: UserDatabase,
         syncRepository: SyncRepository,
@@ -223,20 +224,26 @@ class ResumableCatalogWorker(
                 val protectedPokemonIds = userCards.map { it.pokemonId }.toSet()
                 syncRepository.importRemoteCatalog(
                     protectedCardIds = protectedCardIds,
-                    protectedPokemonIds = protectedPokemonIds
-                ) { stage, message, percent, downloadedBytes, totalBytes ->
-                    val builder = Data.Builder()
-                        .putString(KEY_PROGRESS_MESSAGE, message)
-                        .putString(KEY_SYNC_STAGE, stage.key)
-                        .putInt(KEY_PROGRESS_PERCENT, percent)
-                    if (downloadedBytes != null) {
-                        builder.putLong(KEY_DOWNLOADED_BYTES, downloadedBytes)
+                    protectedPokemonIds = protectedPokemonIds,
+                    onProgress = { stage, message, percent, downloadedBytes, totalBytes ->
+                        val builder = Data.Builder()
+                            .putString(KEY_PROGRESS_MESSAGE, message)
+                            .putString(KEY_SYNC_STAGE, stage.key)
+                            .putInt(KEY_PROGRESS_PERCENT, percent)
+                        if (downloadedBytes != null) {
+                            builder.putLong(KEY_DOWNLOADED_BYTES, downloadedBytes)
+                        }
+                        if (totalBytes != null) {
+                            builder.putLong(KEY_TOTAL_BYTES, totalBytes)
+                        }
+                        setProgress(builder.build())
+                    },
+                    // The time slice is enforced inside the 60 MB download as well; without this
+                    // the worker kept downloading long after its 8-minute budget was spent.
+                    shouldStop = {
+                        isStopped || System.currentTimeMillis() - startTime >= MAX_TIME_SLICE_MS
                     }
-                    if (totalBytes != null) {
-                        builder.putLong(KEY_TOTAL_BYTES, totalBytes)
-                    }
-                    setProgress(builder.build())
-                }
+                )
             }
             unit == "names" -> syncRepository.ensurePokemonNamesLoaded()
             unit == "catalog" -> {
@@ -246,6 +253,9 @@ class ResumableCatalogWorker(
                     is CatalogImportResult.Success,
                     CatalogImportResult.AlreadyUpToDate -> true
                     is CatalogImportResult.RequiresAppUpdate -> true
+                    // Deferred only comes out of the remote download path, never from the
+                    // starter catalog; treating it as retryable keeps the when exhaustive.
+                    CatalogImportResult.Deferred -> false
                     is CatalogImportResult.Error -> false
                 }
             }

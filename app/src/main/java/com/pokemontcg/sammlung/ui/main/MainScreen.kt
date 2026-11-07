@@ -10,14 +10,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.R
-import com.pokemontcg.sammlung.data.export.TradeListExporter
 import com.pokemontcg.sammlung.ui.components.NotificationPermissionHandler
 import com.pokemontcg.sammlung.ui.main.components.MainFilterChips
 import com.pokemontcg.sammlung.ui.main.components.MainSyncBanner
@@ -42,7 +40,6 @@ fun MainScreen(
     onNavigateToScanner: () -> Unit,
     onNavigateToSets: () -> Unit
 ) {
-    val context = LocalContext.current
     val uiState by viewModel.uiState.collectAsState()
     val catalogIsEmpty by viewModel.catalogIsEmpty.collectAsState()
     val searchQuery = uiState.searchQuery
@@ -62,7 +59,11 @@ fun MainScreen(
             .mapValues { (_, cards) -> cards.sumOf { it.quantity } }
     }
 
-    NotificationPermissionHandler()
+    // Only ask for the notification permission once price alerts are actually enabled;
+    // otherwise the rationale dialog reappears on every launch that the user declined.
+    if (uiState.priceAlertsEnabled) {
+        NotificationPermissionHandler()
+    }
 
     if (showGenerationDialog) {
         GenerationFilterDialog(
@@ -225,10 +226,6 @@ fun MainScreen(
                         userCardQuantities = quantitiesMap,
                         totalCardsCount = userCards.sumOf { it.quantity },
                         cardsWithoutPriceCount = cardsWithoutPriceCount,
-                        onExportTradeList = {
-                            val duplicates = userCards.filter { it.quantity > 1 }
-                            TradeListExporter.shareTradeList(context, duplicates, emptyMap())
-                        },
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
                     )
                 }

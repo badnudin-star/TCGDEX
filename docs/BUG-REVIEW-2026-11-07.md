@@ -195,3 +195,35 @@ Lokal geprüft (kein JDK/SDK in dieser Umgebung, Kotlin-Unit-Tests daher nicht a
 
 Offen (Produktentscheidung nötig): **E** (Chart zeigt vor dem ersten Messpunkt eine erfundene
 flache Historie) und **F** (Gesamtwert ignoriert den Generationen-Filter).
+
+---
+
+## 5. Zweite Review-Runde und Umsetzung (2026-11-07)
+
+### 5.1 Umgesetzt
+
+| Befund | Fix | Dateien |
+| --- | --- | --- |
+| 1 – Tauschliste ohne Kartendaten | **Funktion komplett entfernt** (Nutzerentscheidung: „die benötige ich gar nicht"). Damit entfallen der Export-Callback, der Button im Preisentwicklungs-Tab, 13 tote String-Ressourcen und der zugehörige Test; `TradeListExporter.kt` ist gelöscht. Der Scanner-Regex-Test bleibt erhalten. | `TradeListExporter.kt` (gelöscht), `MainScreen.kt`, `PriceDevelopmentTab.kt`, `strings.xml`, `Phase3Test.kt` |
+| 3 – Migration ohne Quellschema-Prüfung | Vor dem Lesen wird die Legacy-DB geprüft (`sqlite_master` + `PRAGMA table_info(user_cards)`). Ist sie unbrauchbar (z. B. 0-Byte-Datei), wird die Migration als „keine Legacy-DB" übersprungen statt als `Error` den Start zu blockieren. Entscheidungslogik als reine Funktion + 4 Unit-Tests. | `UserMigrationHelper.kt`, `UserMigrationTest.kt` |
+| 4 – Berechtigungsdialog bei jedem Start | Der Rationale-Dialog erscheint nur noch, wenn Preisalarme in den Einstellungen aktiviert sind (`MainUiState.priceAlertsEnabled`, Default `false`). | `MainViewModel.kt`, `MainScreen.kt` |
+| 5 – Zeitscheibe greift beim Download nicht | `copyStreamLimitedWithProgress` prüft jetzt pro 8-KB-Block eine Stopp-Bedingung, gibt `false` zurück und der Teil-Download wird verworfen (`CatalogImportResult.Deferred` → Folgelauf). Durchgereicht über `SyncRepository.importRemoteCatalog(shouldStop = …)` aus `ResumableCatalogWorker` (`isStopped` oder 8-Minuten-Budget). 2 Unit-Tests. | `CatalogImporter.kt`, `SyncRepository.kt`, `ResumableCatalogWorker.kt`, `CatalogImporterTest.kt` |
+| 6 – Kamera-OCR auf Querformat festgenagelt | `setTargetResolution(Size(1280, 720))` ist durch einen `ResolutionSelector` mit 4:3-AspectRatioStrategy und `ResolutionStrategy(1280×1280)` ersetzt; das Analysebild wird nicht mehr in eine Querformat-Box gezwungen. | `CardScannerScreen.kt` |
+| 7 – Performance | `recordPricePoints` lädt Karten gebatcht statt mit einer Query pro Karte; `SetProgressViewModel` berechnet die Katalog-Zählung nur noch bei Katalog-, nicht bei Sammlungsänderungen; `SettingsScreen` ruft `getAllCardIds()` ohne redundantes `.toSet()` auf. | `PriceRepository.kt`, `SetProgressViewModel.kt`, `SettingsScreen.kt` |
+
+### 5.2 Nachprüfung: Befund 2 (Backup/Restore) war falsch
+
+Die zweite Runde hatte notiert, die Sammlung gehe beim Restore verloren. Das ist **widerlegt**:
+Die Sammlung liegt in `user_database` (`UserDatabase`, Tabellen `user_cards`, `price_history`,
+`wishlist`), und genau diese Datei inklusive `-wal`/`-shm` ist in `backup_rules.xml` und
+`data_extraction_rules.xml` **included**. Ausgeschlossen ist nur `tcg_sammlung_database` — das ist
+der 60-MB-Katalog plus die Legacy-Tabelle, die nach der Migration nicht mehr gebraucht wird.
+Nach einem Restore muss der Katalog neu geladen werden (Download bzw. Start-Katalog), die eigene
+Sammlung bleibt erhalten. Keine Änderung nötig.
+
+### 5.3 Offen
+
+- **E** (`PriceHistoryUtils.kt`, Fortschreibung vor dem ersten Messpunkt) und **F** (Gesamtwert
+  ignoriert den Generationen-Filter) — weiterhin Produktentscheidung.
+- `start_catalog.sqlite` ist nicht eingecheckt; per `tools/catalog-builder/make_start_catalog.py`
+  erzeugen (CI prüft nur, dass das Asset nicht ignoriert wird).

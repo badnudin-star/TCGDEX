@@ -71,7 +71,26 @@ jobs:
         run: ./gradlew --version
 
       - name: Run unit tests and build debug/release variants
-        run: ./gradlew testDebugUnitTest assembleDebug assembleRelease
+        run: |
+          # GitHub runs this with `bash -e`, so the build must be guarded explicitly:
+          # otherwise the shell exits before the diagnostics below can report anything.
+          set +e
+          ./gradlew --console=plain testDebugUnitTest assembleDebug assembleRelease 2>&1 | tee /tmp/gradle-build.log
+          outcome=${PIPESTATUS[0]}
+          set -e
+          if [ "$outcome" -ne 0 ]; then
+            # Surfaced as an annotation so the cause stays visible even without the job log.
+            problems=$(grep -E '^e: |error:|What went wrong|Execution failed|> Task .* FAILED' /tmp/gradle-build.log \
+              | head -10 | tr '\n' '|' | sed 's/%/%25/g; s/\r//g')
+            echo "::error::Gradle-Build fehlgeschlagen (exit $outcome): $problems"
+            {
+              echo "### Gradle-Build fehlgeschlagen"
+              echo '```'
+              grep -E '^e: |error:|What went wrong|Execution failed|> Task .* FAILED' /tmp/gradle-build.log | head -60
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit "$outcome"
 
       - name: Verify starter catalog asset is not gitignored
         run: |
