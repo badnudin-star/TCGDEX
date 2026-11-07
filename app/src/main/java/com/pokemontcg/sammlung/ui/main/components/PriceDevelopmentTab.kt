@@ -25,7 +25,6 @@ fun PriceDevelopmentTab(
     userCardQuantities: Map<String, Int>,
     totalCardsCount: Int,
     cardsWithoutPriceCount: Int,
-    onExportTradeList: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -116,13 +115,6 @@ fun PriceDevelopmentTab(
                 }
 
                 HorizontalDivider()
-
-                OutlinedButton(
-                    onClick = onExportTradeList,
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(stringResource(R.string.ui_tauschliste_teilen_537116))
-                }
             }
         }
     }

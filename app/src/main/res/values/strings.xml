@@ -21,7 +21,6 @@
     <string name="main_collection_value_title">Gesamtwert deiner Sammlung</string>
     <string name="main_total_cards">Gesammelte Karten: %1$d</string>
     <string name="main_cards_without_price">Ohne Marktpreis: %1$d</string>
-    <string name="main_trade_list_share">Tauschliste teilen</string>
     <string name="main_filter_all">Alle</string>
     <string name="main_filter_common">Common</string>
     <string name="main_filter_fullart">Full Art</string>
@@ -139,7 +138,6 @@
     <string name="diag_catalog_update_requires_app_update">Katalog-Update benötigt App-Update (Manifest-Schema %1$d, App-Schema %2$d).</string>
     <string name="diag_catalog_version">Installierte Katalogversion: %1$s</string>
     <string name="btn_share_log">Diagnose-Log teilen</string>
-    <string name="btn_share_trade_list">Tauschliste teilen</string>
 
     <!-- About Dialog -->
     <string name="about_title">Über TCG Sammlung &amp; Quellen</string>
@@ -292,7 +290,6 @@
     <string name="ui_gesammelte_karten_be34ab">Gesammelte Karten</string>
     <string name="ui_karten_ohne_marktpreis_a57cf0">Karten ohne Marktpreis</string>
     <string name="ui_historische_datenpunkte_6c563a">Historische Datenpunkte</string>
-    <string name="ui_tauschliste_teilen_537116">Tauschliste teilen</string>
     <string name="ui_migration_blocked_error">Die App bleibt gesperrt, damit keine leere Sammlung angezeigt oder gespeichert wird. Fehler: %1$s</string>
     <string name="ui_card_number_rarity">Nr. %1$s - %2$s</string>
     <string name="ui_card_set_number">Set: %1$s (%2$s)</string>
@@ -533,14 +530,4 @@
     <string name="generation_region_paldea">Paldea</string>
     <string name="generation_region_special_formats">Sonderformate</string>
 
-    <string name="trade_list_title">🎴 Meine Doppelte- &amp; Tauschliste (TCG Sammlung)</string>
-    <string name="trade_list_empty">Derzeit keine doppelten Karten in der Sammlung.</string>
-    <string name="trade_list_unknown_set">Unbekanntes Set</string>
-    <string name="trade_list_set_label">Set</string>
-    <string name="trade_list_available_label">Verfügbar zum Tauschen</string>
-    <string name="trade_list_condition_label">Zustand</string>
-    <string name="trade_list_default_condition">Near Mint</string>
-    <string name="trade_list_price_label">Richtpreis</string>
-    <string name="trade_list_footer">Erstellt mit TCG Sammlung App.</string>
-    <string name="trade_list_share_chooser">Tauschliste teilen</string>
 </resources>
