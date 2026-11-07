@@ -74,18 +74,6 @@ data class CardEntity(
     @ColumnInfo(defaultValue = "0") val detailLoaded: Int = 0
 )
 
-
-
-@Entity(tableName = "user_cards", primaryKeys = ["cardId", "pokemonId"])
-data class UserCardEntity(
-    val cardId: String,
-    val pokemonId: String,
-    val isPrimary: Boolean,
-    val isCommon: Boolean,
-    val isFullart: Boolean,
-    val addedAt: Long = System.currentTimeMillis()
-)
-
 @Entity(tableName = "last_update")
 data class LastUpdateEntity(
     @PrimaryKey val id: Int = 1,

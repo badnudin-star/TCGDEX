@@ -24,7 +24,7 @@ from typing import Any, Callable
 import requests
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-SCHEMA_JSON_PATH = os.path.join(ROOT, "app/schemas/com.pokemontcg.sammlung.data.local.AppDatabase/17.json")
+SCHEMA_JSON_PATH = os.path.join(ROOT, "app/schemas/com.pokemontcg.sammlung.data.local.AppDatabase/18.json")
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DB_PATH = os.path.join(OUTPUT_DIR, "catalog.sqlite")
 OUTPUT_MANIFEST_PATH = os.path.join(OUTPUT_DIR, "manifest.json")
@@ -369,7 +369,7 @@ def _forget_completed_sets_without_cards(db: sqlite3.Connection, checkpoint: dic
 
 def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = request_json,
                       include_bulbapedia: bool = True, checkpoint_path: str | None = None,
-                      schema_version: int = 17) -> dict[str, Any]:
+                      schema_version: int = 18) -> dict[str, Any]:
     language_stats: dict[str, dict[str, int]] = {}
     all_set_ids: set[str] = set()
     all_set_names: dict[str, str] = {}

@@ -143,10 +143,6 @@ class CatalogImporterTest {
             "INSERT INTO cards (id, name, supertype, number, setId, setName, series, language, detailLoaded) " +
                 "VALUES ('protected-card', 'Protected', 'Pokémon', '99', 'fixture-set', 'Fixture Set', 'Fixture Series', 'de', 1)"
         )
-        db.execSQL(
-            "INSERT INTO user_cards (cardId, pokemonId, isPrimary, isCommon, isFullart, addedAt) " +
-                "VALUES ('protected-card', '25', 1, 1, 0, 1700000000000)"
-        )
 
         val briefFixture = File(targetContext.cacheDir, "catalog_merge_brief.sqlite")
         instrumentationContext.assets.open("catalog_import_fixture.sqlite").use { input ->
@@ -201,13 +197,6 @@ class CatalogImporterTest {
             "Protected collection card must survive a snapshot that no longer contains it",
             1L,
             db.query("SELECT COUNT(*) FROM cards WHERE id = 'protected-card'").use { cursor ->
-                cursor.moveToFirst(); cursor.getLong(0)
-            }
-        )
-        assertEquals(
-            "Legacy collection rows must remain untouched",
-            1L,
-            db.query("SELECT COUNT(*) FROM user_cards WHERE cardId = 'protected-card'").use { cursor ->
                 cursor.moveToFirst(); cursor.getLong(0)
             }
         )
@@ -333,16 +322,12 @@ class CatalogImporterTest {
     }
 
     @Test
-    fun catalogFixtureImportsOnlyCatalogTablesAndPreservesBothCollections(): Unit = runBlocking {
+    fun catalogFixtureImportsOnlyCatalogTablesAndPreservesUserCollection(): Unit = runBlocking {
         val targetContext = InstrumentationRegistry.getInstrumentation().targetContext
         val instrumentationContext = InstrumentationRegistry.getInstrumentation().context
 
-        // Populate both the retained legacy collection table and the current UserDatabase.
-        // The legacy table has no DAO any more, so the fixture row is written directly.
-        appDb.openHelper.writableDatabase.execSQL(
-            "INSERT INTO user_cards (cardId, pokemonId, isPrimary, isCommon, isFullart, addedAt) " +
-                "VALUES ('legacy-card-1', '25', 1, 1, 0, 100)"
-        )
+        // The collection lives exclusively in UserDatabase since schema 18 removed the legacy
+        // AppDatabase user_cards table.
         userDb.userCardDao().insertUserCard(
             UserCardEntityV2(
                 cardId = "user-card-1",
@@ -356,7 +341,6 @@ class CatalogImporterTest {
             )
         )
 
-        val legacyCountBefore = legacyUserCardCount()
         val userDbCountBefore = userDb.userCardDao().getAllUserCardsOnce().size
         val fixture = File(targetContext.cacheDir, "catalog_import_fixture.sqlite")
         instrumentationContext.assets.open("catalog_import_fixture.sqlite").use { input ->
@@ -369,7 +353,6 @@ class CatalogImporterTest {
         assertEquals("Fixture set should be imported", 1, appDb.setDao().getAllSets().first().size)
         assertEquals("Fixture card should be imported", 1, appDb.cardDao().getAllCardsOnce().size)
         assertEquals("Fixture card-to-Pokémon link should be imported", listOf(25), appDb.cardDao().getCachedPokedexNumbers())
-        assertEquals("Legacy collection rows must remain unchanged", legacyCountBefore, legacyUserCardCount())
         assertEquals("Current UserDatabase rows must remain unchanged", userDbCountBefore, userDb.userCardDao().getAllUserCardsOnce().size)
 
         // A catalog with a mismatched Room identity must be rejected without changing live rows.
@@ -390,21 +373,9 @@ class CatalogImporterTest {
         assertTrue("Invalid schema must be rejected, got $rejected", rejected is CatalogImportResult.Error)
         assertEquals("Rejected catalog must not change existing sets", 1, appDb.setDao().getAllSets().first().size)
         assertEquals("Rejected catalog must not change existing cards", 1, appDb.cardDao().getAllCardsOnce().size)
-        assertEquals("Legacy collection rows must remain unchanged after rejection", legacyCountBefore, legacyUserCardCount())
         assertEquals("Current UserDatabase rows must remain unchanged after rejection", userDbCountBefore, userDb.userCardDao().getAllUserCardsOnce().size)
 
         fixture.delete()
         invalidFixture.delete()
     }
-
-    /**
-     * Row count of the retained legacy collection table inside the catalog database.
-     *
-     * `SupportSQLiteDatabase` exposes `query`, not the framework `rawQuery`, and the table has no
-     * DAO any more - see the comment on `UserCardEntity` in `AppDatabase`.
-     */
-    private fun legacyUserCardCount(): Int =
-        appDb.openHelper.readableDatabase
-            .query("SELECT COUNT(*) FROM user_cards")
-            .use { cursor -> if (cursor.moveToFirst()) cursor.getInt(0) else 0 }
 }

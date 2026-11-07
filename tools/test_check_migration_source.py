@@ -38,7 +38,7 @@ class MigrationSourceGuardTest(unittest.TestCase):
     def test_migration_must_be_registered(self):
         start = SOURCE.find("val ALL_MIGRATIONS")
         end = SOURCE.find("@Volatile private var INSTANCE", start)
-        mutated = SOURCE[:start] + SOURCE[start:end].replace("            MIGRATION_16_17\n", "", 1) + SOURCE[end:]
+        mutated = SOURCE[:start] + SOURCE[start:end].replace("            MIGRATION_16_17,\n", "", 1) + SOURCE[end:]
         errors = guard.check_source(mutated)
         self.assertIn("MIGRATION_16_17 is not registered in ALL_MIGRATIONS", errors)
 

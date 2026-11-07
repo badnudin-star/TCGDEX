@@ -101,9 +101,9 @@ class CatalogImporter(
         preferencesRepository ?: AppPreferencesRepository(context)
     }
     private companion object {
-        // Must match AppDatabase schema 17.json; change with a Room schema migration.
-        const val EXPECTED_ROOM_IDENTITY_HASH = "545f4e1ec7d1f8ad7d5926ce320dabdb"
-        const val CURRENT_CATALOG_SCHEMA_VERSION = 17
+        // Must match AppDatabase schema 18.json; change with a Room schema migration.
+        const val EXPECTED_ROOM_IDENTITY_HASH = "0d080a9ddf8b390e301cfea29a7c7179"
+        const val CURRENT_CATALOG_SCHEMA_VERSION = 18
         const val MAX_MANIFEST_BYTES = 256 * 1024L
         const val MAX_CATALOG_BYTES = 512 * 1024 * 1024L
         private const val MAX_REDIRECTS = 5
@@ -479,7 +479,7 @@ class CatalogImporter(
                     }
                 } else null
                 if (roomHash != EXPECTED_ROOM_IDENTITY_HASH) {
-                    AppLogger.log("CatalogImporter", "Room-Identity-Hash des Katalogs passt nicht zu Schema 17.")
+                    AppLogger.log("CatalogImporter", "Room-Identity-Hash des Katalogs passt nicht zu Schema 18.")
                     return@withContext CatalogImportResult.Error("Catalog schema identity mismatch")
                 }
 
@@ -506,9 +506,10 @@ class CatalogImporter(
                 }
             }
 
-            // ATTACH must happen outside the transaction. Only catalog tables are copied;
-            // Only catalog tables are replaced. The retained user_cards table of the catalog
-            // schema and the separate UserDatabase (the real collection) are never touched.
+            // ATTACH must happen outside the transaction. Only catalog tables are replaced;
+            // the separate UserDatabase (the real collection) is never touched. Schema 18 also
+            // removed the legacy AppDatabase user_cards table, so no user data lives in the
+            // catalog scope any more.
             val escapedPath = sourceFile.absolutePath.replace("'", "''")
             db.execSQL("ATTACH DATABASE '$escapedPath' AS $alias")
             attached = true
