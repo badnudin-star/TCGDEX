@@ -76,8 +76,11 @@ jobs:
           ./gradlew --console=plain testDebugUnitTest assembleDebug assembleRelease 2>&1 | tee /tmp/gradle-build.log
           outcome=$?
           if [ $outcome -ne 0 ]; then
-            echo "::error::Gradle-Build fehlgeschlagen"
-            { echo "### Gradle-Build fehlgeschlagen"; echo '```'; grep -E '^e: |error:|What went wrong|Execution failed|Caused by' /tmp/gradle-build.log | head -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+            # The relevant lines are surfaced as an annotation so they are visible even when
+            # the job log cannot be downloaded.
+            summary=$(grep -E '^e: |error:|What went wrong|Execution failed|> Task .* FAILED' /tmp/gradle-build.log               | head -12 | tr '\n' '|' | sed 's/%/%25/g; s/\r//g')
+            echo "::error::Gradle-Build fehlgeschlagen: ${summary}"
+            { echo "### Gradle-Build fehlgeschlagen"; echo '```'; grep -E '^e: |error:|What went wrong|Execution failed|> Task .* FAILED' /tmp/gradle-build.log | head -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
           fi
           exit $outcome
 
