@@ -71,7 +71,15 @@ jobs:
         run: ./gradlew --version
 
       - name: Run unit tests and build debug/release variants
-        run: ./gradlew testDebugUnitTest assembleDebug assembleRelease
+        run: |
+          set -o pipefail
+          ./gradlew --console=plain testDebugUnitTest assembleDebug assembleRelease 2>&1 | tee /tmp/gradle-build.log
+          outcome=$?
+          if [ $outcome -ne 0 ]; then
+            echo "::error::Gradle-Build fehlgeschlagen"
+            { echo "### Gradle-Build fehlgeschlagen"; echo '```'; grep -E '^e: |error:|What went wrong|Execution failed|Caused by' /tmp/gradle-build.log | head -60; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          fi
+          exit $outcome
 
       - name: Verify starter catalog asset is not gitignored
         run: |
