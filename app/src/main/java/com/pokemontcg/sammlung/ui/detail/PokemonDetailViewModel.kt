@@ -9,13 +9,17 @@ import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
+import com.pokemontcg.sammlung.data.model.MergedCatalogCard
+import com.pokemontcg.sammlung.data.model.mergeCardsByRawId
 import com.pokemontcg.sammlung.data.repository.CatalogRepository
 import com.pokemontcg.sammlung.data.repository.CollectionRepository
+import com.pokemontcg.sammlung.data.preferences.AppPreferencesRepository
 import com.pokemontcg.sammlung.data.repository.PriceRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -24,6 +28,7 @@ class PokemonDetailViewModel(
     private val catalogRepository: CatalogRepository,
     private val collectionRepository: CollectionRepository,
     priceRepository: PriceRepository,
+    preferencesRepository: AppPreferencesRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -39,6 +44,22 @@ class PokemonDetailViewModel(
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
         )
+
+    /**
+     * The same cards merged across language prints (one entry per artwork) for the favourite
+     * and secondary card selection lists — exactly like the wishlist catalog search. The
+     * representative print follows the preferred language.
+     */
+    val mergedCards: StateFlow<List<MergedCatalogCard>> = combine(
+        cards,
+        preferencesRepository.preferredLanguageFlow
+    ) { allCards, preferredLanguage ->
+        mergeCardsByRawId(allCards, preferredLanguage)
+    }.stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5000),
+        initialValue = emptyList()
+    )
 
     val userCards: StateFlow<List<UserCardEntityV2>> = collectionRepository.getUserCardsForPokemon(dexId, pokemonIdStr)
         .stateIn(
@@ -150,7 +171,8 @@ class PokemonDetailViewModel(
     class Factory(
         private val catalogRepository: CatalogRepository,
         private val collectionRepository: CollectionRepository,
-        private val priceRepository: PriceRepository
+        private val priceRepository: PriceRepository,
+        private val preferencesRepository: AppPreferencesRepository
     ) : ViewModelProvider.Factory {
         @Suppress("UNCHECKED_CAST")
         override fun <T : ViewModel> create(modelClass: Class<T>, extras: androidx.lifecycle.viewmodel.CreationExtras): T {
@@ -159,6 +181,7 @@ class PokemonDetailViewModel(
                 catalogRepository,
                 collectionRepository,
                 priceRepository,
+                preferencesRepository,
                 savedStateHandle
             ) as T
         }

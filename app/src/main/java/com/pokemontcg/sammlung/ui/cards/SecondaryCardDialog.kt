@@ -3,10 +3,13 @@ package com.pokemontcg.sammlung.ui.cards
 import com.pokemontcg.sammlung.R
 import androidx.compose.ui.res.stringResource
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,33 +19,37 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import java.util.Locale
 import com.pokemontcg.sammlung.ui.components.TcgImage
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.CardCategory
+import com.pokemontcg.sammlung.data.model.MergedCatalogCard
+import com.pokemontcg.sammlung.data.model.RarityGrouper
+import com.pokemontcg.sammlung.data.model.filterMerged
 import com.pokemontcg.sammlung.util.PriceFormatter
 
+/**
+ * Manages the secondary cards of a Pokémon. Language prints of the same artwork are merged
+ * into one entry (like the wishlist catalog search); the rarity filter uses the canonical
+ * English groups and applies to every language print.
+ */
 @Composable
 fun SecondaryCardDialog(
-    cards: List<CardEntity>,
+    cards: List<MergedCatalogCard>,
     userCards: List<UserCardEntityV2>,
     onAddCard: (CardEntity, CardCategory) -> Unit,
     onRemoveCard: (String) -> Unit,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
-    val filteredCards = remember(cards, searchQuery) {
-        val queryTokens = searchQuery.trim().lowercase(Locale.ROOT).split(Regex("\\s+")).filter { it.isNotBlank() }
-        if (queryTokens.isEmpty()) cards else cards.filter { card ->
-            val searchable = listOf(
-                card.name, card.setName, card.setId, card.series, card.number,
-                card.rarity.orEmpty(), card.language, card.subtypes.orEmpty(),
-                card.setReleaseDate.orEmpty(), card.setCardCountOfficial?.toString().orEmpty(),
-                card.setCardCountTotal?.toString().orEmpty()
-            ).joinToString(" ").lowercase(Locale.ROOT)
-            queryTokens.all(searchable::contains)
-        }
+    var selectedRarityGroups by remember { mutableStateOf(setOf<String>()) }
+
+    val rarityGroups = remember(cards) {
+        RarityGrouper.chipGroups(cards.mapNotNull { it.representative.rarity })
+    }
+
+    val filteredCards = remember(cards, searchQuery, selectedRarityGroups) {
+        cards.filterMerged(searchQuery, selectedRarityGroups)
     }
 
     AlertDialog(
@@ -63,6 +70,40 @@ fun SecondaryCardDialog(
                     label = { Text(stringResource(R.string.ui_karte_oder_set_suchen_dc3b5f)) },
                     placeholder = { Text(stringResource(R.string.ui_name_set_nummer_sprache_058f1e)) }
                 )
+                if (rarityGroups.size > 1) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        rarityGroups.forEach { rarityGroup ->
+                            FilterChip(
+                                selected = rarityGroup in selectedRarityGroups,
+                                onClick = {
+                                    selectedRarityGroups =
+                                        if (rarityGroup in selectedRarityGroups) selectedRarityGroups - rarityGroup
+                                        else selectedRarityGroups + rarityGroup
+                                },
+                                label = { Text(rarityGroup) }
+                            )
+                        }
+                        if (selectedRarityGroups.isNotEmpty()) {
+                            AssistChip(
+                                onClick = { selectedRarityGroups = emptySet() },
+                                label = { Text(stringResource(R.string.wishlist_search_rarity_clear)) },
+                                leadingIcon = {
+                                    Icon(
+                                        Icons.Default.Clear,
+                                        contentDescription = stringResource(R.string.ui_icon_clear),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            )
+                        }
+                    }
+                }
                 if (cards.isEmpty()) {
                     Box(modifier = Modifier.fillMaxWidth().heightIn(min = 150.dp), contentAlignment = Alignment.Center) {
                         Text(stringResource(R.string.ui_keine_karten_f_r_dieses_pok_mon_vorh_53cb93))
@@ -73,10 +114,13 @@ fun SecondaryCardDialog(
                     }
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 450.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(filteredCards, key = { it.id }) { card ->
-                            val userCard = userCards.firstOrNull { it.cardId == card.id && !it.isPrimary }
+                        items(filteredCards, key = { it.representative.id }) { card ->
+                            val representative = card.representative
+                            // Ownership counts regardless of which language print is stored.
+                            val userCard = userCards.firstOrNull { !it.isPrimary && it.cardId in card.variantIds }
                             val isAdded = userCard != null
                             val category = userCard?.category
+                            val rarityGroup = RarityGrouper.canonical(representative.rarity)
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
@@ -84,25 +128,42 @@ fun SecondaryCardDialog(
                             ) {
                                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     TcgImage(
-                                        model = card.imageUrl,
-                                        contentDescription = stringResource(R.string.ui_card_image_description, card.name, card.number, card.setName),
+                                        model = representative.imageUrl,
+                                        contentDescription = stringResource(R.string.ui_card_image_description, representative.name, representative.number, representative.setName),
                                         modifier = Modifier.size(60.dp)
                                     )
                                     Spacer(Modifier.width(12.dp))
                                     Column(Modifier.weight(1f)) {
-                                        Text(card.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                        Text(representative.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                                            val setImage = card.setSymbolUrl ?: card.setLogoUrl
+                                            val setImage = representative.setSymbolUrl ?: representative.setLogoUrl
                                             if (!setImage.isNullOrBlank()) {
                                                 TcgImage(
                                                     model = setImage,
-                                                    contentDescription = stringResource(R.string.ui_set_symbol_description, card.setName),
+                                                    contentDescription = stringResource(R.string.ui_set_symbol_description, representative.setName),
                                                     modifier = Modifier.size(18.dp)
                                                 )
                                             }
-                                            Text(card.setName, style = MaterialTheme.typography.bodySmall)
+                                            Text(representative.setName, style = MaterialTheme.typography.bodySmall)
                                         }
-                                        Text(stringResource(R.string.ui_card_number_rarity, card.number, card.rarity ?: stringResource(R.string.ui_keine_oder_noch_ohne_)) , style = MaterialTheme.typography.labelSmall)
+                                        Text(
+                                            stringResource(
+                                                R.string.ui_card_number_rarity,
+                                                representative.number,
+                                                if (rarityGroup == "None") stringResource(R.string.ui_keine_oder_noch_ohne_) else rarityGroup
+                                            ),
+                                            style = MaterialTheme.typography.labelSmall
+                                        )
+                                        if (card.languages.size > 1) {
+                                            Text(
+                                                stringResource(
+                                                    R.string.wishlist_available_languages,
+                                                    card.languages.joinToString(" · ")
+                                                ),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                             if (category == CardCategory.COMMON.name) Text(stringResource(R.string.ui_common_7de90a), color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold)
                                             if (category == CardCategory.FULLART.name) Text(stringResource(R.string.ui_full_art_952d8e), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
@@ -111,15 +172,16 @@ fun SecondaryCardDialog(
                                     Column(horizontalAlignment = Alignment.End) {
                                         Text(
                                             PriceFormatter.formatPriceShort(
-                                                card.marketPrice,
+                                                representative.marketPrice,
                                                 stringResource(R.string.price_no_price_short)
                                             ),
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        if (isAdded) {
-                                            IconButton(onClick = { onRemoveCard(card.id) }) {
-                                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_remove_card_named, card.name), tint = MaterialTheme.colorScheme.error)
+                                        if (isAdded && userCard != null) {
+                                            // Removes the exact print that is stored.
+                                            IconButton(onClick = { onRemoveCard(userCard.cardId) }) {
+                                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_remove_card_named, representative.name), tint = MaterialTheme.colorScheme.error)
                                             }
                                         } else {
                                             Column(
@@ -128,12 +190,12 @@ fun SecondaryCardDialog(
                                             ) {
                                                 FilterChip(
                                                     selected = false,
-                                                    onClick = { onAddCard(card, CardCategory.COMMON) },
+                                                    onClick = { onAddCard(representative, CardCategory.COMMON) },
                                                     label = { Text(stringResource(R.string.ui_common_7de90a)) }
                                                 )
                                                 FilterChip(
                                                     selected = false,
-                                                    onClick = { onAddCard(card, CardCategory.FULLART) },
+                                                    onClick = { onAddCard(representative, CardCategory.FULLART) },
                                                     label = { Text(stringResource(R.string.ui_full_art_952d8e)) }
                                                 )
                                             }

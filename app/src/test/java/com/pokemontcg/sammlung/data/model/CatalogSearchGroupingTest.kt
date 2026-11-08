@@ -239,4 +239,55 @@ class CatalogSearchGroupingTest {
         assertEquals(1, merged.size)
         assertEquals(2, merged.single().variants.size)
     }
+
+    @Test
+    fun variantIdsCoverAllLanguagePrints() {
+        val merged = mergeCardsByRawId(
+            listOf(
+                card("xy1-1", language = "de"),
+                card("fr:xy1-1", language = "fr")
+            )
+        )
+
+        assertEquals(setOf("xy1-1", "fr:xy1-1"), merged.single().variantIds)
+    }
+
+    @Test
+    fun filterMergedMatchesTextAcrossAllLanguagePrints() {
+        val merged = mergeCardsByRawId(
+            listOf(
+                card("xy1-4", name = "Glumanda", language = "de"),
+                card("en:xy1-4", name = "Charmander", language = "en")
+            ),
+            preferredLanguage = "de"
+        )
+
+        // Both localized names find the same merged entry.
+        assertEquals(1, merged.filterMerged("charmander", emptySet()).size)
+        assertEquals(1, merged.filterMerged("Glumanda", emptySet()).size)
+        assertEquals(0, merged.filterMerged("Bisasam", emptySet()).size)
+    }
+
+    @Test
+    fun filterMergedRarityGroupsMatchAnyLanguagePrint() {
+        val merged = mergeCardsByRawId(
+            listOf(
+                card("xy1-1", name = "Pikachu", rarity = "Holo Rare", language = "de"),
+                card("ja:xy1-2", name = "Pikachu", rarity = "One Diamond", language = "ja")
+            )
+        )
+
+        // The canonical English groups also collapse Japanese symbol rarities.
+        assertEquals(
+            listOf("xy1-1"),
+            merged.filterMerged("", selectedRarityGroups = setOf("Holo Rare"))
+                .map { it.representative.id }
+        )
+        assertEquals(
+            listOf("ja:xy1-2"),
+            merged.filterMerged("", selectedRarityGroups = setOf("Uncommon"))
+                .map { it.representative.id }
+        )
+        assertTrue(merged.filterMerged("", selectedRarityGroups = setOf("Promo")).isEmpty())
+    }
 }
