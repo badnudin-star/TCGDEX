@@ -18,7 +18,9 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.app.ActivityCompat
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.Preview
 import androidx.camera.core.resolutionselector.AspectRatioStrategy
@@ -27,26 +29,34 @@ import androidx.camera.core.resolutionselector.ResolutionStrategy
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.delay
+import java.util.Locale
 import java.util.concurrent.Executors
+import kotlin.math.roundToInt
 import java.util.concurrent.atomic.AtomicBoolean
-import java.util.concurrent.atomic.AtomicInteger
 import java.util.concurrent.atomic.AtomicReference
 
 @Composable
@@ -137,46 +147,30 @@ fun CardScannerScreen(
     }
 
     var detectedText by remember { mutableStateOf("") }
-    val lastSubmittedFingerprint = remember { AtomicReference<String?>(null) }
-    val stableNameFingerprint = remember { AtomicReference<String?>(null) }
-    val stableNameCount = remember { AtomicInteger(0) }
+    // Confirms a fingerprint over consecutive frames before it triggers a catalog search.
+    val submitGate = remember { ScannerSubmitGate() }
+    var torchOn by remember { mutableStateOf(false) }
+    var zoomRatio by remember { mutableStateOf(1f) }
 
     Box(modifier = Modifier.fillMaxSize()) {
         key(cameraRetryKey) {
             CameraPreview(
                 onTextRecognized = { rawText, cardNumberMatch ->
                     detectedText = rawText
+                    // A readable number is a strong signal and is confirmed over two
+                    // frames; the fuzzy name fallback is noisier and needs three
+                    // identical frames in a row before it triggers a catalog search.
                     if (!cardNumberMatch.isNullOrBlank()) {
-                        val fingerprint = "number:${cardNumberMatch.uppercase()}"
-                        if (lastSubmittedFingerprint.getAndSet(fingerprint) != fingerprint) {
-                            stableNameFingerprint.set(null)
-                            stableNameCount.set(0)
+                        if (submitGate.submitNumber(cardNumberMatch)) {
                             onCardDetected(cardNumberMatch, rawText)
                         }
-                    } else {
-                        val tokens = extractOcrSearchTokens(rawText, limit = 4)
-                        val fingerprint = tokens.joinToString(" ")
-                        if (tokens.isNotEmpty() && fingerprint.length >= 8) {
-                            if (stableNameFingerprint.get() == fingerprint) {
-                                stableNameCount.incrementAndGet()
-                            } else {
-                                stableNameFingerprint.set(fingerprint)
-                                stableNameCount.set(1)
-                            }
-                            // Require repeated identical OCR text to avoid searching on every camera frame.
-                            if (stableNameCount.get() >= 3) {
-                                val submitted = "name:$fingerprint"
-                                if (lastSubmittedFingerprint.getAndSet(submitted) != submitted) {
-                                    onCardDetected(null, rawText)
-                                }
-                            }
-                        } else {
-                            stableNameFingerprint.set(null)
-                            stableNameCount.set(0)
-                        }
+                    } else if (submitGate.submitNameTokens(extractOcrSearchTokens(rawText, limit = 4))) {
+                        onCardDetected(null, rawText)
                     }
                 },
-                onCameraError = { cameraError = true }
+                onCameraError = { cameraError = true },
+                zoomRatio = zoomRatio,
+                torchOn = torchOn
             )
         }
 
@@ -200,6 +194,8 @@ fun CardScannerScreen(
                     )
                     Button(onClick = {
                         cameraError = false
+                        torchOn = false
+                        zoomRatio = 1f
                         cameraRetryKey += 1
                     }) {
                         Text(stringResource(R.string.scanner_camera_retry))
@@ -214,6 +210,61 @@ fun CardScannerScreen(
                     .align(Alignment.Center)
                     .border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
             )
+
+            // Kamera-Steuerung: Zoom bringt mehr Pixel auf die Karte, Licht hilft in
+            // dunklen Raeumen. Digital-Zoom beschneidet den Sensor, bevor die Analyse-
+            // Aufloesung skaliert wird - die Kartennummer gewinnt also echte Schärfe.
+            Column(
+                modifier = Modifier
+                    .align(Alignment.CenterEnd)
+                    .padding(end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(4.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        // "+" and "−" as text: the icon set shipped with the app has no
+                        // dedicated minus glyph (no material-icons-extended dependency).
+                        val zoomInDescription = stringResource(R.string.scanner_zoom_in)
+                        val zoomOutDescription = stringResource(R.string.scanner_zoom_out)
+                        IconButton(
+                            onClick = { if (zoomRatio < 4f) zoomRatio += 0.5f },
+                            modifier = Modifier.semantics { contentDescription = zoomInDescription }
+                        ) {
+                            Text("+", style = MaterialTheme.typography.titleLarge)
+                        }
+                        Text(
+                            String.format(Locale.US, "%.1fx", zoomRatio),
+                            style = MaterialTheme.typography.labelSmall
+                        )
+                        IconButton(
+                            onClick = { if (zoomRatio > 1f) zoomRatio -= 0.5f },
+                            modifier = Modifier.semantics { contentDescription = zoomOutDescription }
+                        ) {
+                            Text("−", style = MaterialTheme.typography.titleLarge)
+                        }
+                    }
+                }
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.85f)
+                ) {
+                    TextButton(onClick = {
+                        torchOn = !torchOn
+                    }) {
+                        Text(
+                            stringResource(if (torchOn) R.string.scanner_torch_off else R.string.scanner_torch_on),
+                            style = MaterialTheme.typography.labelMedium
+                        )
+                    }
+                }
+            }
         }
 
         Surface(
@@ -236,6 +287,7 @@ fun CardScannerScreen(
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(detectedText.ifBlank { stringResource(R.string.scanner_placeholder) }, style = MaterialTheme.typography.bodySmall, maxLines = 3)
+                Text(stringResource(R.string.scanner_hint_focus), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(12.dp))
                 Button(onClick = onDismiss) {
                     Text(stringResource(R.string.scanner_btn_stop))
@@ -274,7 +326,9 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
 @Composable
 private fun CameraPreview(
     onTextRecognized: (rawText: String, cardNumberMatch: String?) -> Unit,
-    onCameraError: () -> Unit
+    onCameraError: () -> Unit,
+    zoomRatio: Float,
+    torchOn: Boolean
 ) {
     val currentOnCameraError by rememberUpdatedState(onCameraError)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -284,6 +338,25 @@ private fun CameraPreview(
     // ML Kit processing is asynchronous; keep at most one frame in flight.
     val frameGate = remember { ScannerFrameGate() }
     val cameraProviderRef = remember { AtomicReference<ProcessCameraProvider?>(null) }
+    val previewViewRef = remember { AtomicReference<PreviewView?>(null) }
+    val cameraRef = remember { AtomicReference<Camera?>(null) }
+    // Short-lived marker where the user tapped to focus.
+    var focusIndicator by remember { mutableStateOf<Offset?>(null) }
+
+    // Apply torch and zoom whenever the controls change or a new camera comes up.
+    LaunchedEffect(torchOn) {
+        cameraRef.get()?.cameraControl?.enableTorch(torchOn)
+    }
+    LaunchedEffect(zoomRatio) {
+        cameraRef.get()?.cameraControl?.setZoomRatio(zoomRatio)
+    }
+
+    LaunchedEffect(focusIndicator) {
+        if (focusIndicator != null) {
+            delay(900)
+            focusIndicator = null
+        }
+    }
 
     DisposableEffect(executor, recognizer) {
         disposed.set(false)
@@ -295,9 +368,11 @@ private fun CameraPreview(
         }
     }
 
-    AndroidView(
+    Box(modifier = Modifier.fillMaxSize()) {
+        AndroidView(
         factory = { ctx ->
             val previewView = PreviewView(ctx)
+            previewViewRef.set(previewView)
             val cameraProviderFuture = try {
                 ProcessCameraProvider.getInstance(ctx)
             } catch (_: Exception) {
@@ -319,16 +394,18 @@ private fun CameraPreview(
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
-                // Analysefotos duerfen nicht auf ein Querformat (1280x720) festgenagelt werden:
+                // Analysefotos duerfen nicht auf ein Querformat festgenagelt werden:
                 // Karten werden hochkant vor die Kamera gehalten, wodurch die OCR-Zeile mit der
                 // Kartennummer nach einem Querformat-Downscale unlesbar wurde. Der
-                // ResolutionSelector haelt die laengere Kante bei ~1280 px und laesst die
-                // Ausrichtung offen, damit das Sensorformat in beiden Lagen passt.
+                // ResolutionSelector haelt die laengere Kante bei ~1920 px und laesst die
+                // Ausrichtung offen: ML Kit erkennt die kleine Kartennummer deutlich
+                // stabiler als bei den frueheren ~1280 px, und der Frame-Gate haelt die
+                // Framerate trotzdem im Rahmen.
                 val analysisResolution = ResolutionSelector.Builder()
                     .setAspectRatioStrategy(AspectRatioStrategy.RATIO_4_3_FALLBACK_AUTO_STRATEGY)
                     .setResolutionStrategy(
                         ResolutionStrategy(
-                            Size(1280, 1280),
+                            Size(1920, 1920),
                             ResolutionStrategy.FALLBACK_RULE_CLOSEST_HIGHER_THEN_LOWER
                         )
                     )
@@ -363,8 +440,17 @@ private fun CameraPreview(
                             .addOnSuccessListener { visionText ->
                                 if (!disposed.get()) {
                                     val fullText = visionText.text
+                                    // Zeilen nach Schriftgroesse sortieren: Der Kartenname
+                                    // ist das groesste Textelement, Regel-/Angriffstext und
+                                    // Fussnoten sind klein. Die Namenssuche nimmt die ersten
+                                    // Tokens - so liefern sie den Kartennamen statt Ballast.
+                                    val sizeOrderedText = visionText.textBlocks
+                                        .asSequence()
+                                        .flatMap { it.lines.asSequence() }
+                                        .sortedByDescending { it.boundingBox?.height() ?: 0 }
+                                        .joinToString("\n") { it.text }
                                     val cardMatch = extractCardNumber(fullText)
-                                    onTextRecognized(fullText, cardMatch)
+                                    onTextRecognized(sizeOrderedText, cardMatch)
                                 }
                             }
                             .addOnCompleteListener {
@@ -382,12 +468,19 @@ private fun CameraPreview(
                 try {
                     if (!disposed.get()) {
                         cameraProvider.unbindAll()
-                        cameraProvider.bindToLifecycle(
+                        val camera = cameraProvider.bindToLifecycle(
                             lifecycleOwner,
                             cameraSelector,
                             preview,
                             imageAnalysis
                         )
+                        cameraRef.set(camera)
+                        // Den aktuellen Steuerzustand sofort auf die neue Kamera anwenden,
+                        // z. B. nach dem Neustart nach einem Kamerafehler.
+                        camera.cameraControl.setZoomRatio(zoomRatio)
+                        if (torchOn) {
+                            camera.cameraControl.enableTorch(true)
+                        }
                     }
                 } catch (_: Exception) {
                     imageAnalysis.clearAnalyzer()
@@ -397,7 +490,38 @@ private fun CameraPreview(
 
             previewView
         },
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .pointerInput(Unit) {
+                detectTapGestures { offset ->
+                    val previewView = previewViewRef.get() ?: return@detectTapGestures
+                    val camera = cameraRef.get() ?: return@detectTapGestures
+                    // Die MeteringPointFactory der PreviewView rechnet Ansichts-Koordinaten
+                    // selbst in Sensor-Koordinaten um (inkl. FILL_CENTER Skalierung).
+                    val meteringPoint = previewView.meteringPointFactory
+                        .createPoint(offset.x, offset.y)
+                    runCatching {
+                        camera.cameraControl.startFocusAndMetering(
+                            FocusMeteringAction.Builder(
+                                meteringPoint,
+                                FocusMeteringAction.FLAG_AF or FocusMeteringAction.FLAG_AE
+                            ).build()
+                        )
+                    }
+                    focusIndicator = offset
+                }
+            }
     )
+
+        // Kurz sichtbarer Fokus-Ring an der Tipp-Position.
+        focusIndicator?.let { offset ->
+            Box(
+                modifier = Modifier
+                    .offset { IntOffset(offset.x.roundToInt() - 28, offset.y.roundToInt() - 28) }
+                    .size(56.dp)
+                    .border(2.dp, MaterialTheme.colorScheme.primary, CircleShape)
+            )
+        }
+    }
 }
 

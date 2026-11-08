@@ -68,6 +68,12 @@
     <string name="scanner_active">Kartenscan aktiv</string>
     <string name="scanner_btn_stop">Scan beenden</string>
     <string name="scanner_placeholder">Halte eine Karte vor die Kamera …</string>
+    <string name="scanner_hint_focus">Karte in den Rahmen halten · Tippen fokussiert</string>
+    <string name="scanner_torch_on">Licht an</string>
+    <string name="scanner_torch_off">Licht aus</string>
+    <string name="scanner_zoom_in">Vergrößern</string>
+    <string name="scanner_zoom_out">Verkleinern</string>
+    <string name="scanner_zoom_level">Zoom %.1fx</string>
 
     <!-- Diagnostics -->
     <string name="diag_catalog_update_requires_app_update">Katalog-Update benötigt App-Update (Manifest-Schema %1$d, App-Schema %2$d).</string>
