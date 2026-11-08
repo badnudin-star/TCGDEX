@@ -54,23 +54,22 @@ fun PokemonDetailScreen(
     onSelectPrimary: (CardEntity, CardCategory) -> Unit,
     onRemovePrimary: () -> Unit,
     onAddSecondary: (CardEntity, CardCategory) -> Unit,
-    onRemoveSecondary: (String) -> Unit,
+    onRemoveSecondary: (Long) -> Unit,
     onToggleWishlist: (CardEntity) -> Unit,
-    onUpdateCardDetails: (cardId: String, quantity: Int, condition: String?, language: String, notes: String?, category: String) -> Unit,
+    onUpdateCardDetails: (rowId: Long, quantity: Int, condition: String?, language: String, notes: String?, category: String) -> Unit,
     onClassificationChange: (String) -> Unit
 ) {
     val context = LocalContext.current
     var showPrimaryDialog by remember { mutableStateOf(false) }
     var showSecondaryDialog by remember { mutableStateOf(false) }
-    var selectedCardForEdit by remember { mutableStateOf<CardEntity?>(null) }
+    var selectedCardForEdit by remember { mutableStateOf<Pair<CardEntity, UserCardEntityV2>?>(null) }
     var pendingCategory by remember { mutableStateOf(CardCategory.NONE.name) }
     // Card picked as favourite but not classified yet; the category popup follows immediately.
     var pendingPrimaryCard by remember { mutableStateOf<CardEntity?>(null) }
 
-    fun openCardEditor(card: CardEntity) {
-        pendingCategory = userCards.firstOrNull { it.cardId == card.id }?.category
-            ?: CardCategory.NONE.name
-        selectedCardForEdit = card
+    fun openCardEditor(card: CardEntity, userCard: UserCardEntityV2) {
+        pendingCategory = userCard.category.ifBlank { CardCategory.NONE.name }
+        selectedCardForEdit = card to userCard
     }
 
     val primaryUserCard = userCards.firstOrNull { it.isPrimary }
@@ -124,16 +123,15 @@ fun PokemonDetailScreen(
         )
     }
 
-    selectedCardForEdit?.let { card ->
-        val uc = userCards.firstOrNull { it.cardId == card.id }
+    selectedCardForEdit?.let { (card, uc) ->
         CardSelectionDialog(
             card = card,
-            isPrimary = uc?.isPrimary ?: false,
-            category = uc?.category ?: "NONE",
-            initialQuantity = uc?.quantity ?: 1,
-            initialCondition = uc?.condition,
-            initialLanguage = uc?.language ?: "de",
-            initialNotes = uc?.notes,
+            isPrimary = uc.isPrimary,
+            category = uc.category,
+            initialQuantity = uc.quantity,
+            initialCondition = uc.condition,
+            initialLanguage = uc.language,
+            initialNotes = uc.notes,
             onPrimaryChange = { isPrimary ->
                 if (isPrimary) {
                     val category = CardCategory.entries.firstOrNull { it.name == pendingCategory }
@@ -146,7 +144,7 @@ fun PokemonDetailScreen(
             onCategoryChange = { selectedCategory -> pendingCategory = selectedCategory },
             onDetailsChange = { quantity, condition, language, notes ->
                 onUpdateCardDetails(
-                    card.id,
+                    uc.id,
                     quantity,
                     condition,
                     language,
@@ -252,7 +250,11 @@ fun PokemonDetailScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .minimumInteractiveComponentSize()
-                                .clickable { openCardEditor(primaryCard) },
+                                .clickable {
+                                    if (primaryUserCard != null) {
+                                        openCardEditor(primaryCard, primaryUserCard)
+                                    }
+                                },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             TcgImage(
@@ -309,13 +311,13 @@ fun PokemonDetailScreen(
                     if (secondaryCards.isEmpty()) {
                         Text(stringResource(R.string.ui_noch_keine_weiteren_karten_ausgew_hl_c3316b), style = MaterialTheme.typography.bodyMedium)
                     } else {
-                        secondaryCards.forEach { (card, _) ->
+                        secondaryCards.forEach { (card, userCard) ->
                             HorizontalDivider()
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .minimumInteractiveComponentSize()
-                                    .clickable { openCardEditor(card) },
+                                    .clickable { openCardEditor(card, userCard) },
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 TcgImage(
@@ -341,7 +343,7 @@ fun PokemonDetailScreen(
                                         tint = if (isWishlisted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                IconButton(onClick = { onRemoveSecondary(card.id) }) {
+                                IconButton(onClick = { onRemoveSecondary(userCard.id) }) {
                                     Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_remove_secondary_card_named, card.name), tint = MaterialTheme.colorScheme.error)
                                 }
                             }
