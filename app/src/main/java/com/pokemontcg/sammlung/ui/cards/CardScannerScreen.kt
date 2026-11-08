@@ -35,7 +35,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,6 +43,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -231,15 +231,25 @@ fun CardScannerScreen(
                         modifier = Modifier.padding(4.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        IconButton(onClick = { if (zoomRatio < 4f) zoomRatio += 0.5f }) {
-                            Icon(Icons.Default.Add, contentDescription = stringResource(R.string.scanner_zoom_in))
+                        // "+" and "−" as text: the icon set shipped with the app has no
+                        // dedicated minus glyph (no material-icons-extended dependency).
+                        val zoomInDescription = stringResource(R.string.scanner_zoom_in)
+                        val zoomOutDescription = stringResource(R.string.scanner_zoom_out)
+                        IconButton(
+                            onClick = { if (zoomRatio < 4f) zoomRatio += 0.5f },
+                            modifier = Modifier.semantics { contentDescription = zoomInDescription }
+                        ) {
+                            Text("+", style = MaterialTheme.typography.titleLarge)
                         }
                         Text(
                             String.format(Locale.US, "%.1fx", zoomRatio),
                             style = MaterialTheme.typography.labelSmall
                         )
-                        IconButton(onClick = { if (zoomRatio > 1f) zoomRatio -= 0.5f }) {
-                            Icon(Icons.Default.Remove, contentDescription = stringResource(R.string.scanner_zoom_out))
+                        IconButton(
+                            onClick = { if (zoomRatio > 1f) zoomRatio -= 0.5f },
+                            modifier = Modifier.semantics { contentDescription = zoomOutDescription }
+                        ) {
+                            Text("−", style = MaterialTheme.typography.titleLarge)
                         }
                     }
                 }
