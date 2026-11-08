@@ -19,7 +19,7 @@ IMPORTER_OK = """
 class CheckCatalogSchemaConstantsTest(unittest.TestCase):
     def test_committed_sources_match_newest_schema(self):
         version, identity = read_expected()
-        self.assertEqual(18, version)
+        self.assertEqual(19, version)
         self.assertEqual(32, len(identity))
 
     def test_matching_sources_pass(self):
