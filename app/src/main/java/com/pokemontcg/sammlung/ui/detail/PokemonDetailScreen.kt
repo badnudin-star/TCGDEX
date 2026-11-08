@@ -30,6 +30,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
+import com.pokemontcg.sammlung.data.model.MergedCatalogCard
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
@@ -44,6 +45,8 @@ import com.pokemontcg.sammlung.util.PriceFormatter
 fun PokemonDetailScreen(
     pokemon: PokemonEntity,
     cards: List<CardEntity>,
+    /** Language prints merged per artwork, for the favourite and secondary card dialogs. */
+    mergedCards: List<MergedCatalogCard>,
     userCards: List<UserCardEntityV2>,
     wishlistCardIds: Set<String>,
     totalPrice: Double?,
@@ -83,7 +86,7 @@ fun PokemonDetailScreen(
 
     if (showPrimaryDialog) {
         PrimaryCardSelectionDialog(
-            cards = cards,
+            cards = mergedCards,
             currentPrimaryId = primaryCard?.id,
             onSelect = { card ->
                 showPrimaryDialog = false
@@ -113,7 +116,7 @@ fun PokemonDetailScreen(
 
     if (showSecondaryDialog) {
         SecondaryCardDialog(
-            cards = cards,
+            cards = mergedCards,
             userCards = userCards,
             onAddCard = { card, category -> onAddSecondary(card, category) },
             onRemoveCard = onRemoveSecondary,

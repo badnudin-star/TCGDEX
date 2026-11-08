@@ -153,10 +153,11 @@ class MainActivity : ComponentActivity() {
                             arguments = listOf(navArgument("dexId") { type = NavType.IntType })
                         ) { _ ->
                             val pokemonDetailViewModel: PokemonDetailViewModel = viewModel(
-                                factory = PokemonDetailViewModel.Factory(catalogRepo, collectionRepo, priceRepo)
+                                factory = PokemonDetailViewModel.Factory(catalogRepo, collectionRepo, priceRepo, prefRepo)
                             )
                             val pokemon by pokemonDetailViewModel.pokemon.collectAsState()
                             val cards by pokemonDetailViewModel.cards.collectAsState()
+                            val mergedCards by pokemonDetailViewModel.mergedCards.collectAsState()
                             val uCards by pokemonDetailViewModel.userCards.collectAsState()
                             val wishlistCardIds by pokemonDetailViewModel.wishlistCardIds.collectAsState()
                             val totalPrice by pokemonDetailViewModel.totalPrice.collectAsState()
@@ -165,6 +166,7 @@ class MainActivity : ComponentActivity() {
                                 PokemonDetailScreen(
                                     pokemon = pokemon!!,
                                     cards = cards,
+                                    mergedCards = mergedCards,
                                     userCards = uCards,
                                     wishlistCardIds = wishlistCardIds,
                                     totalPrice = totalPrice,

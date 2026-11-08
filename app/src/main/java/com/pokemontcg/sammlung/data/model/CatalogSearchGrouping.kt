@@ -19,6 +19,10 @@ data class MergedCatalogCard(
     /** Distinct uppercase language codes of all prints, e.g. ["DE", "EN", "FR"]. */
     val languages: List<String>
         get() = variants.map { it.language.uppercase() }.distinct().sorted()
+
+    /** Catalog ids of all prints, e.g. to check whether one of them is already owned. */
+    val variantIds: Set<String>
+        get() = variants.map { it.id }.toSet()
 }
 
 /**
@@ -129,6 +133,37 @@ fun mergeCardsByRawId(
         val representative = prints.minByOrNull { representativeRank(it.language, preferredLanguage) }
             ?: prints.first()
         MergedCatalogCard(representative = representative, variants = prints.toList())
+    }
+}
+
+/**
+ * Shared filter for the merged card selection lists (favourite card, secondary cards):
+ * free text is matched against every language print, and the canonical English rarity
+ * groups match when ANY print of the artwork belongs to a selected group — so filtering
+ * works uniformly across all languages.
+ */
+fun List<MergedCatalogCard>.filterMerged(
+    searchQuery: String,
+    selectedRarityGroups: Set<String>
+): List<MergedCatalogCard> {
+    val queryTokens = searchQuery.trim().lowercase().split(Regex("\\s+")).filter { it.isNotBlank() }
+    return filter { card ->
+        if (selectedRarityGroups.isNotEmpty()) {
+            val matchesRarity = card.variants.any { variant ->
+                RarityGrouper.canonical(variant.rarity) in selectedRarityGroups
+            }
+            if (!matchesRarity) return@filter false
+        }
+        if (queryTokens.isEmpty()) return@filter true
+        card.variants.any { variant ->
+            val searchable = listOf(
+                variant.name, variant.setName, variant.setId, variant.series, variant.number,
+                variant.rarity.orEmpty(), variant.language, variant.subtypes.orEmpty(),
+                variant.setReleaseDate.orEmpty(), variant.setCardCountOfficial?.toString().orEmpty(),
+                variant.setCardCountTotal?.toString().orEmpty()
+            ).joinToString(" ").lowercase()
+            queryTokens.all(searchable::contains)
+        }
     }
 }
 
