@@ -184,6 +184,19 @@ fun SetProgressTab(
                                         contentScale = ContentScale.Fit
                                     )
                                     Spacer(Modifier.width(10.dp))
+                                } else {
+                                    // Sets without a symbol image get a generated abbreviation badge.
+                                    SetBadge(
+                                        setAbbreviation = item.set.setAbbreviation,
+                                        setName = item.set.name,
+                                        setId = item.set.id,
+                                        size = 30.dp,
+                                        contentDescription = stringResource(
+                                            R.string.ui_set_symbol_description,
+                                            item.set.name
+                                        )
+                                    )
+                                    Spacer(Modifier.width(10.dp))
                                 }
                                 if (!item.set.logoUrl.isNullOrBlank()) {
                                     TcgImage(

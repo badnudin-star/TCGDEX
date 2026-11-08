@@ -33,7 +33,9 @@ data class SetEntity(
     val releaseDate: String,
     /** TCGdex logo/symbol asset URLs; absent on some older promo sets. */
     val logoUrl: String? = null,
-    val symbolUrl: String? = null
+    val symbolUrl: String? = null,
+    /** Official set abbreviation (e.g. "SVI"), from the MIT tcgdex cards-database; shown as badge when no symbol image exists. */
+    val setAbbreviation: String? = null
 )
 
 @Entity(
@@ -71,7 +73,9 @@ data class CardEntity(
     /** Precalculated integer sort number for fast sorting without runtime GLOB/CAST. */
     @ColumnInfo(defaultValue = "0") val sortNumber: Int = 0,
     /** 0 = brief catalog item, 1 = full details loaded. */
-    @ColumnInfo(defaultValue = "0") val detailLoaded: Int = 0
+    @ColumnInfo(defaultValue = "0") val detailLoaded: Int = 0,
+    /** Official abbreviation of the card's set, for badges when setSymbolUrl is missing. */
+    val setAbbreviation: String? = null
 )
 
 @Entity(tableName = "last_update")

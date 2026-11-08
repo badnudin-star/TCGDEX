@@ -161,6 +161,16 @@ private fun SetDetailHeader(
                         contentScale = ContentScale.Fit
                     )
                     Spacer(Modifier.width(10.dp))
+                } else {
+                    // Sets without a symbol image get a generated abbreviation badge.
+                    SetBadge(
+                        setAbbreviation = set.setAbbreviation,
+                        setName = set.name,
+                        setId = set.id,
+                        size = 32.dp,
+                        contentDescription = stringResource(R.string.ui_set_symbol_description, set.name)
+                    )
+                    Spacer(Modifier.width(10.dp))
                 }
                 if (!set.logoUrl.isNullOrBlank()) {
                     TcgImage(

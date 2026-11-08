@@ -21,6 +21,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
+import com.pokemontcg.sammlung.ui.sets.SetBadge
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.CardCategory
@@ -158,6 +159,14 @@ fun SecondaryCardDialog(
                                                     model = setImage,
                                                     contentDescription = stringResource(R.string.ui_set_symbol_description, representative.setName),
                                                     modifier = Modifier.size(18.dp)
+                                                )
+                                            } else if (representative.setAbbreviation != null || representative.setName.isNotBlank()) {
+                                                SetBadge(
+                                                    setAbbreviation = representative.setAbbreviation,
+                                                    setName = representative.setName,
+                                                    setId = representative.setId,
+                                                    size = 18.dp,
+                                                    contentDescription = stringResource(R.string.ui_set_symbol_description, representative.setName)
                                                 )
                                             }
                                             Text(representative.setName, style = MaterialTheme.typography.bodySmall)

@@ -35,7 +35,7 @@ jobs:
         run: python -m unittest discover -s tools/catalog-builder -p 'test_*.py' -v
 
       - name: Check Python syntax
-        run: python -m py_compile tools/catalog-builder/build_catalog.py tools/catalog-builder/test_build_catalog.py tools/catalog-builder/verify_catalog_artifacts.py tools/catalog-builder/make_start_catalog.py tools/verify_migration_16_17.py tools/verify_migration_17_18.py tools/check_migration_source.py tools/test_check_migration_source.py tools/check_catalog_schema_constants.py tools/test_check_catalog_schema_constants.py tools/room_identity_hash.py tools/test_room_identity_hash.py scripts/accessibility-check.py scripts/report_instrumented_failures.py scripts/test_report_instrumented_failures.py
+        run: python -m py_compile tools/catalog-builder/build_catalog.py tools/catalog-builder/test_build_catalog.py tools/catalog-builder/verify_catalog_artifacts.py tools/catalog-builder/make_start_catalog.py tools/catalog-builder/collect_set_images.py tools/catalog-builder/test_collect_set_images.py tools/verify_migration_16_17.py tools/verify_migration_17_18.py tools/verify_migration_18_19.py tools/check_migration_source.py tools/test_check_migration_source.py tools/check_catalog_schema_constants.py tools/test_check_catalog_schema_constants.py tools/room_identity_hash.py tools/test_room_identity_hash.py scripts/accessibility-check.py scripts/report_instrumented_failures.py scripts/test_report_instrumented_failures.py
 
       - name: Test instrumented failure reporter
         run: python -m unittest scripts.test_report_instrumented_failures -v
@@ -63,6 +63,9 @@ jobs:
 
       - name: Verify Room 17→18 migration SQL and schema offline
         run: python tools/verify_migration_17_18.py
+
+      - name: Verify Room 18→19 migration SQL and schema offline
+        run: python tools/verify_migration_18_19.py
 
       - name: Check Compose accessibility guardrails
         run: python scripts/accessibility-check.py

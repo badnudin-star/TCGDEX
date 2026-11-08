@@ -22,7 +22,7 @@ import com.pokemontcg.sammlung.data.local.entities.*
         PokemonNameEntity::class,
         SyncCheckpointEntity::class,
     ],
-    version = 18,
+    version = 19,
     exportSchema = true
 )
 @TypeConverters(CardCategoryConverter::class)
@@ -307,6 +307,18 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds the official set abbreviation (e.g. "SVI", from the MIT tcgdex
+         * cards-database) to sets and cards. It powers the generated set badges shown
+         * whenever a set has no symbol image.
+         */
+        val MIGRATION_18_19 = object : Migration(18, 19) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE sets ADD COLUMN setAbbreviation TEXT")
+                db.execSQL("ALTER TABLE cards ADD COLUMN setAbbreviation TEXT")
+            }
+        }
+
         /** The exact migration chain used by production and instrumentation tests. */
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_6_7,
@@ -320,7 +332,8 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_14_15,
             MIGRATION_15_16,
             MIGRATION_16_17,
-            MIGRATION_17_18
+            MIGRATION_17_18,
+            MIGRATION_18_19
         )
 
         @Volatile private var INSTANCE: AppDatabase? = null

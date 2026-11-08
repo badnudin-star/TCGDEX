@@ -23,6 +23,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -38,6 +39,10 @@ import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.ui.about.AboutAndSourcesDialog
 import com.pokemontcg.sammlung.ui.catalog.CatalogManagerScreen
 import com.pokemontcg.sammlung.ui.cards.CardScannerScreen
+import com.pokemontcg.sammlung.ui.cards.BatchScanItem
+import com.pokemontcg.sammlung.ui.cards.adjustBatchItemCount
+import com.pokemontcg.sammlung.ui.cards.mergeBatchScanItem
+import com.pokemontcg.sammlung.ui.cards.totalBatchCards
 import com.pokemontcg.sammlung.ui.cards.CardMatchCandidate
 import com.pokemontcg.sammlung.ui.cards.isCurrentScannerRequest
 import com.pokemontcg.sammlung.ui.cards.rankCardMatches
@@ -89,6 +94,10 @@ class MainActivity : ComponentActivity() {
                     var showScanResults by remember { mutableStateOf(false) }
                     var selectedScannedCard by remember { mutableStateOf<CardEntity?>(null) }
                     var scanLookupFailed by remember { mutableStateOf(false) }
+                    // Batch mode accumulates the best match of every scan without dialogs.
+                    var scannerBatchActive by rememberSaveable { mutableStateOf(false) }
+                    var scannerBatchItems by remember { mutableStateOf<List<BatchScanItem>>(emptyList()) }
+                    var showBatchResults by remember { mutableStateOf(false) }
                     // A newer OCR event invalidates any slower lookup started by an earlier frame.
                     var scannerRequestSequence by remember { mutableLongStateOf(0L) }
                     val currentBackStackEntry by navController.currentBackStackEntryAsState()
@@ -103,6 +112,7 @@ class MainActivity : ComponentActivity() {
                             showScanResults = false
                             selectedScannedCard = null
                             scanLookupFailed = false
+                            showBatchResults = false
                         }
                     }
 
@@ -277,12 +287,41 @@ class MainActivity : ComponentActivity() {
                                             rawOcrText = rawOcrText
                                         ).map { it.id }
                                         val matchesById = matches.associateBy { it.id }
-                                        scannedCardMatches = rankedIds.mapNotNull(matchesById::get)
-                                        scanLookupFailed = matches.isEmpty()
-                                        showScanResults = true
+                                        val rankedMatches = rankedIds.mapNotNull(matchesById::get)
+                                        if (scannerBatchActive) {
+                                            // Batch mode: no candidate dialog, the top-ranked match
+                                            // is accumulated directly; misses only toast.
+                                            val topMatch = rankedMatches.firstOrNull()
+                                            if (topMatch == null) {
+                                                Toast.makeText(
+                                                    applicationContext, getString(R.string.ui_scanner_no_match), Toast.LENGTH_SHORT
+                                                ).show()
+                                            } else {
+                                                scannerBatchItems = mergeBatchScanItem(scannerBatchItems, topMatch)
+                                                Toast.makeText(
+                                                    applicationContext,
+                                                    getString(R.string.scanner_batch_added_toast, topMatch.name),
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        } else {
+                                            scannedCardMatches = rankedMatches
+                                            scanLookupFailed = matches.isEmpty()
+                                            showScanResults = true
+                                        }
                                     }
                                 },
-                                onDismiss = { navController.popBackStack() }
+                                onDismiss = { navController.popBackStack() },
+                                batchMode = scannerBatchActive,
+                                onBatchModeChange = { enabled ->
+                                    scannerBatchActive = enabled
+                                    if (!enabled) showBatchResults = false
+                                },
+                                batchCount = totalBatchCards(scannerBatchItems),
+                                lastBatchName = scannerBatchItems.lastOrNull()?.card?.name,
+                                onFinishBatch = {
+                                    if (scannerBatchItems.isNotEmpty()) showBatchResults = true
+                                }
                             )
                         }
 
@@ -392,6 +431,108 @@ class MainActivity : ComponentActivity() {
                             dismissButton = {
                                 androidx.compose.material3.TextButton(onClick = { selectedScannedCard = null }) {
                                     Text(stringResource(R.string.ui_cancel))
+                                }
+                            }
+                        )
+                    }
+
+                    if (showBatchResults) {
+                        AlertDialog(
+                            onDismissRequest = { showBatchResults = false },
+                            title = {
+                                Text(
+                                    stringResource(R.string.ui_scanner_batch_title),
+                                    modifier = Modifier.semantics { heading() }
+                                )
+                            },
+                            text = {
+                                androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
+                                    items(scannerBatchItems, key = { it.card.id }) { item ->
+                                        androidx.compose.foundation.layout.Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier.fillMaxWidth()
+                                        ) {
+                                            androidx.compose.foundation.layout.Column(
+                                                modifier = Modifier.weight(1f)
+                                            ) {
+                                                Text(
+                                                    stringResource(R.string.ui_scanner_batch_entry, item.card.name, item.count),
+                                                    style = MaterialTheme.typography.bodyLarge
+                                                )
+                                                Text(
+                                                    stringResource(
+                                                        R.string.ui_scanner_card_candidate,
+                                                        item.card.setName,
+                                                        item.card.number,
+                                                        item.card.language.uppercase()
+                                                    ),
+                                                    style = MaterialTheme.typography.bodySmall
+                                                )
+                                            }
+                                            val increaseDescription = stringResource(R.string.ui_scanner_batch_increase)
+                                            val decreaseDescription = stringResource(R.string.ui_scanner_batch_decrease)
+                                            androidx.compose.material3.TextButton(
+                                                onClick = {
+                                                    scannerBatchItems = adjustBatchItemCount(scannerBatchItems, item.card.id, -1)
+                                                },
+                                                modifier = Modifier.semantics { contentDescription = decreaseDescription }
+                                            ) { Text("−", style = MaterialTheme.typography.titleLarge) }
+                                            androidx.compose.material3.TextButton(
+                                                onClick = {
+                                                    scannerBatchItems = adjustBatchItemCount(scannerBatchItems, item.card.id, +1)
+                                                },
+                                                modifier = Modifier.semantics { contentDescription = increaseDescription }
+                                            ) { Text("+", style = MaterialTheme.typography.titleLarge) }
+                                        }
+                                    }
+                                }
+                            },
+                            confirmButton = {
+                                Button(onClick = {
+                                    showBatchResults = false
+                                    scope.launch {
+                                        var added = 0
+                                        var skipped = 0
+                                        for (item in scannerBatchItems) {
+                                            val card = item.card
+                                            val dexIds = (
+                                                listOfNotNull(card.nationalPokedexNumber) +
+                                                    card.nationalPokedexNumbers.orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }
+                                                ).filter { it > 0 }.distinct()
+                                            val pokemon = dexIds.singleOrNull()?.let { catalogRepo.getPokemonByDexId(it) }
+                                            val alreadyCollected = pokemon != null && collectionRepo.getAllUserCardsOnce().any {
+                                                it.cardId == card.id && (it.pokemonId == pokemon.id || it.pokemonDexId == pokemon.dexId)
+                                            }
+                                            if (pokemon == null || alreadyCollected) {
+                                                skipped++
+                                                continue
+                                            }
+                                            repeat(item.count) {
+                                                collectionRepo.addUserCard(
+                                                    UserCardEntityV2(
+                                                        cardId = card.id,
+                                                        pokemonId = pokemon.id,
+                                                        pokemonDexId = pokemon.dexId,
+                                                        language = card.language,
+                                                        quantity = 1,
+                                                        isPrimary = false
+                                                    )
+                                                )
+                                            }
+                                            added += item.count
+                                        }
+                                        Toast.makeText(
+                                            applicationContext,
+                                            getString(R.string.ui_scanner_batch_added_summary, added, skipped),
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                        scannerBatchItems = emptyList()
+                                    }
+                                }) { Text(stringResource(R.string.ui_scanner_batch_add_all)) }
+                            },
+                            dismissButton = {
+                                androidx.compose.material3.TextButton(onClick = { showBatchResults = false }) {
+                                    Text(stringResource(R.string.ui_close))
                                 }
                             }
                         )
