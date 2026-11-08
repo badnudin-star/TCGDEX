@@ -30,6 +30,7 @@ import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.model.UpcomingSetRelease
 import com.pokemontcg.sammlung.data.model.allDayReleaseEventBounds
 import com.pokemontcg.sammlung.ui.components.TcgImage
+import com.pokemontcg.sammlung.ui.sets.SetBadge
 
 /** Upcoming releases embedded in the set progress screen. */
 @Composable
@@ -79,6 +80,19 @@ private fun ReleaseCalendarEntry(release: UpcomingSetRelease) {
                         set.name
                     ),
                     modifier = Modifier.size(40.dp)
+                )
+                Spacer(Modifier.width(12.dp))
+            } else {
+                // Upcoming sets often have no images yet; a badge keeps the row identifiable.
+                SetBadge(
+                    setAbbreviation = set.setAbbreviation,
+                    setName = set.name,
+                    setId = set.id,
+                    size = 40.dp,
+                    contentDescription = stringResource(
+                        R.string.ui_set_symbol_description,
+                        set.name
+                    )
                 )
                 Spacer(Modifier.width(12.dp))
             }

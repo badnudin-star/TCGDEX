@@ -38,6 +38,21 @@ jobs:
       - name: Build catalog database, manifest, and coverage report
         run: python tools/catalog-builder/build_catalog.py
 
+      - name: Self-host set images (TCGdex download + Bulbapedia fallback)
+        run: python tools/catalog-builder/collect_set_images.py
+
+      - name: Commit self-hosted set images
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add set-images
+          if git diff --cached --quiet; then
+            echo "No set image changes to commit"
+          else
+            git commit -m "Set images: refresh from catalog build (self-hosted via jsDelivr) [skip ci]"
+            git push
+          fi
+
       - name: Verify catalog artifacts before publishing
         run: python tools/catalog-builder/verify_catalog_artifacts.py --output-dir tools/catalog-builder
 

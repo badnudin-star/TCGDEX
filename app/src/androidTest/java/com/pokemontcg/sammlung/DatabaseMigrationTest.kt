@@ -9,6 +9,8 @@ import com.pokemontcg.sammlung.data.local.AppDatabase
 import com.pokemontcg.sammlung.data.local.user.UserDatabase
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -272,6 +274,32 @@ class DatabaseMigrationTest {
         db18.query("SELECT COUNT(*) FROM cards").use { cursor ->
             assertTrue(cursor.moveToFirst())
             assertEquals("Catalog rows must survive the legacy table drop", 1, cursor.getInt(0))
+        }
+    }
+
+    @Test
+    fun testAppDatabaseMigration18To19AddsSetAbbreviations() {
+        helper.createDatabase(TEST_DB, 18).apply {
+            execSQL(
+                "INSERT INTO cards (id, name, supertype, number, setId, setName, series, language, sortNumber, detailLoaded) " +
+                    "VALUES ('sv01-25', 'Pikachu', 'Pokémon', '25', 'sv01', 'Karmesin & Purpur', 'Karmesin & Purpur', 'de', 25, 1)"
+            )
+            close()
+        }
+
+        val db19 = helper.runMigrationsAndValidate(TEST_DB, 19, true, AppDatabase.MIGRATION_18_19)
+
+        // The new column is nullable and starts empty; the builder/importer fills it.
+        db19.query("SELECT setAbbreviation FROM sets").use { cursor ->
+            assertFalse("sets.setAbbreviation must exist after the migration", cursor.moveToFirst())
+        }
+        db19.query("SELECT setAbbreviation FROM cards").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertNull("Existing card rows keep their data and gain an empty abbreviation", cursor.getString(0))
+        }
+        db19.query("SELECT COUNT(*) FROM cards").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("Catalog rows must survive the schema 19 migration", 1, cursor.getInt(0))
         }
     }
 

@@ -1,0 +1,889 @@
+{
+ "_source": "tcgdex/cards-database (MIT), extracted abbreviations.official + en set names",
+ "sets": {
+  "2011bw": {
+   "abbreviation": "MCD11",
+   "enName": "McDonald"
+  },
+  "2012bw": {
+   "abbreviation": "MCD12",
+   "enName": "McDonald"
+  },
+  "2014xy": {
+   "abbreviation": "MCD14",
+   "enName": "McDonald"
+  },
+  "2015xy": {
+   "abbreviation": "MCD15",
+   "enName": "McDonald"
+  },
+  "2016xy": {
+   "abbreviation": "MCD16",
+   "enName": "McDonald"
+  },
+  "2017sm": {
+   "abbreviation": "MCD17",
+   "enName": "McDonald"
+  },
+  "2018sm": {
+   "abbreviation": "MCD18",
+   "enName": "McDonald"
+  },
+  "2019sm": {
+   "abbreviation": "MCD19",
+   "enName": "McDonald"
+  },
+  "2021swsh": {
+   "abbreviation": "MCD21",
+   "enName": "McDonald"
+  },
+  "2022swsh": {
+   "abbreviation": "MCD22",
+   "enName": "McDonald"
+  },
+  "2023sv": {
+   "abbreviation": "MCD23",
+   "enName": "McDonald"
+  },
+  "2024sv": {
+   "abbreviation": "MCD24",
+   "enName": "McDonald"
+  },
+  "30th": {
+   "abbreviation": "30C",
+   "enName": "30th Celebration"
+  },
+  "30th-c": {
+   "abbreviation": "30C",
+   "enName": "30th Classic Collection"
+  },
+  "A1": {
+   "abbreviation": null,
+   "enName": "Genetic Apex"
+  },
+  "A1a": {
+   "abbreviation": null,
+   "enName": "Mythical Island"
+  },
+  "A2": {
+   "abbreviation": null,
+   "enName": "Space-Time Smackdown"
+  },
+  "A2a": {
+   "abbreviation": null,
+   "enName": "Triumphant Light"
+  },
+  "A2b": {
+   "abbreviation": null,
+   "enName": "Shining Revelry"
+  },
+  "A3": {
+   "abbreviation": null,
+   "enName": "Celestial Guardians"
+  },
+  "A3a": {
+   "abbreviation": null,
+   "enName": "Extradimensional Crisis"
+  },
+  "A3b": {
+   "abbreviation": null,
+   "enName": "Eevee Grove"
+  },
+  "A4": {
+   "abbreviation": null,
+   "enName": "Wisdom of Sea and Sky"
+  },
+  "A4a": {
+   "abbreviation": null,
+   "enName": "Secluded Springs"
+  },
+  "B1": {
+   "abbreviation": null,
+   "enName": "Mega Rising"
+  },
+  "B1a": {
+   "abbreviation": null,
+   "enName": "Crimson Blaze"
+  },
+  "B2": {
+   "abbreviation": null,
+   "enName": "Fantastical Parade"
+  },
+  "B2a": {
+   "abbreviation": null,
+   "enName": "Paldean Wonders"
+  },
+  "P-A": {
+   "abbreviation": null,
+   "enName": "Promos-A"
+  },
+  "base1": {
+   "abbreviation": "BS",
+   "enName": "Base Set"
+  },
+  "base2": {
+   "abbreviation": "JU",
+   "enName": "Jungle"
+  },
+  "base3": {
+   "abbreviation": "FO",
+   "enName": "Fossil"
+  },
+  "base4": {
+   "abbreviation": "B2",
+   "enName": "Base Set 2"
+  },
+  "base5": {
+   "abbreviation": "RO",
+   "enName": "Team Rocket"
+  },
+  "basep": {
+   "abbreviation": null,
+   "enName": "Wizards Black Star Promos"
+  },
+  "bog": {
+   "abbreviation": null,
+   "enName": "Best of game"
+  },
+  "bw1": {
+   "abbreviation": "BLW",
+   "enName": "Black & White"
+  },
+  "bw10": {
+   "abbreviation": "PLB",
+   "enName": "Plasma Blast"
+  },
+  "bw11": {
+   "abbreviation": "LTR",
+   "enName": "Legendary Treasures"
+  },
+  "bw2": {
+   "abbreviation": "EP",
+   "enName": "Emerging Powers"
+  },
+  "bw3": {
+   "abbreviation": "NVI",
+   "enName": "Noble Victories"
+  },
+  "bw4": {
+   "abbreviation": "NXD",
+   "enName": "Next Destinies"
+  },
+  "bw5": {
+   "abbreviation": "DEX",
+   "enName": "Dark Explorers"
+  },
+  "bw6": {
+   "abbreviation": "DRX",
+   "enName": "Dragons Exalted"
+  },
+  "bw7": {
+   "abbreviation": "BCR",
+   "enName": "Boundaries Crossed"
+  },
+  "bw8": {
+   "abbreviation": "PLS",
+   "enName": "Plasma Storm"
+  },
+  "bw9": {
+   "abbreviation": "PLF",
+   "enName": "Plasma Freeze"
+  },
+  "bwp": {
+   "abbreviation": "BWP",
+   "enName": "BW Black Star Promos"
+  },
+  "cel25": {
+   "abbreviation": "CEL",
+   "enName": "Celebrations"
+  },
+  "cel25cc": {
+   "abbreviation": "CEL:CC",
+   "enName": "Celebrations Classic Collection"
+  },
+  "col1": {
+   "abbreviation": "COL",
+   "enName": "Call of Legends"
+  },
+  "dc1": {
+   "abbreviation": "DCR",
+   "enName": "Double Crisis"
+  },
+  "det1": {
+   "abbreviation": "DET",
+   "enName": "Detective Pikachu"
+  },
+  "dp1": {
+   "abbreviation": "DP",
+   "enName": "Diamond & Pearl"
+  },
+  "dp2": {
+   "abbreviation": "MT",
+   "enName": "Mysterious Treasures"
+  },
+  "dp3": {
+   "abbreviation": "SW",
+   "enName": "Secret Wonders"
+  },
+  "dp4": {
+   "abbreviation": "GE",
+   "enName": "Great Encounters"
+  },
+  "dp5": {
+   "abbreviation": "MD",
+   "enName": "Majestic Dawn"
+  },
+  "dp6": {
+   "abbreviation": "LA",
+   "enName": "Legends Awakened"
+  },
+  "dp7": {
+   "abbreviation": "SF",
+   "enName": "Stormfront"
+  },
+  "dpp": {
+   "abbreviation": null,
+   "enName": "DP Black Star Promos"
+  },
+  "dv1": {
+   "abbreviation": "DRV",
+   "enName": "Dragon Vault"
+  },
+  "ecard1": {
+   "abbreviation": "EX",
+   "enName": "Expedition Base Set"
+  },
+  "ecard2": {
+   "abbreviation": "AQ",
+   "enName": "Aquapolis"
+  },
+  "ecard3": {
+   "abbreviation": "SK",
+   "enName": "Skyridge"
+  },
+  "ex1": {
+   "abbreviation": "RS",
+   "enName": "Ruby & Sapphire"
+  },
+  "ex10": {
+   "abbreviation": "UF",
+   "enName": "Unseen Forces"
+  },
+  "ex11": {
+   "abbreviation": "DS",
+   "enName": "Delta Species"
+  },
+  "ex12": {
+   "abbreviation": "LM",
+   "enName": "Legend Maker"
+  },
+  "ex13": {
+   "abbreviation": "HP",
+   "enName": "Holon Phantoms"
+  },
+  "ex14": {
+   "abbreviation": "CG",
+   "enName": "Crystal Guardians"
+  },
+  "ex15": {
+   "abbreviation": "DF",
+   "enName": "Dragon Frontiers"
+  },
+  "ex16": {
+   "abbreviation": "PK",
+   "enName": "Power Keepers"
+  },
+  "ex2": {
+   "abbreviation": "SS",
+   "enName": "Sandstorm"
+  },
+  "ex3": {
+   "abbreviation": "DR",
+   "enName": "Dragon"
+  },
+  "ex4": {
+   "abbreviation": "MA",
+   "enName": "Team Magma vs Team Aqua"
+  },
+  "ex5": {
+   "abbreviation": "HL",
+   "enName": "Hidden Legends"
+  },
+  "ex5.5": {
+   "abbreviation": null,
+   "enName": "Poké Card Creator Pack"
+  },
+  "ex6": {
+   "abbreviation": "RG",
+   "enName": "FireRed & LeafGreen"
+  },
+  "ex7": {
+   "abbreviation": "TR",
+   "enName": "Team Rocket Returns"
+  },
+  "ex8": {
+   "abbreviation": "DX",
+   "enName": "Deoxys"
+  },
+  "ex9": {
+   "abbreviation": "EM",
+   "enName": "Emerald"
+  },
+  "exu": {
+   "abbreviation": null,
+   "enName": "Unseen Forces Unown Collection"
+  },
+  "fut2020": {
+   "abbreviation": "FUT20",
+   "enName": "Pokémon Futsal 2020"
+  },
+  "g1": {
+   "abbreviation": "GEN",
+   "enName": "Generations"
+  },
+  "gym1": {
+   "abbreviation": "G1",
+   "enName": "Gym Heroes"
+  },
+  "gym2": {
+   "abbreviation": "G2",
+   "enName": "Gym Challenge"
+  },
+  "hgss1": {
+   "abbreviation": "HS",
+   "enName": "HeartGold SoulSilver"
+  },
+  "hgss2": {
+   "abbreviation": "UL",
+   "enName": "Unleashed"
+  },
+  "hgss3": {
+   "abbreviation": "UND",
+   "enName": "Undaunted"
+  },
+  "hgss4": {
+   "abbreviation": "TRI",
+   "enName": "Triumphant"
+  },
+  "hgssp": {
+   "abbreviation": null,
+   "enName": "HGSS Black Star Promos"
+  },
+  "jumbo": {
+   "abbreviation": null,
+   "enName": "Jumbo cards"
+  },
+  "lc": {
+   "abbreviation": "LC",
+   "enName": "Legendary Collection"
+  },
+  "me01": {
+   "abbreviation": "MEG",
+   "enName": "Mega Evolution"
+  },
+  "me02": {
+   "abbreviation": "PFL",
+   "enName": "Phantasmal Flames"
+  },
+  "me02.5": {
+   "abbreviation": "ASC",
+   "enName": "Ascended Heroes"
+  },
+  "me03": {
+   "abbreviation": "POR",
+   "enName": "Perfect Order"
+  },
+  "me04": {
+   "abbreviation": "CRI",
+   "enName": "Chaos Rising"
+  },
+  "me05": {
+   "abbreviation": "PBL",
+   "enName": "Pitch Black"
+  },
+  "me06": {
+   "abbreviation": "DLR",
+   "enName": "Delta Reign"
+  },
+  "mee": {
+   "abbreviation": "MEE",
+   "enName": "Mega Evolution Energy"
+  },
+  "mep": {
+   "abbreviation": "MEP",
+   "enName": "MEP Black Star Promos"
+  },
+  "mfb": {
+   "abbreviation": "MFB",
+   "enName": "My First Battle"
+  },
+  "miscp": {
+   "abbreviation": null,
+   "enName": "Miscellaneous Promos"
+  },
+  "neo1": {
+   "abbreviation": "N1",
+   "enName": "Neo Genesis"
+  },
+  "neo2": {
+   "abbreviation": "N2",
+   "enName": "Neo Discovery"
+  },
+  "neo3": {
+   "abbreviation": "N3",
+   "enName": "Neo Revelation"
+  },
+  "neo4": {
+   "abbreviation": "N4",
+   "enName": "Neo Destiny"
+  },
+  "np": {
+   "abbreviation": null,
+   "enName": "Nintendo Black Star Promos"
+  },
+  "pl1": {
+   "abbreviation": "PL",
+   "enName": "Platinum"
+  },
+  "pl2": {
+   "abbreviation": "RR",
+   "enName": "Rising Rivals"
+  },
+  "pl3": {
+   "abbreviation": "SV",
+   "enName": "Supreme Victors"
+  },
+  "pl4": {
+   "abbreviation": "AR",
+   "enName": "Arceus"
+  },
+  "pop1": {
+   "abbreviation": "P1",
+   "enName": "POP Series 1"
+  },
+  "pop2": {
+   "abbreviation": "P2",
+   "enName": "POP Series 2"
+  },
+  "pop3": {
+   "abbreviation": "P3",
+   "enName": "POP Series 3"
+  },
+  "pop4": {
+   "abbreviation": "P4",
+   "enName": "POP Series 4"
+  },
+  "pop5": {
+   "abbreviation": "P5",
+   "enName": "POP Series 5"
+  },
+  "pop6": {
+   "abbreviation": "P6",
+   "enName": "POP Series 6"
+  },
+  "pop7": {
+   "abbreviation": "P7",
+   "enName": "POP Series 7"
+  },
+  "pop8": {
+   "abbreviation": "P8",
+   "enName": "POP Series 8"
+  },
+  "pop9": {
+   "abbreviation": "P9",
+   "enName": "POP Series 9"
+  },
+  "rc": {
+   "abbreviation": null,
+   "enName": "Radiant Collection"
+  },
+  "ru1": {
+   "abbreviation": "RM",
+   "enName": "Pokémon Rumble"
+  },
+  "si1": {
+   "abbreviation": "SI",
+   "enName": "Southern Islands"
+  },
+  "sm1": {
+   "abbreviation": "SUM",
+   "enName": "Sun & Moon"
+  },
+  "sm10": {
+   "abbreviation": "UNB",
+   "enName": "Unbroken Bonds"
+  },
+  "sm11": {
+   "abbreviation": "UNM",
+   "enName": "Unified Minds"
+  },
+  "sm115": {
+   "abbreviation": "HIF",
+   "enName": "Hidden Fates"
+  },
+  "sm12": {
+   "abbreviation": "CEC",
+   "enName": "Cosmic Eclipse"
+  },
+  "sm2": {
+   "abbreviation": "GRI",
+   "enName": "Guardians Rising"
+  },
+  "sm3": {
+   "abbreviation": "BUS",
+   "enName": "Burning Shadows"
+  },
+  "sm3.5": {
+   "abbreviation": "SLG",
+   "enName": "Shining Legends"
+  },
+  "sm4": {
+   "abbreviation": "CIN",
+   "enName": "Crimson Invasion"
+  },
+  "sm5": {
+   "abbreviation": "UPR",
+   "enName": "Ultra Prism"
+  },
+  "sm6": {
+   "abbreviation": "FLI",
+   "enName": "Forbidden Light"
+  },
+  "sm7": {
+   "abbreviation": "CES",
+   "enName": "Celestial Storm"
+  },
+  "sm7.5": {
+   "abbreviation": "DRM",
+   "enName": "Dragon Majesty"
+  },
+  "sm8": {
+   "abbreviation": "LOT",
+   "enName": "Lost Thunder"
+  },
+  "sm9": {
+   "abbreviation": "TEU",
+   "enName": "Team Up"
+  },
+  "sma": {
+   "abbreviation": null,
+   "enName": "Hidden Fates Shiny Vault"
+  },
+  "smp": {
+   "abbreviation": "SMP",
+   "enName": "SM Black Star Promos"
+  },
+  "sp": {
+   "abbreviation": null,
+   "enName": "Sample"
+  },
+  "sv01": {
+   "abbreviation": "SVI",
+   "enName": "Scarlet & Violet"
+  },
+  "sv02": {
+   "abbreviation": "PAL",
+   "enName": "Paldea Evolved"
+  },
+  "sv03": {
+   "abbreviation": "OBF",
+   "enName": "Obsidian Flames"
+  },
+  "sv03.5": {
+   "abbreviation": "MEW",
+   "enName": "151"
+  },
+  "sv04": {
+   "abbreviation": "PAR",
+   "enName": "Paradox Rift"
+  },
+  "sv04.5": {
+   "abbreviation": "PAF",
+   "enName": "Paldean Fates"
+  },
+  "sv05": {
+   "abbreviation": "TEF",
+   "enName": "Temporal Forces"
+  },
+  "sv06": {
+   "abbreviation": "TWM",
+   "enName": "Twilight Masquerade"
+  },
+  "sv06.5": {
+   "abbreviation": "SFA",
+   "enName": "Shrouded Fable"
+  },
+  "sv07": {
+   "abbreviation": "SCR",
+   "enName": "Stellar Crown"
+  },
+  "sv08": {
+   "abbreviation": "SSP",
+   "enName": "Surging Sparks"
+  },
+  "sv08.5": {
+   "abbreviation": "PRE",
+   "enName": "Prismatic Evolutions"
+  },
+  "sv09": {
+   "abbreviation": "JTG",
+   "enName": "Journey Together"
+  },
+  "sv10": {
+   "abbreviation": "DRI",
+   "enName": "Destined Rivals"
+  },
+  "sv10.5b": {
+   "abbreviation": "BLK",
+   "enName": "Black Bolt"
+  },
+  "sv10.5w": {
+   "abbreviation": "WHT",
+   "enName": "White Flare"
+  },
+  "sve": {
+   "abbreviation": "SVE",
+   "enName": "Scarlet & Violet Energy"
+  },
+  "svp": {
+   "abbreviation": "SVP",
+   "enName": "SVP Black Star Promos"
+  },
+  "swsh1": {
+   "abbreviation": "SSH",
+   "enName": "Sword & Shield"
+  },
+  "swsh10": {
+   "abbreviation": "ASR",
+   "enName": "Astral Radiance"
+  },
+  "swsh10.5": {
+   "abbreviation": "PGO",
+   "enName": "Pokémon GO"
+  },
+  "swsh10tg": {
+   "abbreviation": "ASR:TG",
+   "enName": "Astral Radiance Trainer Gallery"
+  },
+  "swsh11": {
+   "abbreviation": "LOR",
+   "enName": "Lost Origin"
+  },
+  "swsh11tg": {
+   "abbreviation": "LOR:TG",
+   "enName": "Lost Origin Trainer Gallery"
+  },
+  "swsh12": {
+   "abbreviation": "SIT",
+   "enName": "Silver Tempest"
+  },
+  "swsh12.5": {
+   "abbreviation": "CRZ",
+   "enName": "Crown Zenith"
+  },
+  "swsh12.5gg": {
+   "abbreviation": "CRZ:GG",
+   "enName": "Crown Zenith Galarian Gallery"
+  },
+  "swsh12tg": {
+   "abbreviation": "SIT:TG",
+   "enName": "Silver Tempest Trainer Gallery"
+  },
+  "swsh2": {
+   "abbreviation": "RCL",
+   "enName": "Rebel Clash"
+  },
+  "swsh3": {
+   "abbreviation": "DAA",
+   "enName": "Darkness Ablaze"
+  },
+  "swsh3.5": {
+   "abbreviation": "CPA",
+   "enName": "Champion"
+  },
+  "swsh4": {
+   "abbreviation": "VIV",
+   "enName": "Vivid Voltage"
+  },
+  "swsh4.5": {
+   "abbreviation": "SHF",
+   "enName": "Shining Fates"
+  },
+  "swsh4.5sv": {
+   "abbreviation": "SHF:SV",
+   "enName": "Shining Fates Shiny Vault"
+  },
+  "swsh5": {
+   "abbreviation": "BST",
+   "enName": "Battle Styles"
+  },
+  "swsh6": {
+   "abbreviation": "CRE",
+   "enName": "Chilling Reign"
+  },
+  "swsh7": {
+   "abbreviation": "EVS",
+   "enName": "Evolving Skies"
+  },
+  "swsh8": {
+   "abbreviation": "FST",
+   "enName": "Fusion Strike"
+  },
+  "swsh9": {
+   "abbreviation": "BRS",
+   "enName": "Brilliant Stars"
+  },
+  "swsh9tg": {
+   "abbreviation": "BRS:TG",
+   "enName": "Brilliant Stars Trainer Gallery"
+  },
+  "swshp": {
+   "abbreviation": null,
+   "enName": "SWSH Black Star Promos"
+  },
+  "tk-bw-e": {
+   "abbreviation": "TK5E",
+   "enName": "BW trainer Kit (Excadrill)"
+  },
+  "tk-bw-z": {
+   "abbreviation": "TK5Z",
+   "enName": "BW trainer Kit (Zoroark)"
+  },
+  "tk-dp-l": {
+   "abbreviation": "TK3L",
+   "enName": "DP trainer Kit (Lucario)"
+  },
+  "tk-dp-m": {
+   "abbreviation": "TK3M",
+   "enName": "DP trainer Kit (Manaphy)"
+  },
+  "tk-ex-latia": {
+   "abbreviation": "TK1A",
+   "enName": "EX trainer Kit (Latias)"
+  },
+  "tk-ex-latio": {
+   "abbreviation": "TK1O",
+   "enName": "EX trainer Kit (Latios)"
+  },
+  "tk-ex-m": {
+   "abbreviation": "TK2M",
+   "enName": "EX trainer Kit 2 (Minun)"
+  },
+  "tk-ex-p": {
+   "abbreviation": "TK2P",
+   "enName": "EX trainer Kit 2 (Plusle)"
+  },
+  "tk-hs-g": {
+   "abbreviation": "TK4G",
+   "enName": "HS trainer Kit (Gyarados)"
+  },
+  "tk-hs-r": {
+   "abbreviation": "TK4R",
+   "enName": "HS trainer Kit (Raichu)"
+  },
+  "tk-sm-l": {
+   "abbreviation": "TK10L",
+   "enName": "SM trainer Kit (Lycanroc)"
+  },
+  "tk-sm-r": {
+   "abbreviation": "TK10A",
+   "enName": "SM trainer Kit (Alolan Raichu)"
+  },
+  "tk-xy-b": {
+   "abbreviation": "TK7A",
+   "enName": "XY trainer Kit (Bisharp)"
+  },
+  "tk-xy-latia": {
+   "abbreviation": "TK8A",
+   "enName": "XY trainer Kit (Latias)"
+  },
+  "tk-xy-latio": {
+   "abbreviation": "TK8O",
+   "enName": "XY trainer Kit (Latios)"
+  },
+  "tk-xy-n": {
+   "abbreviation": "TK6N",
+   "enName": "XY trainer Kit (Noivern)"
+  },
+  "tk-xy-p": {
+   "abbreviation": "TK9P",
+   "enName": "XY trainer Kit (Pikachu Libre)"
+  },
+  "tk-xy-su": {
+   "abbreviation": "TK9S",
+   "enName": "XY trainer Kit (Suicune)"
+  },
+  "tk-xy-sy": {
+   "abbreviation": "TK6S",
+   "enName": "XY trainer Kit (Sylveon)"
+  },
+  "tk-xy-w": {
+   "abbreviation": "TK7B",
+   "enName": "XY trainer Kit (Wigglytuff)"
+  },
+  "wp": {
+   "abbreviation": null,
+   "enName": "W Promotional"
+  },
+  "xy0": {
+   "abbreviation": "KSS",
+   "enName": "Kalos Starter Set"
+  },
+  "xy1": {
+   "abbreviation": "XY",
+   "enName": "XY"
+  },
+  "xy10": {
+   "abbreviation": "FCO",
+   "enName": "Fates Collide"
+  },
+  "xy11": {
+   "abbreviation": "STS",
+   "enName": "Steam Siege"
+  },
+  "xy12": {
+   "abbreviation": "EVO",
+   "enName": "Evolutions"
+  },
+  "xy2": {
+   "abbreviation": "FLF",
+   "enName": "Flashfire"
+  },
+  "xy3": {
+   "abbreviation": "FFI",
+   "enName": "Furious Fists"
+  },
+  "xy4": {
+   "abbreviation": "PHF",
+   "enName": "Phantom Forces"
+  },
+  "xy5": {
+   "abbreviation": "PRC",
+   "enName": "Primal Clash"
+  },
+  "xy6": {
+   "abbreviation": "ROS",
+   "enName": "Roaring Skies"
+  },
+  "xy7": {
+   "abbreviation": "AOR",
+   "enName": "Ancient Origins"
+  },
+  "xy8": {
+   "abbreviation": "BKT",
+   "enName": "BREAKthrough"
+  },
+  "xy9": {
+   "abbreviation": "BKP",
+   "enName": "BREAKpoint"
+  },
+  "xya": {
+   "abbreviation": null,
+   "enName": "Yellow A Alternate"
+  },
+  "xyp": {
+   "abbreviation": "XYP",
+   "enName": "XY Black Star Promos"
+  }
+ }
+}

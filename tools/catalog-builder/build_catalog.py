@@ -24,7 +24,7 @@ from typing import Any, Callable
 import requests
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-SCHEMA_JSON_PATH = os.path.join(ROOT, "app/schemas/com.pokemontcg.sammlung.data.local.AppDatabase/18.json")
+SCHEMA_JSON_PATH = os.path.join(ROOT, "app/schemas/com.pokemontcg.sammlung.data.local.AppDatabase/19.json")
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DB_PATH = os.path.join(OUTPUT_DIR, "catalog.sqlite")
 OUTPUT_MANIFEST_PATH = os.path.join(OUTPUT_DIR, "manifest.json")
@@ -159,21 +159,60 @@ def _language_code(language: str) -> str:
     return language.lower().replace("_", "-")
 
 
+_SET_ABBREVIATIONS_CACHE: dict[str, dict[str, str]] | None = None
+
+
+def set_abbreviations() -> dict[str, dict[str, str]]:
+    """Official set abbreviations (e.g. "SVI") plus English names, from the MIT-licensed
+    tcgdex/cards-database. Used for generated set badges when no symbol image exists and
+    for the Bulbapedia symbol search."""
+    global _SET_ABBREVIATIONS_CACHE
+    if _SET_ABBREVIATIONS_CACHE is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "set_abbreviations.json")
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            _SET_ABBREVIATIONS_CACHE = {
+                set_id: {"abbreviation": entry.get("abbreviation") or "",
+                         "enName": entry.get("enName") or ""}
+                for set_id, entry in (data.get("sets") or {}).items()
+            }
+        except Exception as exc:
+            print(f"Warning: set_abbreviations.json unavailable ({exc}); badges stay empty")
+            _SET_ABBREVIATIONS_CACHE = {}
+    return _SET_ABBREVIATIONS_CACHE
+
+
 def upsert_set(db: sqlite3.Connection, lang: str, item: dict[str, Any]) -> None:
+    """Upserts one set. German keeps name authority; set images are aggregated across all
+    languages: a NULL never overwrites an image another language delivered, and a later
+    language still fills image gaps. Set images are language-neutral assets."""
     set_id = str(item.get("id") or "").strip()
     if not set_id:
         return
     card_count = item.get("cardCount") if isinstance(item.get("cardCount"), dict) else {}
     serie = item.get("serie") if isinstance(item.get("serie"), dict) else {}
+    abbrev = set_abbreviations().get(set_id, {}).get("abbreviation") or None
     values = (set_id, str(item.get("name") or set_id), str(serie.get("name") or ""),
               _integer(card_count.get("official")), _integer(card_count.get("total")),
-              str(item.get("releaseDate") or ""), _image_url(item.get("logo")), _image_url(item.get("symbol")))
+              str(item.get("releaseDate") or ""), _image_url(item.get("logo")),
+              _image_url(item.get("symbol")), abbrev)
+    columns = "(id,name,series,printedTotal,total,releaseDate,logoUrl,symbolUrl,setAbbreviation)"
+    placeholders = "(?,?,?,?,?,?,?,?,?)"
     if lang == "de":
-        db.execute("""INSERT OR REPLACE INTO sets
-            (id,name,series,printedTotal,total,releaseDate,logoUrl,symbolUrl) VALUES (?,?,?,?,?,?,?,?)""", values)
+        db.execute(f"""INSERT INTO sets {columns} VALUES {placeholders}
+            ON CONFLICT(id) DO UPDATE SET
+              name=excluded.name, series=excluded.series, printedTotal=excluded.printedTotal,
+              total=excluded.total, releaseDate=excluded.releaseDate,
+              logoUrl=COALESCE(excluded.logoUrl, sets.logoUrl),
+              symbolUrl=COALESCE(excluded.symbolUrl, sets.symbolUrl),
+              setAbbreviation=COALESCE(excluded.setAbbreviation, sets.setAbbreviation)""", values)
     else:
-        db.execute("""INSERT OR IGNORE INTO sets
-            (id,name,series,printedTotal,total,releaseDate,logoUrl,symbolUrl) VALUES (?,?,?,?,?,?,?,?)""", values)
+        db.execute(f"""INSERT INTO sets {columns} VALUES {placeholders}
+            ON CONFLICT(id) DO UPDATE SET
+              logoUrl=COALESCE(sets.logoUrl, excluded.logoUrl),
+              symbolUrl=COALESCE(sets.symbolUrl, excluded.symbolUrl),
+              setAbbreviation=COALESCE(sets.setAbbreviation, excluded.setAbbreviation)""", values)
 
 
 def upsert_card(db: sqlite3.Connection, lang: str, card: dict[str, Any], set_item: dict[str, Any]) -> None:
@@ -202,6 +241,7 @@ def upsert_card(db: sqlite3.Connection, lang: str, card: dict[str, Any], set_ite
     set_count = set_data.get("cardCount") if isinstance(set_data.get("cardCount"), dict) else {}
     release_date = str(set_data.get("releaseDate") or set_item.get("releaseDate") or "")
     # Cardmarket values are EUR on TCGdex; missing prices remain NULL.
+    set_abbrev = set_abbreviations().get(set_id, {}).get("abbreviation") or None
     values = (card_id, name, category, local_id, card.get("rarity"), set_id, set_name, series,
               image, large_image, cardmarket.get("avg"), cardmarket.get("low"), cardmarket.get("trend"),
               dex_ids[0] if dex_ids else None, None, _language_code(lang),
@@ -210,14 +250,64 @@ def upsert_card(db: sqlite3.Connection, lang: str, card: dict[str, Any], set_ite
               _image_url(set_data.get("symbol") or set_item.get("symbol")),
               _integer(set_count.get("official"), _integer((set_item.get("cardCount") or {}).get("official"))),
               _integer(set_count.get("total"), _integer((set_item.get("cardCount") or {}).get("total"))),
-              release_date, _sort_number(local_id), 0 if card.get("_briefOnly") else 1)
+              release_date, _sort_number(local_id), 0 if card.get("_briefOnly") else 1, set_abbrev)
     db.execute("""INSERT OR REPLACE INTO cards
       (id,name,supertype,number,rarity,setId,setName,series,imageUrl,largeImageUrl,marketPrice,lowPrice,trendPrice,
        nationalPokedexNumber,subtypes,language,nationalPokedexNumbers,setLogoUrl,setSymbolUrl,setCardCountOfficial,
-       setCardCountTotal,setReleaseDate,sortNumber,detailLoaded)
-       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", values)
+       setCardCountTotal,setReleaseDate,sortNumber,detailLoaded,setAbbreviation)
+       VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", values)
     for dex_id in dex_ids:
         db.execute("INSERT OR REPLACE INTO card_pokemon(cardId,dexId) VALUES (?,?)", (card_id, dex_id))
+
+
+def apply_image_fallbacks(db: sqlite3.Connection) -> dict[str, int]:
+    """Fills image gaps after all languages are imported. Idempotent, safe to re-run on --resume.
+
+    1. Card images: TCGdex has prints whose localized record carries no image although
+       another language print of the same card does. Both show the identical artwork, so
+       the missing URL is copied from a sibling print (German preferred, then English).
+    2. Card set columns (setLogoUrl/setSymbolUrl/setAbbreviation) mirror the fully
+       aggregated sets table instead of the per-language snapshot of the import.
+    """
+    rows = db.execute("SELECT id, language, imageUrl, largeImageUrl FROM cards").fetchall()
+    by_raw_id: dict[str, list[tuple]] = {}
+    for row in rows:
+        raw_id = str(row[0]).split(":", 1)[-1]
+        by_raw_id.setdefault(raw_id, []).append(row)
+
+    def best_print(prints: list[tuple], index: int) -> str | None:
+        with_image = [p for p in prints if p[index]]
+        if not with_image:
+            return None
+        with_image.sort(key=lambda p: ({"de": 0, "en": 1}.get(p[1], 2), p[0]))
+        return str(with_image[0][index])
+
+    card_image_updates = 0
+    for raw_id, prints in by_raw_id.items():
+        missing = [p for p in prints if not p[2] or not p[3]]
+        if not missing:
+            continue
+        image = best_print(prints, 2)
+        large_image = best_print(prints, 3)
+        for card_id, language, card_image, card_large in missing:
+            new_image = card_image or image
+            new_large = card_large or large_image
+            if new_image == card_image and new_large == card_large:
+                continue
+            db.execute("UPDATE cards SET imageUrl=?, largeImageUrl=? WHERE id=?",
+                       (new_image, new_large, card_id))
+            card_image_updates += 1
+
+    set_column_updates = db.execute("""UPDATE cards SET
+        setLogoUrl = COALESCE(setLogoUrl, (SELECT logoUrl FROM sets WHERE sets.id = cards.setId)),
+        setSymbolUrl = COALESCE(setSymbolUrl, (SELECT symbolUrl FROM sets WHERE sets.id = cards.setId)),
+        setAbbreviation = COALESCE(setAbbreviation, (SELECT setAbbreviation FROM sets WHERE sets.id = cards.setId))
+        WHERE setLogoUrl IS NULL OR setSymbolUrl IS NULL OR setAbbreviation IS NULL""").rowcount
+    db.commit()
+    stats = {"cardImagesFilled": card_image_updates, "cardSetColumnsFilled": max(set_column_updates, 0)}
+    print(f"Image fallbacks: {stats['cardImagesFilled']} card image(s) copied across languages, "
+          f"{stats['cardSetColumnsFilled']} card row(s) got set images/abbreviation from the sets table")
+    return stats
 
 
 def fetch_pokemon_names(*, fetcher: Callable[..., Any] = request_json) -> tuple[list[tuple], list[tuple]]:
@@ -266,7 +356,9 @@ def fetch_pokemon_names(*, fetcher: Callable[..., Any] = request_json) -> tuple[
             german = localized.get("de") or slug.replace("-", " ").title()
             species_rows.append((str(dex_id), dex_id, f"{dex_id:03d}", german,
                                  " ".join([slug] + list(localized.values())).lower(),
-                                 f"https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/{dex_id}.png", None, "NONE", None))
+                                 # High-resolution official artwork via the jsDelivr CDN:
+                                 # faster and rate-limit-free compared to raw.githubusercontent.
+                                 f"https://cdn.jsdelivr.net/gh/PokeAPI/sprites@master/sprites/pokemon/other/official-artwork/{dex_id}.png", None, "NONE", None))
             # English slug is searchable as an alias even if the API omits an English localized name.
             name_rows.append(("en", slug, dex_id))
     return species_rows, name_rows
@@ -546,6 +638,7 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
         orphan_links = _remove_orphan_card_links(db)
         if orphan_links:
             print(f"Note: removed {orphan_links} card->Pokémon link(s) whose dexId is missing in the PokéAPI snapshot")
+    image_fallbacks = apply_image_fallbacks(db)
     bulbapedia_titles = fetch_bulbapedia_set_titles(fetcher=fetcher) if include_bulbapedia else set()
     api_names = {name.lower() for name in all_set_names.values()}
     missing_bulba = sorted(title for title in bulbapedia_titles if title.lower() not in api_names)
@@ -553,6 +646,7 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
             "pokemonCount": len(pokemon_rows), "pokemonNameCount": len(name_rows),
             "pokemonError": pokemon_error, "failedSetsByLanguage": failed_sets_by_language,
             "orphanLinksRemoved": orphan_links,
+            "imageFallbacks": image_fallbacks,
             "bulbapediaSetTitles": len(bulbapedia_titles), "bulbapediaUnmatched": missing_bulba}
 
 

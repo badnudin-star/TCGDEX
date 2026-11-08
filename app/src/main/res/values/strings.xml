@@ -423,6 +423,21 @@
     <string name="ui_close">Schließen</string>
     <string name="ui_cancel">Abbrechen</string>
 
+    <!-- T??: scanner ROI mode and batch scan -->
+    <string name="scanner_mode_roi">Nur Rahmen (ROI)</string>
+    <string name="scanner_mode_batch">Batch-Scan</string>
+    <string name="scanner_roi_hint">Es wird nur der umrandete Bereich ausgelesen – weniger Fremdtext auf der Karte, präzisere Treffer.</string>
+    <string name="scanner_batch_count">%1$d Karten gescannt</string>
+    <string name="scanner_batch_last_added">Zuletzt: %1$s</string>
+    <string name="scanner_batch_finish">Fertig</string>
+    <string name="scanner_batch_added_toast">%1$s zum Scan hinzugefügt</string>
+    <string name="ui_scanner_batch_title">Batch-Scan</string>
+    <string name="ui_scanner_batch_entry">%1$s ×%2$d</string>
+    <string name="ui_scanner_batch_add_all">Alle hinzufügen</string>
+    <string name="ui_scanner_batch_added_summary">%1$d Karte(n) hinzugefügt, %2$d übersprungen (bereits vorhanden oder ohne Pokémon-Zuordnung).</string>
+    <string name="ui_scanner_batch_increase">Anzahl erhöhen</string>
+    <string name="ui_scanner_batch_decrease">Anzahl verringern</string>
+
     <!-- T13: user-visible texts moved out of Kotlin sources -->
     <string name="diag_integrity_ok">✓ Beide Datenbanken sind intakt. Unzugeordnet: %1$d</string>
     <string name="diag_integrity_failed">⚠ Integritätsprüfung meldet Fehler!</string>

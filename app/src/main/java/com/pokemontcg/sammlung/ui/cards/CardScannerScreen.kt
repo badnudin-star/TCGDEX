@@ -10,6 +10,8 @@ import android.content.Context
 import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
+import android.graphics.Matrix
 import android.net.Uri
 import android.provider.Settings
 import android.util.Size
@@ -35,17 +37,22 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
@@ -62,7 +69,12 @@ import java.util.concurrent.atomic.AtomicReference
 @Composable
 fun CardScannerScreen(
     onCardDetected: (detectedCardNumber: String?, rawText: String) -> Unit,
-    onDismiss: () -> Unit
+    onDismiss: () -> Unit,
+    batchMode: Boolean = false,
+    onBatchModeChange: (Boolean) -> Unit = {},
+    batchCount: Int = 0,
+    lastBatchName: String? = null,
+    onFinishBatch: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -151,6 +163,13 @@ fun CardScannerScreen(
     val submitGate = remember { ScannerSubmitGate() }
     var torchOn by remember { mutableStateOf(false) }
     var zoomRatio by remember { mutableStateOf(1f) }
+    // ROI mode (region of interest): only the area inside the guide frame is OCR-read.
+    // Less surrounding card text means fewer false matches on the number line.
+    var roiMode by rememberSaveable { mutableStateOf(false) }
+    val density = LocalDensity.current
+    // The analyzer crop needs the guide frame (300x420dp) in bitmap-view pixels.
+    val roiFrameWidthPx = with(density) { 300.dp.toPx() }.roundToInt()
+    val roiFrameHeightPx = with(density) { 420.dp.toPx() }.roundToInt()
 
     Box(modifier = Modifier.fillMaxSize()) {
         key(cameraRetryKey) {
@@ -170,7 +189,10 @@ fun CardScannerScreen(
                 },
                 onCameraError = { cameraError = true },
                 zoomRatio = zoomRatio,
-                torchOn = torchOn
+                torchOn = torchOn,
+                roiEnabled = roiMode,
+                roiFrameWidthPx = roiFrameWidthPx,
+                roiFrameHeightPx = roiFrameHeightPx
             )
         }
 
@@ -203,12 +225,16 @@ fun CardScannerScreen(
                 }
             }
         } else {
-            // Overlay Box
+            // Overlay Box: in ROI mode the frame is not just a guide, it IS the scan area.
             Box(
                 modifier = Modifier
                     .size(300.dp, 420.dp)
                     .align(Alignment.Center)
-                    .border(3.dp, MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                    .border(
+                        3.dp,
+                        if (roiMode) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.primary,
+                        RoundedCornerShape(16.dp)
+                    )
             )
 
             // Kamera-Steuerung: Zoom bringt mehr Pixel auf die Karte, Licht hilft in
@@ -288,22 +314,53 @@ fun CardScannerScreen(
                 Spacer(Modifier.height(4.dp))
                 Text(detectedText.ifBlank { stringResource(R.string.scanner_placeholder) }, style = MaterialTheme.typography.bodySmall, maxLines = 3)
                 Text(stringResource(R.string.scanner_hint_focus), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.height(12.dp))
-                Button(onClick = onDismiss) {
-                    Text(stringResource(R.string.scanner_btn_stop))
+                if (roiMode) {
+                    Text(stringResource(R.string.scanner_roi_hint), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.tertiary)
+                }
+                Spacer(Modifier.height(8.dp))
+                // Both extra modes are combinable: ROI narrows WHAT is read,
+                // batch collects multiple cards without leaving the camera.
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FilterChip(
+                        selected = roiMode,
+                        onClick = { roiMode = !roiMode },
+                        label = { Text(stringResource(R.string.scanner_mode_roi)) }
+                    )
+                    FilterChip(
+                        selected = batchMode,
+                        onClick = { onBatchModeChange(!batchMode) },
+                        label = { Text(stringResource(R.string.scanner_mode_batch)) }
+                    )
+                }
+                if (batchMode) {
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        stringResource(R.string.scanner_batch_count, batchCount),
+                        fontWeight = FontWeight.Bold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    lastBatchName?.let { name ->
+                        Text(
+                            stringResource(R.string.scanner_batch_last_added, name),
+                            style = MaterialTheme.typography.labelSmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Spacer(Modifier.height(8.dp))
+                    Button(onClick = onFinishBatch, enabled = batchCount > 0) {
+                        Text(stringResource(R.string.scanner_batch_finish))
+                    }
+                } else {
+                    Spacer(Modifier.height(12.dp))
+                    Button(onClick = onDismiss) {
+                        Text(stringResource(R.string.scanner_btn_stop))
+                    }
                 }
             }
         }
     }
 }
-
-internal fun isScannerPermissionPermanentlyDenied(
-    hasPermission: Boolean,
-    permissionDenied: Boolean,
-    hasActivity: Boolean,
-    shouldShowRationale: Boolean
-): Boolean =
-    !hasPermission && permissionDenied && hasActivity && !shouldShowRationale
 
 private fun Context.hasCameraPermission(): Boolean =
     ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
@@ -328,7 +385,10 @@ private fun CameraPreview(
     onTextRecognized: (rawText: String, cardNumberMatch: String?) -> Unit,
     onCameraError: () -> Unit,
     zoomRatio: Float,
-    torchOn: Boolean
+    torchOn: Boolean,
+    roiEnabled: Boolean = false,
+    roiFrameWidthPx: Int = 0,
+    roiFrameHeightPx: Int = 0
 ) {
     val currentOnCameraError by rememberUpdatedState(onCameraError)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -342,6 +402,8 @@ private fun CameraPreview(
     val cameraRef = remember { AtomicReference<Camera?>(null) }
     // Short-lived marker where the user tapped to focus.
     var focusIndicator by remember { mutableStateOf<Offset?>(null) }
+    // Rendered size of the preview; needed to map the on-screen ROI frame into the bitmap.
+    val previewSizeState = remember { mutableStateOf(IntSize.Zero) }
 
     // Apply torch and zoom whenever the controls change or a new camera comes up.
     LaunchedEffect(torchOn) {
@@ -431,10 +493,40 @@ private fun CameraPreview(
                     }
 
                     try {
-                        val inputImage = InputImage.fromMediaImage(
-                            mediaImage,
-                            imageProxy.imageInfo.rotationDegrees
-                        )
+                        // ROI mode: convert the frame to an upright bitmap and crop it to the
+                        // on-screen guide frame before OCR, so only that region is searched.
+                        val inputImage = if (roiEnabled) {
+                            val bitmap = imageProxy.toBitmap()
+                            val rotation = imageProxy.imageInfo.rotationDegrees
+                            val upright = if (rotation != 0) {
+                                val matrix = Matrix().apply { postRotate(rotation.toFloat()) }
+                                Bitmap.createBitmap(bitmap, 0, 0, bitmap.width, bitmap.height, matrix, true)
+                            } else {
+                                bitmap
+                            }
+                            val previewSize = previewSizeState.value
+                            val crop = computeRoiCropRect(
+                                frameWidthPx = roiFrameWidthPx,
+                                frameHeightPx = roiFrameHeightPx,
+                                viewWidthPx = previewSize.width,
+                                viewHeightPx = previewSize.height,
+                                bitmapWidth = upright.width,
+                                bitmapHeight = upright.height
+                            )
+                            if (crop.width >= upright.width && crop.height >= upright.height) {
+                                InputImage.fromBitmap(upright, 0)
+                            } else {
+                                InputImage.fromBitmap(
+                                    Bitmap.createBitmap(upright, crop.left, crop.top, crop.width, crop.height),
+                                    0
+                                )
+                            }
+                        } else {
+                            InputImage.fromMediaImage(
+                                mediaImage,
+                                imageProxy.imageInfo.rotationDegrees
+                            )
+                        }
 
                         recognizer.process(inputImage)
                             .addOnSuccessListener { visionText ->
@@ -492,6 +584,7 @@ private fun CameraPreview(
         },
         modifier = Modifier
             .fillMaxSize()
+            .onGloballyPositioned { coordinates -> previewSizeState.value = coordinates.size }
             .pointerInput(Unit) {
                 detectTapGestures { offset ->
                     val previewView = previewViewRef.get() ?: return@detectTapGestures
