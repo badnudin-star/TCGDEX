@@ -9,6 +9,7 @@ import com.pokemontcg.sammlung.data.local.user.UserDatabase
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.WishlistEntity
+import com.pokemontcg.sammlung.util.AppLogger
 import kotlinx.coroutines.flow.Flow
 
 class CollectionRepository(private val userDb: UserDatabase) {
@@ -37,8 +38,13 @@ class CollectionRepository(private val userDb: UserDatabase) {
     suspend fun updateUserCard(card: UserCardEntityV2) =
         userDb.userCardDao().updateUserCard(card)
 
-    suspend fun removeUserCard(cardId: String, dexId: Int, pokemonIdStr: String) =
-        userDb.userCardDao().deleteUserCard(cardId, dexId, pokemonIdStr)
+    /**
+     * Deletes exactly one collection row. A card-id-based delete would remove every row of
+     * the print — including other languages of the same cardId — so per-row delete buttons
+     * must use this row-id variant instead.
+     */
+    suspend fun removeUserCardById(rowId: Long) =
+        userDb.userCardDao().deleteById(rowId)
 
     suspend fun clearPrimary(dexId: Int, pokemonIdStr: String) =
         userDb.userCardDao().clearPrimary(dexId, pokemonIdStr)
@@ -97,6 +103,16 @@ class CollectionRepository(private val userDb: UserDatabase) {
         val resolvedLanguage = language.ifBlank { "de" }
         val existing = dao.findUserCard(cardId, resolvedLanguage)
         if (existing != null) {
+            // The favourite card must never be mutated through the secondary card path:
+            // bumping its quantity or rewriting its category would silently change what the
+            // main screen filters show. The dialog marks favourites instead of offering chips.
+            if (existing.isPrimary) {
+                AppLogger.log(
+                    "CollectionRepository",
+                    "Lieblingskarte ${existing.cardId} nicht als weitere Karte mutiert."
+                )
+                return
+            }
             dao.updateUserCard(
                 existing.copy(
                     quantity = existing.quantity + 1,

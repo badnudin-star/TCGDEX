@@ -105,7 +105,7 @@ class PokemonDetailViewModel(
     }
 
     fun updateCardDetails(
-        cardId: String,
+        rowId: Long,
         quantity: Int,
         condition: String?,
         language: String,
@@ -113,7 +113,9 @@ class PokemonDetailViewModel(
         category: String
     ) {
         viewModelScope.launch {
-            val userCard = userCards.value.firstOrNull { it.cardId == cardId } ?: return@launch
+            // The row id pins the edit to exactly the tapped entry; a card id could match
+            // several rows when the same print is stored in more than one language.
+            val userCard = userCards.value.firstOrNull { it.id == rowId } ?: return@launch
             collectionRepository.updateUserCard(
                 sanitizeUserCardDetails(
                     userCard = userCard,
@@ -130,7 +132,7 @@ class PokemonDetailViewModel(
     fun updatePrimaryCategory(category: String) {
         val primary = userCards.value.firstOrNull { it.isPrimary } ?: return
         updateCardDetails(
-            cardId = primary.cardId,
+            rowId = primary.id,
             quantity = primary.quantity,
             condition = primary.condition,
             language = primary.language,
@@ -162,9 +164,11 @@ class PokemonDetailViewModel(
         }
     }
 
-    fun removeSecondaryCard(cardId: String) {
+    fun removeSecondaryCard(rowId: Long) {
         viewModelScope.launch {
-            collectionRepository.removeUserCard(cardId, dexId, pokemonIdStr)
+            // Row id instead of card id: a print can be stored in several languages and
+            // deleting by card id would remove all of them at once.
+            collectionRepository.removeUserCardById(rowId)
         }
     }
 

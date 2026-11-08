@@ -11,6 +11,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Clear
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,7 +39,7 @@ fun SecondaryCardDialog(
     cards: List<MergedCatalogCard>,
     userCards: List<UserCardEntityV2>,
     onAddCard: (CardEntity, CardCategory) -> Unit,
-    onRemoveCard: (String) -> Unit,
+    onRemoveCard: (Long) -> Unit,
     onDismiss: () -> Unit
 ) {
     var searchQuery by remember { mutableStateOf("") }
@@ -116,6 +117,9 @@ fun SecondaryCardDialog(
                     LazyColumn(modifier = Modifier.fillMaxWidth().heightIn(max = 450.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(filteredCards, key = { it.representative.id }) { card ->
                             val representative = card.representative
+                            // The favourite print of this artwork — shown with a star, without
+                            // add/delete chips so it cannot be mutated as a secondary card.
+                            val isFavourite = userCards.any { it.isPrimary && it.cardId in card.variantIds }
                             // Ownership counts regardless of which language print is stored.
                             val userCard = userCards.firstOrNull { !it.isPrimary && it.cardId in card.variantIds }
                             val isAdded = userCard != null
@@ -124,7 +128,13 @@ fun SecondaryCardDialog(
 
                             Card(
                                 modifier = Modifier.fillMaxWidth(),
-                                colors = CardDefaults.cardColors(containerColor = if (isAdded) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface)
+                                colors = CardDefaults.cardColors(
+                                    containerColor = when {
+                                        isFavourite -> MaterialTheme.colorScheme.tertiaryContainer
+                                        isAdded -> MaterialTheme.colorScheme.secondaryContainer
+                                        else -> MaterialTheme.colorScheme.surface
+                                    }
+                                )
                             ) {
                                 Row(Modifier.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
                                     TcgImage(
@@ -134,7 +144,13 @@ fun SecondaryCardDialog(
                                     )
                                     Spacer(Modifier.width(12.dp))
                                     Column(Modifier.weight(1f)) {
-                                        Text(representative.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (isFavourite) {
+                                                Icon(Icons.Default.Star, contentDescription = stringResource(R.string.ui_icon_primary_card), tint = MaterialTheme.colorScheme.tertiary, modifier = Modifier.size(16.dp))
+                                                Spacer(Modifier.width(4.dp))
+                                            }
+                                            Text(representative.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
+                                        }
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                                             val setImage = representative.setSymbolUrl ?: representative.setLogoUrl
                                             if (!setImage.isNullOrBlank()) {
@@ -154,7 +170,13 @@ fun SecondaryCardDialog(
                                             ),
                                             style = MaterialTheme.typography.labelSmall
                                         )
-                                        if (card.languages.size > 1) {
+                                        if (isFavourite) {
+                                            Text(
+                                                stringResource(R.string.ui_prim_rkarte_845a5e),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.tertiary
+                                            )
+                                        } else if (card.languages.size > 1) {
                                             Text(
                                                 stringResource(
                                                     R.string.wishlist_available_languages,
@@ -178,26 +200,33 @@ fun SecondaryCardDialog(
                                             fontWeight = FontWeight.Bold,
                                             color = MaterialTheme.colorScheme.primary
                                         )
-                                        if (isAdded && userCard != null) {
-                                            // Removes the exact print that is stored.
-                                            IconButton(onClick = { onRemoveCard(userCard.cardId) }) {
-                                                Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_remove_card_named, representative.name), tint = MaterialTheme.colorScheme.error)
+                                        // An owned row gets the delete button; new cards
+                                        // get the chips — except favourites, which are
+                                        // informational only and must not be mutated here.
+                                        when {
+                                            userCard != null -> {
+                                                // Removes exactly the stored row, not every
+                                                // language print that shares the card id.
+                                                IconButton(onClick = { onRemoveCard(userCard.id) }) {
+                                                    Icon(Icons.Default.Delete, contentDescription = stringResource(R.string.ui_remove_card_named, representative.name), tint = MaterialTheme.colorScheme.error)
+                                                }
                                             }
-                                        } else {
-                                            Column(
-                                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                                                horizontalAlignment = Alignment.End
-                                            ) {
-                                                FilterChip(
-                                                    selected = false,
-                                                    onClick = { onAddCard(representative, CardCategory.COMMON) },
-                                                    label = { Text(stringResource(R.string.ui_common_7de90a)) }
-                                                )
-                                                FilterChip(
-                                                    selected = false,
-                                                    onClick = { onAddCard(representative, CardCategory.FULLART) },
-                                                    label = { Text(stringResource(R.string.ui_full_art_952d8e)) }
-                                                )
+                                            !isFavourite -> {
+                                                Column(
+                                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                    horizontalAlignment = Alignment.End
+                                                ) {
+                                                    FilterChip(
+                                                        selected = false,
+                                                        onClick = { onAddCard(representative, CardCategory.COMMON) },
+                                                        label = { Text(stringResource(R.string.ui_common_7de90a)) }
+                                                    )
+                                                    FilterChip(
+                                                        selected = false,
+                                                        onClick = { onAddCard(representative, CardCategory.FULLART) },
+                                                        label = { Text(stringResource(R.string.ui_full_art_952d8e)) }
+                                                    )
+                                                }
                                             }
                                         }
                                     }

@@ -38,9 +38,6 @@ interface UserCardDaoV2 {
     @Update
     suspend fun updateUserCard(userCard: UserCardEntityV2)
 
-    @Query("DELETE FROM user_cards WHERE cardId = :cId AND (pokemonDexId = :dexId OR pokemonId = :pokemonIdStr)")
-    suspend fun deleteUserCard(cId: String, dexId: Int, pokemonIdStr: String)
-
     @Query("DELETE FROM user_cards WHERE id = :rowId")
     suspend fun deleteById(rowId: Long)
 

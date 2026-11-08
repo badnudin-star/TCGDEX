@@ -176,11 +176,11 @@ class MainActivity : ComponentActivity() {
                                     onAddSecondary = { card, category ->
                                         pokemonDetailViewModel.addSecondaryCard(card, category)
                                     },
-                                    onRemoveSecondary = { cardId -> pokemonDetailViewModel.removeSecondaryCard(cardId) },
+                                    onRemoveSecondary = { rowId -> pokemonDetailViewModel.removeSecondaryCard(rowId) },
                                     onToggleWishlist = { card -> pokemonDetailViewModel.toggleWishlist(card) },
-                                    onUpdateCardDetails = { cardId, quantity, condition, language, notes, category ->
+                                    onUpdateCardDetails = { rowId, quantity, condition, language, notes, category ->
                                         pokemonDetailViewModel.updateCardDetails(
-                                            cardId,
+                                            rowId,
                                             quantity,
                                             condition,
                                             language,
