@@ -63,8 +63,10 @@ class RarityGrouperTest {
         assertEquals("Promo", RarityGrouper.canonical("Promo S"))
         // "promo" wins over "uncommon" because it is tested first.
         assertEquals("Promo", RarityGrouper.canonical("Uncommon Promo"))
-        // Completely unknown strings become their own group instead of being swallowed.
-        assertEquals("Coin Rare", RarityGrouper.canonical("Coin Rare"))
+        // Unknown values that still contain a known keyword fall into that keyword's group.
+        assertEquals("Rare", RarityGrouper.canonical("Coin Rare"))
+        // Only values without any known keyword become their own group.
+        assertEquals("Zenith", RarityGrouper.canonical("Zenith"))
     }
 
     @Test
@@ -83,10 +85,10 @@ class RarityGrouperTest {
 
     @Test
     fun chipGroupsShowKnownGroupsFirstAndUnknownOnesAfter() {
-        val available = listOf("Hyper rare", "Common", "Illustration rare", "Coin Rare", "None")
+        val available = listOf("Hyper rare", "Common", "Illustration rare", "Zenith", "None")
 
         val chips = RarityGrouper.chipGroups(available)
 
-        assertEquals(listOf("None", "Common", "Ultra Rare", "Illustration Rare", "Coin Rare"), chips)
+        assertEquals(listOf("None", "Common", "Ultra Rare", "Illustration Rare", "Zenith"), chips)
     }
 }
