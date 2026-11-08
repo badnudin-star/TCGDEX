@@ -1,10 +1,17 @@
 package com.pokemontcg.sammlung.ui.wishlist
 
+import android.content.ClipData
+import android.content.Intent
+import android.net.Uri
+import androidx.core.content.FileProvider
 import com.pokemontcg.sammlung.R
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -18,6 +25,8 @@ import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Share
+import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -32,13 +41,22 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.data.model.CatalogSearchSection
+import com.pokemontcg.sammlung.data.model.MergedCatalogCard
 import com.pokemontcg.sammlung.data.model.PokemonCardGroup
 import com.pokemontcg.sammlung.data.model.GenerationModel
+import com.pokemontcg.sammlung.data.model.RarityGrouper
+import com.pokemontcg.sammlung.data.export.WishlistTextExporter
+import com.pokemontcg.sammlung.ui.components.CardImageDialog
 import com.pokemontcg.sammlung.ui.components.TcgImage
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.WishlistEntity
+import com.pokemontcg.sammlung.util.CardmarketLinks
 import com.pokemontcg.sammlung.util.PriceFormatter
 import kotlinx.coroutines.launch
+import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 enum class WishlistSortOption {
     ADDED_DESC,
@@ -50,6 +68,9 @@ enum class WishlistTab {
     LIST,
     DATABASE
 }
+
+private const val FILE_PROVIDER_AUTHORITY = "com.pokemontcg.sammlung.fileprovider"
+private const val SHARE_FILE_NAME = "wunschliste-tcg.txt"
 
 fun isTargetReached(price: Double?, targetPrice: Double?): Boolean {
     return price != null && targetPrice != null && price > 0.0 && targetPrice > 0.0 && price <= targetPrice
@@ -81,12 +102,81 @@ fun WishlistScreen(
     var selectedTab by rememberSaveable { mutableStateOf(WishlistTab.LIST) }
     var currentSort by rememberSaveable { mutableStateOf(WishlistSortOption.ADDED_DESC) }
     var showSortMenu by rememberSaveable { mutableStateOf(false) }
+    var showShareMenu by rememberSaveable { mutableStateOf(false) }
+    var enlargedCard by remember { mutableStateOf<CardEntity?>(null) }
 
     var editingWishTarget by remember { mutableStateOf<WishlistEntity?>(null) }
     var editingWishNotes by remember { mutableStateOf<WishlistEntity?>(null) }
 
     val sortedList = remember(uiState.wishlist, uiState.cardMap, currentSort) {
         sortWishlist(uiState.wishlist, uiState.cardMap, currentSort)
+    }
+
+    /** The plain-text export always reflects the list exactly as the user currently sees it. */
+    fun buildExportText(): String {
+        val dateText = SimpleDateFormat("dd.MM.yyyy", Locale.GERMANY).format(Date())
+        return WishlistTextExporter.buildText(
+            wishlist = sortedList,
+            cardsById = uiState.cardMap,
+            headerDateText = dateText,
+            noPriceText = context.getString(R.string.price_no_price_short)
+        )
+    }
+
+    val saveTxtLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("text/plain")
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val saved = runCatching {
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write(buildExportText().toByteArray(Charsets.UTF_8))
+                } != null
+            }.getOrDefault(false)
+            snackbarHostState.showSnackbar(
+                context.getString(
+                    if (saved) R.string.wishlist_export_saved else R.string.wishlist_export_failed
+                )
+            )
+        }
+    }
+
+    /** Writes the export into the cache and hands it to the system share sheet (WhatsApp etc.). */
+    fun shareWishlistText() {
+        if (sortedList.isEmpty()) {
+            scope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.wishlist_export_empty))
+            }
+            return
+        }
+        val shareFile = File(context.cacheDir, SHARE_FILE_NAME)
+        val intent = runCatching {
+            shareFile.writeText(buildExportText(), Charsets.UTF_8)
+            val uri = FileProvider.getUriForFile(context, FILE_PROVIDER_AUTHORITY, shareFile)
+            Intent(Intent.ACTION_SEND).apply {
+                type = "text/plain"
+                putExtra(Intent.EXTRA_SUBJECT, context.getString(R.string.wishlist_share_subject))
+                putExtra(
+                    Intent.EXTRA_TEXT,
+                    context.getString(R.string.wishlist_share_message, sortedList.size)
+                )
+                putExtra(Intent.EXTRA_STREAM, uri)
+                clipData = ClipData.newRawUri(
+                    context.getString(R.string.wishlist_share_subject),
+                    uri
+                )
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }.getOrNull()
+        if (intent == null) {
+            scope.launch {
+                snackbarHostState.showSnackbar(context.getString(R.string.wishlist_export_failed))
+            }
+            return
+        }
+        context.startActivity(
+            Intent.createChooser(intent, context.getString(R.string.wishlist_share_chooser))
+        )
     }
 
     if (editingWishTarget != null) {
@@ -165,6 +255,19 @@ fun WishlistScreen(
         )
     }
 
+    enlargedCard?.let { card ->
+        CardImageDialog(
+            imageUrl = card.largeImageUrl ?: card.imageUrl,
+            contentDescription = stringResource(
+                R.string.ui_card_image_description,
+                card.name,
+                card.number,
+                card.setName
+            ),
+            onDismiss = { enlargedCard = null }
+        )
+    }
+
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
@@ -182,35 +285,73 @@ fun WishlistScreen(
                 },
                 actions = {
                     when (selectedTab) {
-                        WishlistTab.LIST -> Box {
-                            IconButton(onClick = { showSortMenu = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.ui_icon_sort))
+                        WishlistTab.LIST -> {
+                            Box {
+                                IconButton(onClick = { showShareMenu = true }) {
+                                    Icon(
+                                        Icons.Default.Share,
+                                        contentDescription = stringResource(R.string.wishlist_icon_share)
+                                    )
+                                }
+                                DropdownMenu(
+                                    expanded = showShareMenu,
+                                    onDismissRequest = { showShareMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.wishlist_export_save_txt)) },
+                                        onClick = {
+                                            showShareMenu = false
+                                            if (sortedList.isEmpty()) {
+                                                scope.launch {
+                                                    snackbarHostState.showSnackbar(
+                                                        context.getString(R.string.wishlist_export_empty)
+                                                    )
+                                                }
+                                            } else {
+                                                val datePart = SimpleDateFormat("yyyyMMdd", Locale.GERMANY).format(Date())
+                                                saveTxtLauncher.launch("wunschliste-$datePart.txt")
+                                            }
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.wishlist_export_share)) },
+                                        onClick = {
+                                            showShareMenu = false
+                                            shareWishlistText()
+                                        }
+                                    )
+                                }
                             }
-                            DropdownMenu(
-                                expanded = showSortMenu,
-                                onDismissRequest = { showSortMenu = false }
-                            ) {
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.ui_zuletzt_hinzugef_gt_040f67)) },
-                                    onClick = {
-                                        currentSort = WishlistSortOption.ADDED_DESC
-                                        showSortMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.ui_preis_aufsteigend_30e797)) },
-                                    onClick = {
-                                        currentSort = WishlistSortOption.PRICE_ASC
-                                        showSortMenu = false
-                                    }
-                                )
-                                DropdownMenuItem(
-                                    text = { Text(stringResource(R.string.ui_ziel_erreicht_zuerst_a3e976)) },
-                                    onClick = {
-                                        currentSort = WishlistSortOption.TARGET_REACHED_FIRST
-                                        showSortMenu = false
-                                    }
-                                )
+                            Box {
+                                IconButton(onClick = { showSortMenu = true }) {
+                                    Icon(Icons.Default.MoreVert, contentDescription = stringResource(R.string.ui_icon_sort))
+                                }
+                                DropdownMenu(
+                                    expanded = showSortMenu,
+                                    onDismissRequest = { showSortMenu = false }
+                                ) {
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.ui_zuletzt_hinzugef_gt_040f67)) },
+                                        onClick = {
+                                            currentSort = WishlistSortOption.ADDED_DESC
+                                            showSortMenu = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.ui_preis_aufsteigend_30e797)) },
+                                        onClick = {
+                                            currentSort = WishlistSortOption.PRICE_ASC
+                                            showSortMenu = false
+                                        }
+                                    )
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.ui_ziel_erreicht_zuerst_a3e976)) },
+                                        onClick = {
+                                            currentSort = WishlistSortOption.TARGET_REACHED_FIRST
+                                            showSortMenu = false
+                                        }
+                                    )
+                                }
                             }
                         }
                         WishlistTab.DATABASE -> if (uiState.searchParams.hasActiveFilter) {
@@ -265,7 +406,8 @@ fun WishlistScreen(
                             }
                         },
                         onEditTarget = { editingWishTarget = it },
-                        onEditNotes = { editingWishNotes = it }
+                        onEditNotes = { editingWishNotes = it },
+                        onEnlargeImage = { enlargedCard = it }
                     )
                     WishlistTab.DATABASE -> WishlistDatabaseTab(
                         state = uiState,
@@ -273,7 +415,8 @@ fun WishlistScreen(
                         onToggleRarity = viewModel::toggleRarity,
                         onClearRarities = viewModel::clearRarities,
                         onMaxPriceChange = viewModel::setMaxPriceText,
-                        onToggleWishlist = viewModel::toggleWishlist
+                        onToggleWishlist = viewModel::toggleWishlist,
+                        onEnlargeImage = { enlargedCard = it }
                     )
                 }
             }
@@ -288,9 +431,11 @@ private fun WishlistListTab(
     cardMap: Map<String, CardEntity>,
     onRemoveWish: (String) -> Unit,
     onEditTarget: (WishlistEntity) -> Unit,
-    onEditNotes: (WishlistEntity) -> Unit
+    onEditNotes: (WishlistEntity) -> Unit,
+    onEnlargeImage: (CardEntity) -> Unit
 ) {
     val context = LocalContext.current
+    val enlargeLabel = stringResource(R.string.wishlist_card_image_enlarge)
 
     if (wishlist.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
@@ -330,7 +475,11 @@ private fun WishlistListTab(
                             contentDescription = card?.let {
                                 stringResource(R.string.ui_card_image_description, it.name, it.number, it.setName)
                             } ?: stringResource(R.string.ui_card_id_description, wish.cardId),
-                            modifier = Modifier.size(60.dp)
+                            modifier = Modifier
+                                .size(60.dp)
+                                .clickable(onClickLabel = card?.let { enlargeLabel }) {
+                                    card?.let(onEnlargeImage)
+                                }
                         )
                         Spacer(Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
@@ -340,7 +489,11 @@ private fun WishlistListTab(
                                 style = MaterialTheme.typography.titleMedium
                             )
                             if (card != null) {
-                                Text(stringResource(R.string.ui_card_set_number_compact, card.setName, card.number), style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    stringResource(R.string.ui_card_set_number_compact, card.setName, card.number) +
+                                        " · " + card.language.uppercase(Locale.ROOT),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                             }
                             Text(
                                 PriceFormatter.formatPriceShort(context, marketPrice),
@@ -377,6 +530,22 @@ private fun WishlistListTab(
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        if (card != null) {
+                            AssistChip(
+                                onClick = {
+                                    context.startActivity(
+                                        Intent(
+                                            Intent.ACTION_VIEW,
+                                            Uri.parse(CardmarketLinks.forCard(card.name, card.setName))
+                                        )
+                                    )
+                                },
+                                label = { Text(stringResource(R.string.wishlist_cardmarket_open)) },
+                                leadingIcon = {
+                                    Icon(Icons.Default.ShoppingCart, contentDescription = null, modifier = Modifier.size(16.dp))
+                                }
+                            )
+                        }
                         AssistChip(
                             onClick = { onEditTarget(wish) },
                             label = { Text(stringResource(R.string.ui_zielpreis_848291)) },
@@ -411,8 +580,9 @@ private fun WishlistListTab(
 
 /**
  * Catalog browser inside the wishlist: free text, rarity multi-select and a price ceiling, with
- * the hits grouped per Pokémon exactly like the main screen. Pokémon that already have a full art
- * favourite are filtered out before grouping.
+ * the hits grouped per Pokémon exactly like the main screen. Language prints of the same card
+ * (same set, same artwork) are merged into one entry that lists its available languages.
+ * Pokémon that already have a full art favourite are filtered out before grouping.
  */
 @Composable
 private fun WishlistDatabaseTab(
@@ -421,7 +591,8 @@ private fun WishlistDatabaseTab(
     onToggleRarity: (String) -> Unit,
     onClearRarities: () -> Unit,
     onMaxPriceChange: (String) -> Unit,
-    onToggleWishlist: (CardEntity) -> Unit
+    onToggleWishlist: (CardEntity) -> Unit,
+    onEnlargeImage: (CardEntity) -> Unit
 ) {
     val params = state.searchParams
 
@@ -481,7 +652,7 @@ private fun WishlistDatabaseTab(
             )
         }
 
-        if (state.availableRarities.isNotEmpty()) {
+        if (state.availableRarityGroups.isNotEmpty()) {
             item(key = "wishlist_search_rarity_title") {
                 Text(
                     stringResource(R.string.wishlist_search_rarity_title),
@@ -497,11 +668,11 @@ private fun WishlistDatabaseTab(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    state.availableRarities.forEach { rarity ->
+                    state.availableRarityGroups.forEach { rarityGroup ->
                         FilterChip(
-                            selected = rarity in params.rarities,
-                            onClick = { onToggleRarity(rarity) },
-                            label = { Text(rarity) }
+                            selected = rarityGroup in params.rarities,
+                            onClick = { onToggleRarity(rarityGroup) },
+                            label = { Text(rarityGroup) }
                         )
                     }
                     if (params.rarities.isNotEmpty()) {
@@ -558,11 +729,12 @@ private fun WishlistDatabaseTab(
                     item(key = "wishlist_search_group_${group.dexId ?: "none"}") {
                         WishlistSearchPokemonHeader(group = group)
                     }
-                    items(group.cards, key = { "wishlist_search_card_${it.id}" }) { card ->
+                    items(group.cards, key = { "wishlist_search_card_${it.representative.id}" }) { card ->
                         WishlistSearchCardRow(
                             card = card,
-                            isInWishlist = card.id in state.wishlistCardIds,
-                            onToggleWishlist = onToggleWishlist
+                            isInWishlist = card.variants.any { it.id in state.wishlistCardIds },
+                            onToggleWishlist = onToggleWishlist,
+                            onEnlargeImage = onEnlargeImage
                         )
                     }
                 }
@@ -630,49 +802,64 @@ private fun WishlistSearchPokemonHeader(group: PokemonCardGroup) {
 
 @Composable
 private fun WishlistSearchCardRow(
-    card: CardEntity,
+    card: MergedCatalogCard,
     isInWishlist: Boolean,
-    onToggleWishlist: (CardEntity) -> Unit
+    onToggleWishlist: (CardEntity) -> Unit,
+    onEnlargeImage: (CardEntity) -> Unit
 ) {
-    val context = LocalContext.current
+    val representative = card.representative
+    val rarityGroup = RarityGrouper.canonical(representative.rarity)
+    val enlargeLabel = stringResource(R.string.wishlist_card_image_enlarge)
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             TcgImage(
-                model = card.imageUrl,
+                model = representative.imageUrl,
                 contentDescription = stringResource(
                     R.string.ui_card_image_description,
-                    card.name,
-                    card.number,
-                    card.setName
+                    representative.name,
+                    representative.number,
+                    representative.setName
                 ),
-                modifier = Modifier.size(56.dp)
+                modifier = Modifier
+                    .size(56.dp)
+                    .clickable(onClickLabel = enlargeLabel) { onEnlargeImage(representative) }
             )
             Spacer(Modifier.width(10.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(card.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
+                Text(representative.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                 Text(
-                    stringResource(R.string.ui_card_set_number_compact, card.setName, card.number),
+                    stringResource(R.string.ui_card_set_number_compact, representative.setName, representative.number),
                     style = MaterialTheme.typography.bodySmall
                 )
-                if (!card.rarity.isNullOrBlank()) {
-                    Text(card.rarity, style = MaterialTheme.typography.labelSmall)
+                if (rarityGroup != "None") {
+                    Text(rarityGroup, style = MaterialTheme.typography.labelSmall)
+                }
+                if (card.languages.isNotEmpty()) {
+                    Text(
+                        stringResource(R.string.wishlist_available_languages, card.languages.joinToString(" · ")),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
                 Text(
-                    PriceFormatter.formatPriceShort(context, card.marketPrice),
+                    PriceFormatter.formatPriceShort(
+                        representative.marketPrice,
+                        stringResource(R.string.price_no_price_short)
+                    ),
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary
                 )
             }
-            IconButton(onClick = { onToggleWishlist(card) }) {
+            IconButton(onClick = { onToggleWishlist(representative) }) {
                 Icon(
                     imageVector = if (isInWishlist) Icons.Default.Favorite else Icons.Default.FavoriteBorder,
                     contentDescription = stringResource(
                         if (isInWishlist) R.string.wishlist_search_remove_card else R.string.wishlist_search_add_card,
-                        card.name
+                        representative.name
                     ),
                     tint = if (isInWishlist) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant
                 )

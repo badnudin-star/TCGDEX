@@ -59,6 +59,7 @@ for path in kotlin_files:
 # Null descriptions are allowed only for decorative icons whose meaning is already conveyed by adjacent text.
 allowed_null_icons = {
     ("WishlistScreen.kt", "Edit"): 2,
+    ("WishlistScreen.kt", "ShoppingCart"): 1,
     ("PokemonDetailScreen.kt", "Star"): 1,
     ("PokemonDetailScreen.kt", "Add"): 1,
 }

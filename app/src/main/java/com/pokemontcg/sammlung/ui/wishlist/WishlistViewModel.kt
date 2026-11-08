@@ -3,10 +3,12 @@ package com.pokemontcg.sammlung.ui.wishlist
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.pokemontcg.sammlung.data.local.dao.CardSearchRow
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.WishlistEntity
 import com.pokemontcg.sammlung.data.model.CatalogSearchSection
+import com.pokemontcg.sammlung.data.model.RarityGrouper
 import com.pokemontcg.sammlung.data.model.countExcludedFullartPokemon
 import com.pokemontcg.sammlung.data.model.groupCatalogSearchByPokemon
 import com.pokemontcg.sammlung.data.preferences.AppPreferencesRepository
@@ -71,9 +73,11 @@ data class WishlistUiState(
     val cardMap: Map<String, CardEntity> = emptyMap(),
     val wishlistCardIds: Set<String> = emptySet(),
     val searchParams: WishlistSearchParams = WishlistSearchParams(),
-    val availableRarities: List<String> = emptyList(),
+    /** Canonical rarity groups (English terms) present in the catalog, for the filter chips. */
+    val availableRarityGroups: List<String> = emptyList(),
     /** Search hits grouped per Pokémon, ordered like the main screen. */
     val searchSections: List<CatalogSearchSection> = emptyList(),
+    /** Number of merged search entries (language prints of one card count as one entry). */
     val searchResultCount: Int = 0,
     /** Pokémon hidden from the result because a full art favourite already exists. */
     val excludedFullartPokemonCount: Int = 0,
@@ -100,6 +104,13 @@ class WishlistViewModel(
         val excludedFullartPokemon: Int
     )
 
+    private data class SearchInputs(
+        val rows: List<CardSearchRow>,
+        val excludedDexIds: Set<Int>,
+        val names: Map<Int, String>,
+        val preferredLanguage: String
+    )
+
     private val wishlistData: StateFlow<WishlistData> = collectionRepository.getWishlist()
         .map { wishes ->
             // Always reassign so an emptied wishlist cannot leave stale cards behind;
@@ -113,6 +124,15 @@ class WishlistViewModel(
 
     private val availableRarities: StateFlow<List<String>> = catalogRepository.getAllRarities()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Canonical English rarity groups for the filter chips, known groups first. */
+    private val availableRarityGroups: StateFlow<List<String>> = availableRarities
+        .map { raw -> RarityGrouper.chipGroups(raw) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Language of the wishlist search representative print and Pokémon names. */
+    private val preferredLanguage: StateFlow<String> = preferencesRepository.preferredLanguageFlow
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), "de")
 
     private val pokemonNameByDexId: StateFlow<Map<Int, String>> = combine(
         catalogRepository.getAllPokemon(),
@@ -142,12 +162,17 @@ class WishlistViewModel(
     ) { pokemonCount, cardCount -> pokemonCount == 0 && cardCount == 0 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), false)
 
-    private val searchData: StateFlow<SearchData> = searchParams
-        .debounce(SEARCH_DEBOUNCE_MS)
-        .flatMapLatest { params ->
+    private val searchData: StateFlow<SearchData> = combine(
+        searchParams.debounce(SEARCH_DEBOUNCE_MS),
+        availableRarities
+    ) { params, rawRarities ->
+        // The chips hold canonical English groups; the SQL filter needs the raw catalog values.
+        params to RarityGrouper.rawValuesFor(params.rarities, rawRarities)
+    }
+        .flatMapLatest { (params, rawRarities) ->
             catalogRepository.searchCatalogCards(
                 query = params.query,
-                rarities = params.rarities,
+                rarities = rawRarities,
                 maxPrice = params.maxPrice
             )
         }
@@ -157,14 +182,24 @@ class WishlistViewModel(
         .combine(pokemonNameByDexId) { (rows, excludedDexIds), names ->
             Triple(rows, excludedDexIds, names)
         }
-        .map { (rows, excludedDexIds, names) ->
+        .combine(preferredLanguage) { (rows, excludedDexIds, names), language ->
+            SearchInputs(rows, excludedDexIds, names, language)
+        }
+        .map { inputs ->
             val cardsById = catalogRepository
-                .getCardsByIdsBatched(rows.map { it.cardId })
+                .getCardsByIdsBatched(inputs.rows.map { it.cardId })
                 .associateBy { it.id }
+            val sections = groupCatalogSearchByPokemon(
+                rows = inputs.rows,
+                cardsById = cardsById,
+                pokemonNameByDexId = inputs.names,
+                excludedDexIds = inputs.excludedDexIds,
+                preferredLanguage = inputs.preferredLanguage
+            )
             SearchData(
-                sections = groupCatalogSearchByPokemon(rows, cardsById, names, excludedDexIds),
-                resultCount = rows.size,
-                excludedFullartPokemon = countExcludedFullartPokemon(rows, excludedDexIds)
+                sections = sections,
+                resultCount = sections.sumOf { section -> section.groups.sumOf { it.cards.size } },
+                excludedFullartPokemon = countExcludedFullartPokemon(inputs.rows, inputs.excludedDexIds)
             )
         }
         .stateIn(
@@ -177,15 +212,15 @@ class WishlistViewModel(
         wishlistData,
         searchParams,
         searchData,
-        availableRarities,
+        availableRarityGroups,
         isCatalogEmpty
-    ) { wishes, params, search, rarities, catalogEmpty ->
+    ) { wishes, params, search, rarityGroups, catalogEmpty ->
         WishlistUiState(
             wishlist = wishes.wishlist,
             cardMap = wishes.cardMap,
             wishlistCardIds = wishes.wishlist.map { it.cardId }.toSet(),
             searchParams = params,
-            availableRarities = rarities,
+            availableRarityGroups = rarityGroups,
             searchSections = search.sections,
             searchResultCount = search.resultCount,
             excludedFullartPokemonCount = search.excludedFullartPokemon,

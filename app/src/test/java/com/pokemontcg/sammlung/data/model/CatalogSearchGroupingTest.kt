@@ -9,12 +9,18 @@ import org.junit.Test
 
 class CatalogSearchGroupingTest {
 
-    private fun card(id: String, name: String = id, price: Double? = 1.0) = CardEntity(
+    private fun card(
+        id: String,
+        name: String = id,
+        price: Double? = 1.0,
+        rarity: String? = "Common",
+        language: String = "de"
+    ) = CardEntity(
         id = id,
         name = name,
         supertype = "Pokémon",
         number = "1",
-        rarity = "Common",
+        rarity = rarity,
         setId = "set1",
         setName = "Set 1",
         series = "Series",
@@ -25,7 +31,7 @@ class CatalogSearchGroupingTest {
         trendPrice = null,
         nationalPokedexNumber = null,
         subtypes = null,
-        language = "de"
+        language = language
     )
 
     @Test
@@ -43,7 +49,7 @@ class CatalogSearchGroupingTest {
         // All three Pokémon belong to generation 1 and stay in Pokédex order.
         assertEquals(listOf(1), sections.map { it.generationId })
         assertEquals(listOf(6, 25, 150), sections.single().groups.map { it.dexId })
-        assertEquals(listOf("card-25b", "card-25a"), sections.single().groups[1].cards.map { it.id })
+        assertEquals(listOf("card-25b", "card-25a"), sections.single().groups[1].cards.map { it.representative.id })
     }
 
     @Test
@@ -87,7 +93,10 @@ class CatalogSearchGroupingTest {
         val sections = groupCatalogSearchByPokemon(rows, cardsById, emptyMap())
 
         assertEquals(listOf(1, null), sections.map { it.generationId })
-        assertEquals(listOf("trainer-1", "trainer-2"), sections.last().groups.single().cards.map { it.id })
+        assertEquals(
+            listOf("trainer-1", "trainer-2"),
+            sections.last().groups.single().cards.map { it.representative.id }
+        )
         assertNull(sections.last().groups.single().dexId)
     }
 
@@ -108,5 +117,79 @@ class CatalogSearchGroupingTest {
         val sections = groupCatalogSearchByPokemon(rows, cardsById, mapOf(25 to "Pikachu"))
 
         assertEquals("Pikachu", sections.single().groups.single().pokemonName)
+    }
+
+    @Test
+    fun languagePrintsOfTheSameCardAreMergedIntoOneEntry() {
+        val rows = listOf(
+            CardSearchRow("xy1-1", 25),
+            CardSearchRow("en:xy1-1", 25),
+            CardSearchRow("fr:xy1-1", 25)
+        )
+        val cardsById = mapOf(
+            "xy1-1" to card("xy1-1", language = "de"),
+            "en:xy1-1" to card("en:xy1-1", language = "en"),
+            "fr:xy1-1" to card("fr:xy1-1", language = "fr")
+        )
+
+        val group = groupCatalogSearchByPokemon(rows, cardsById, emptyMap())
+            .single().groups.single()
+
+        assertEquals(1, group.cards.size)
+        val merged = group.cards.single()
+        assertEquals(listOf("DE", "EN", "FR"), merged.languages)
+        assertEquals(3, merged.variants.map { it.id }.toSet().size)
+    }
+
+    @Test
+    fun representativePrefersThePreferredLanguageThenGermanThenEnglish() {
+        val rows = listOf(
+            CardSearchRow("fr:xy1-1", 25),
+            CardSearchRow("en:xy1-1", 25),
+            CardSearchRow("es:xy1-1", 25)
+        )
+        val cardsById = mapOf(
+            "fr:xy1-1" to card("fr:xy1-1", language = "fr"),
+            "en:xy1-1" to card("en:xy1-1", language = "en"),
+            "es:xy1-1" to card("es:xy1-1", language = "es")
+        )
+
+        val frPreferred = groupCatalogSearchByPokemon(
+            rows, cardsById, emptyMap(), preferredLanguage = "fr"
+        ).single().groups.single().cards.single()
+        assertEquals("fr:xy1-1", frPreferred.representative.id)
+
+        // Without a preferred match German wins; it is the app default.
+        val germanFallback = groupCatalogSearchByPokemon(
+            rows, cardsById, emptyMap(), preferredLanguage = "de"
+        ).single().groups.single().cards.single()
+        assertEquals("en:xy1-1", germanFallback.representative.id)
+    }
+
+    @Test
+    fun cardsFromDifferentSetsOrNumbersAreNotMerged() {
+        val rows = listOf(
+            CardSearchRow("xy1-1", 25),
+            CardSearchRow("en:xy2-1", 25),
+            CardSearchRow("en:xy1-2", 25)
+        )
+        val cardsById = mapOf(
+            "xy1-1" to card("xy1-1", language = "de"),
+            "en:xy2-1" to card("en:xy2-1", language = "en"),
+            "en:xy1-2" to card("en:xy1-2", language = "en")
+        )
+
+        val group = groupCatalogSearchByPokemon(rows, cardsById, emptyMap())
+            .single().groups.single()
+
+        assertEquals(3, group.cards.size)
+    }
+
+    @Test
+    fun rawCardIdStripsTheLanguagePrefix() {
+        assertEquals("xy1-1", rawCardId("en:xy1-1"))
+        assertEquals("xy1-1", rawCardId("es-mx:xy1-1"))
+        // German ids have no prefix.
+        assertEquals("xy1-1", rawCardId("xy1-1"))
     }
 }
