@@ -47,7 +47,8 @@ import com.pokemontcg.sammlung.ui.detail.PokemonDetailViewModel
 import com.pokemontcg.sammlung.ui.diagnostics.DiagnosticsScreen
 import com.pokemontcg.sammlung.ui.main.MainScreen
 import com.pokemontcg.sammlung.ui.main.MainViewModel
-import com.pokemontcg.sammlung.ui.sets.SetProgressScreen
+import com.pokemontcg.sammlung.ui.sets.SetDetailScreen
+import com.pokemontcg.sammlung.ui.sets.SetDetailViewModel
 import com.pokemontcg.sammlung.ui.sets.SetProgressViewModel
 import com.pokemontcg.sammlung.ui.settings.SettingsScreen
 import com.pokemontcg.sammlung.ui.settings.SettingsViewModel
@@ -128,6 +129,9 @@ class MainActivity : ComponentActivity() {
                         startDestination = "main"
                     ) {
                         composable("main") {
+                            val setProgressViewModel: SetProgressViewModel = viewModel(
+                                factory = SetProgressViewModel.Factory(catalogRepo, collectionRepo)
+                            )
                             MainScreen(
                                 viewModel = mainViewModel,
                                 onNavigateToPokemonDetail = { dexId ->
@@ -137,7 +141,10 @@ class MainActivity : ComponentActivity() {
                                 onNavigateToWishlist = { navController.navigate("wishlist") },
                                 onNavigateToCatalogManager = { navController.navigate("catalog-manager") },
                                 onNavigateToScanner = { navController.navigate("scanner") },
-                                onNavigateToSets = { navController.navigate("sets") }
+                                onNavigateToSetDetail = { setId ->
+                                    navController.navigate("set/$setId")
+                                },
+                                setProgressViewModel = setProgressViewModel
                             )
                         }
 
@@ -277,17 +284,16 @@ class MainActivity : ComponentActivity() {
                             )
                         }
 
-                        composable("sets") {
-                            val setProgressViewModel: SetProgressViewModel = viewModel(
-                                factory = SetProgressViewModel.Factory(catalogRepo, collectionRepo)
+                        composable(
+                            route = "set/{setId}",
+                            arguments = listOf(navArgument("setId") { type = NavType.StringType })
+                        ) { backStackEntry ->
+                            val setId = backStackEntry.arguments?.getString("setId").orEmpty()
+                            val setDetailViewModel: SetDetailViewModel = viewModel(
+                                factory = SetDetailViewModel.Factory(catalogRepo, collectionRepo, prefRepo, setId)
                             )
-                            val setProgressState by setProgressViewModel.uiState.collectAsState()
-                            SetProgressScreen(
-                                sets = setProgressState.sets,
-                                userCards = setProgressState.userCards,
-                                cardsMap = setProgressState.cardsMap,
-                                catalogCardCountBySet = setProgressState.catalogCardCountBySet,
-                                isLoading = setProgressState.isLoading,
+                            SetDetailScreen(
+                                viewModel = setDetailViewModel,
                                 onBackClick = { navController.popBackStack() }
                             )
                         }

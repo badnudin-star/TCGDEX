@@ -3,6 +3,7 @@ package com.pokemontcg.sammlung.data.repository
 import com.pokemontcg.sammlung.data.local.AppDatabase
 import com.pokemontcg.sammlung.data.local.dao.CardSearchRow
 import com.pokemontcg.sammlung.data.local.dao.SetIdName
+import com.pokemontcg.sammlung.data.local.dao.SetLanguageRow
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 import com.pokemontcg.sammlung.data.local.entities.PokemonNameEntity
@@ -11,6 +12,7 @@ import com.pokemontcg.sammlung.data.local.entities.SourceAuditEntity
 import com.pokemontcg.sammlung.data.model.batchCardIds
 import com.pokemontcg.sammlung.ui.cards.extractOcrSearchTokens
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 
 class CatalogRepository(private val db: AppDatabase) {
 
@@ -76,6 +78,17 @@ class CatalogRepository(private val db: AppDatabase) {
 
     suspend fun getCardCountsBySet(): Map<String, Int> =
         db.cardDao().getCardCountsBySet().associate { it.setId to it.count }
+
+    /** All cards of one set ordered by card number, as a flow for the set detail screen. */
+    fun getCardsForSet(setId: String): Flow<List<CardEntity>> = db.cardDao().getCardsForSet(setId)
+
+    /** Distinct languages per set id, so the set list can show which languages a set exists in. */
+    fun getLanguagesBySet(): Flow<Map<String, List<String>>> =
+        db.cardDao().getLanguagesBySet()
+            .map { rows ->
+                rows.groupBy({ it.setId }, { it.language })
+                    .mapValues { (_, languages) -> languages.distinct().sorted() }
+            }
 
     suspend fun getAllCardIds(): Set<String> =
         db.cardDao().getAllCardsOnce().map { it.id }.toSet()

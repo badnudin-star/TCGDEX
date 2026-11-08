@@ -14,6 +14,13 @@ object UpdateScheduler {
     const val PERIODIC_WORK_NAME = "catalog_update_periodic"
 
     /**
+     * Marks the periodic 03:00 work so the sync banner can tell it apart from manually started
+     * syncs: the periodic work is permanently ENQUEUED between its runs and must not show up
+     * as a running update.
+     */
+    const val PERIODIC_SYNC_TAG = "catalog_sync_periodic"
+
+    /**
      * Catalog and prices are refreshed once per day at 03:00 local time. The hour is fixed on
      * purpose: the daily price report is only meaningful when every device collects its price
      * points in the same nightly window.
@@ -47,6 +54,7 @@ object UpdateScheduler {
 
         val request = PeriodicWorkRequestBuilder<ResumableCatalogWorker>(24, TimeUnit.HOURS)
             .addTag(ResumableCatalogWorker.SYNC_TAG)
+            .addTag(PERIODIC_SYNC_TAG)
             .setConstraints(constraints)
             .setInitialDelay(initialDelayMs, TimeUnit.MILLISECONDS)
             .build()

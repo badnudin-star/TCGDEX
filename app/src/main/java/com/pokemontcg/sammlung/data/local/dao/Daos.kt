@@ -93,6 +93,14 @@ interface CardDao {
     suspend fun getCardCountsBySet(): List<SetCardCount>
     @Query("SELECT * FROM cards WHERE setId = :setId ORDER BY COALESCE(setReleaseDate, '') DESC, setName COLLATE NOCASE ASC, sortNumber ASC, number COLLATE NOCASE ASC")
     suspend fun getCardsForSetOnce(setId: String): List<CardEntity>
+
+    /** All cards of one set as a flow, for the set detail list ordered by card number. */
+    @Query("SELECT * FROM cards WHERE setId = :setId ORDER BY COALESCE(setReleaseDate, '') DESC, setName COLLATE NOCASE ASC, sortNumber ASC, number COLLATE NOCASE ASC")
+    fun getCardsForSet(setId: String): Flow<List<CardEntity>>
+
+    /** Distinct language prints per set, so the set list can show which languages exist. */
+    @Query("SELECT DISTINCT setId, language FROM cards")
+    fun getLanguagesBySet(): Flow<List<SetLanguageRow>>
     @Query("SELECT * FROM cards WHERE imageUrl IS NULL OR imageUrl = ''")
     suspend fun getCardsWithMissingImagesOnce(): List<CardEntity>
 
@@ -164,6 +172,9 @@ interface PokemonNameDao {
 data class SetIdName(val setId: String, val setName: String, val releaseDate: String = "")
 
 data class SetCardCount(val setId: String, val count: Int)
+
+/** One language a set exists in, derived from the language prints of its cards. */
+data class SetLanguageRow(val setId: String, val language: String)
 
 /** One catalog search hit: the card plus the Pokédex id it is grouped under. */
 data class CardSearchRow(val cardId: String, val dexId: Int?)

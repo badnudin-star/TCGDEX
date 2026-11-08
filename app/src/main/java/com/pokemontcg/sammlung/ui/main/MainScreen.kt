@@ -12,8 +12,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.semantics.heading
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.ui.components.NotificationPermissionHandler
@@ -21,10 +19,13 @@ import com.pokemontcg.sammlung.ui.main.components.MainFilterChips
 import com.pokemontcg.sammlung.ui.main.components.MainSyncBanner
 import com.pokemontcg.sammlung.ui.main.components.PriceDevelopmentTab
 import com.pokemontcg.sammlung.ui.pokedex.PokedexScreen
+import com.pokemontcg.sammlung.ui.sets.SetProgressTab
+import com.pokemontcg.sammlung.ui.sets.SetProgressViewModel
 
 enum class MainTab {
     POKEMONS,
-    PRICE_DEVELOPMENT
+    PRICE_DEVELOPMENT,
+    SETS
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -36,7 +37,8 @@ fun MainScreen(
     onNavigateToWishlist: () -> Unit,
     onNavigateToCatalogManager: () -> Unit,
     onNavigateToScanner: () -> Unit,
-    onNavigateToSets: () -> Unit
+    onNavigateToSetDetail: (String) -> Unit,
+    setProgressViewModel: SetProgressViewModel
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val catalogIsEmpty by viewModel.catalogIsEmpty.collectAsState()
@@ -65,12 +67,8 @@ fun MainScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = {
-                    Text(
-                        stringResource(R.string.ui_tcg_sammlung_c2e767),
-                        modifier = Modifier.semantics { heading() }
-                    )
-                },
+                // The app title stays hidden on purpose; the tabs name the content already.
+                title = {},
                 actions = {
                     IconButton(onClick = { isSearchExpanded = !isSearchExpanded }) {
                         Icon(Icons.Default.Search, contentDescription = stringResource(R.string.ui_icon_search))
@@ -80,9 +78,6 @@ fun MainScreen(
                     }
                     IconButton(onClick = onNavigateToWishlist) {
                         Icon(Icons.Default.Favorite, contentDescription = stringResource(R.string.ui_icon_wishlist))
-                    }
-                    IconButton(onClick = onNavigateToSets) {
-                        Icon(painterResource(R.drawable.ic_tcg_sets), contentDescription = stringResource(R.string.ui_icon_sets))
                     }
                     IconButton(onClick = onNavigateToSettings) {
                         Icon(Icons.Default.Settings, contentDescription = stringResource(R.string.ui_icon_settings))
@@ -103,6 +98,12 @@ fun MainScreen(
                     onClick = { selectedTab = MainTab.PRICE_DEVELOPMENT },
                     icon = { Icon(painterResource(R.drawable.ic_tcg_chart), contentDescription = stringResource(R.string.ui_icon_price_development)) },
                     label = { Text(stringResource(R.string.ui_preisentwicklung_552ac6)) }
+                )
+                NavigationBarItem(
+                    selected = selectedTab == MainTab.SETS,
+                    onClick = { selectedTab = MainTab.SETS },
+                    icon = { Icon(painterResource(R.drawable.ic_tcg_sets), contentDescription = stringResource(R.string.ui_icon_sets)) },
+                    label = { Text(stringResource(R.string.ui_set_fortschritt_601613)) }
                 )
             }
         }
@@ -182,6 +183,18 @@ fun MainScreen(
                             )
                         }
                     }
+                }
+                MainTab.SETS -> {
+                    val setState by setProgressViewModel.uiState.collectAsState()
+                    SetProgressTab(
+                        sets = setState.sets,
+                        userCards = setState.userCards,
+                        cardsMap = setState.cardsMap,
+                        catalogCardCountBySet = setState.catalogCardCountBySet,
+                        languagesBySet = setState.languagesBySet,
+                        isLoading = setState.isLoading,
+                        onSetClick = onNavigateToSetDetail
+                    )
                 }
                 MainTab.PRICE_DEVELOPMENT -> {
                     PriceDevelopmentTab(
