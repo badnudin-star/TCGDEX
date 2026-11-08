@@ -162,8 +162,7 @@
     <string name="ui_prim_rkarte_845a5e">Lieblingskarte</string>
     <string name="ui_speichern_70b73b">Speichern</string>
     <string name="ui_weitere_karten_verwalten_9c849a">Weitere Karten verwalten</string>
-    <string name="ui_tcg_sammlung_c2e767">TCG Sammlung</string>
-    <string name="ui_pok_mons_57f3d1">Pokémons</string>
+    <string name="ui_pok_mons_57f3d1">Pokémon</string>
     <string name="ui_preisentwicklung_552ac6">Preisentwicklung</string>
     <string name="ui_pok_mon_suchen_z_b_glurak_charizard__3db2d4">Pokémon suchen (z. B. Glurak, Charizard, 006) …</string>
     <string name="ui_sammlung_importieren_vorschau_29d15d">Sammlung importieren – Vorschau</string>
@@ -284,6 +283,14 @@
     <string name="ui_card_image_description">%1$s, Nr. %2$s, %3$s</string>
     <string name="ui_card_id_description">Karte %1$s</string>
     <string name="ui_set_symbol_description">Set-Symbol: %1$s</string>
+    <string name="ui_set_logo_description">Set-Logo: %1$s</string>
+    <string name="set_detail_all_cards">Alle Karten (%1$d)</string>
+    <string name="set_detail_card_number">Nr. %1$s</string>
+    <string name="set_detail_owned">Im Besitz</string>
+    <string name="set_detail_owned_quantity">Im Besitz · %1$d×</string>
+    <string name="set_detail_owned_summary">Im Besitz: %1$d von %2$d Karten</string>
+    <string name="set_detail_no_cards">Für dieses Set sind keine Karten im Katalog vorhanden.</string>
+    <string name="set_detail_not_found">Dieses Set ist nicht im Katalog vorhanden.</string>
     <string name="ui_primary_card_description">Lieblingskarte: %1$s, Nr. %2$s, %3$s</string>
     <string name="ui_keine_oder_noch_ohne_">Keine</string>
     <string name="ui_keine_karten">keine Karten</string>

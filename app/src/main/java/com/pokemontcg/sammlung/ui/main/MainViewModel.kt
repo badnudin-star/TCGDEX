@@ -20,6 +20,7 @@ import com.pokemontcg.sammlung.data.repository.PriceRepository
 import com.pokemontcg.sammlung.data.model.SyncStage
 import com.pokemontcg.sammlung.data.repository.SyncRepository
 import com.pokemontcg.sammlung.ui.catalog.CatalogManagerUiState
+import com.pokemontcg.sammlung.worker.UpdateScheduler
 import com.pokemontcg.sammlung.worker.ResumableCatalogWorker
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -226,10 +227,16 @@ class MainViewModel(
     }
 
     private fun deriveSyncUiState(works: List<WorkInfo>, dismissedId: String?): SyncUiState {
+        // Only a running sync shows the banner. The periodic 03:00 work is permanently ENQUEUED
+        // between its runs — counting it as active kept the "wird aktualisiert" info on screen
+        // even when nothing was updating. A queued/blocked entry still counts when it belongs
+        // to a manually started sync (including its retry continuation).
         val active = works.any {
             it.state == WorkInfo.State.RUNNING ||
-                it.state == WorkInfo.State.ENQUEUED ||
-                it.state == WorkInfo.State.BLOCKED
+                (
+                    (it.state == WorkInfo.State.ENQUEUED || it.state == WorkInfo.State.BLOCKED) &&
+                        UpdateScheduler.PERIODIC_SYNC_TAG !in it.tags
+                    )
         }
         val activeWork = works.firstOrNull { it.state == WorkInfo.State.RUNNING }
             ?: works.firstOrNull {

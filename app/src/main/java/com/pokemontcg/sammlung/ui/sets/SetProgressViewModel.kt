@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.stateIn
 
 class SetProgressViewModel(
     private val catalogRepository: CatalogRepository,
-    private val collectionRepository: CollectionRepository
+    collectionRepository: CollectionRepository
 ) : ViewModel() {
 
     data class UiState(
@@ -25,6 +25,8 @@ class SetProgressViewModel(
         val userCards: List<UserCardEntityV2> = emptyList(),
         val cardsMap: Map<String, CardEntity> = emptyMap(),
         val catalogCardCountBySet: Map<String, Int> = emptyMap(),
+        /** Distinct language codes per set id: the languages a set exists in. */
+        val languagesBySet: Map<String, List<String>> = emptyMap(),
         val isLoading: Boolean = true
     )
 
@@ -39,8 +41,9 @@ class SetProgressViewModel(
     val uiState: StateFlow<UiState> = combine(
         catalogRepository.getAllSets(),
         collectionRepository.getAllUserCards(),
-        catalogCardCountBySet
-    ) { sets, userCards, cardCountBySet ->
+        catalogCardCountBySet,
+        catalogRepository.getLanguagesBySet()
+    ) { sets, userCards, cardCountBySet, languagesBySet ->
         val cardIds = userCards.map { it.cardId }.distinct()
         val cards = catalogRepository.getCardsByIdsBatched(cardIds)
         UiState(
@@ -48,6 +51,7 @@ class SetProgressViewModel(
             userCards = userCards,
             cardsMap = cards.associateBy { it.id },
             catalogCardCountBySet = cardCountBySet,
+            languagesBySet = languagesBySet,
             isLoading = false
         )
     }.stateIn(

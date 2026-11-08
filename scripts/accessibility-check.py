@@ -62,6 +62,7 @@ allowed_null_icons = {
     ("WishlistScreen.kt", "ShoppingCart"): 1,
     ("PokemonDetailScreen.kt", "Star"): 1,
     ("PokemonDetailScreen.kt", "Add"): 1,
+    ("SetDetailScreen.kt", "Check"): 1,
 }
 found_null_icons: dict[tuple[str, str], int] = {}
 for path in kotlin_files:

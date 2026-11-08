@@ -192,4 +192,51 @@ class CatalogSearchGroupingTest {
         // German ids have no prefix.
         assertEquals("xy1-1", rawCardId("xy1-1"))
     }
+
+    @Test
+    fun mergeCardsByRawIdMergesLanguagePrintsInFirstSeenOrder() {
+        val cards = listOf(
+            card("xy1-2", language = "de"),
+            card("en:xy1-1", language = "en"),
+            card("xy1-1", language = "de"),
+            card("fr:xy1-1", language = "fr"),
+            card("en:xy1-3", language = "en")
+        )
+
+        val merged = mergeCardsByRawId(cards, preferredLanguage = "de")
+
+        // One entry per artwork, first-seen order preserved (card numbers stay sorted).
+        assertEquals(listOf("xy1-2", "xy1-1", "en:xy1-3"), merged.map { it.representative.id })
+        // The de print wins over en/fr for the xy1-1 artwork.
+        assertEquals("xy1-1", merged[1].representative.id)
+        assertEquals(listOf("DE", "EN", "FR"), merged[1].languages)
+        // The en-only artwork keeps its en representative.
+        assertEquals("en:xy1-3", merged[2].representative.id)
+    }
+
+    @Test
+    fun mergeCardsByRawIdPrefersTheRequestedLanguage() {
+        val cards = listOf(
+            card("xy1-1", language = "de"),
+            card("fr:xy1-1", language = "fr")
+        )
+
+        val merged = mergeCardsByRawId(cards, preferredLanguage = "fr")
+
+        assertEquals("fr:xy1-1", merged.single().representative.id)
+    }
+
+    @Test
+    fun mergeCardsByRawIdKeepsDuplicatesOfTheSamePrint() {
+        val cards = listOf(
+            card("xy1-1", language = "de"),
+            card("xy1-1", language = "de")
+        )
+
+        val merged = mergeCardsByRawId(cards)
+
+        // Defensive: identical ids cannot happen (primary key), but must not crash either.
+        assertEquals(1, merged.size)
+        assertEquals(2, merged.single().variants.size)
+    }
 }
