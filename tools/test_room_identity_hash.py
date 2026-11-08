@@ -32,7 +32,7 @@ class RoomIdentityHashTest(unittest.TestCase):
         version, path = module.newest_schema()
         database = __import__("json").loads(path.read_text(encoding="utf-8"))["database"]
         self.assertEqual(database["identityHash"], module.database_identity_hash(database))
-        self.assertEqual(18, version)
+        self.assertEqual(19, version)
 
     def test_key_components_render_like_kotlin(self):
         key = module.SchemaIdentityKey()
