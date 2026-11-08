@@ -3,12 +3,36 @@ package com.pokemontcg.sammlung.data.model
 import com.pokemontcg.sammlung.data.local.dao.CardSearchRow
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 
-/** One Pokémon with the catalog cards found for it. */
+/**
+ * One catalog card merged across its language prints: same artwork, same set.
+ *
+ * The catalog stores one row per language print (`de` ids are unprefixed, other languages carry
+ * a `lang:` prefix). In the wishlist search these prints used to appear as separate entries;
+ * they are now folded into one entry that lists the languages the card is available in.
+ */
+data class MergedCatalogCard(
+    /** The print shown in the UI; the preferred language when available. */
+    val representative: CardEntity,
+    /** All language prints of this card, in search order. */
+    val variants: List<CardEntity>
+) {
+    /** Distinct uppercase language codes of all prints, e.g. ["DE", "EN", "FR"]. */
+    val languages: List<String>
+        get() = variants.map { it.language.uppercase() }.distinct().sorted()
+}
+
+/**
+ * Strips the language prefix from a catalog card id: `en:xy1-1` and `xy1-1` (German) both map to
+ * `xy1-1`, which already contains set id and local id and therefore identifies the artwork.
+ */
+fun rawCardId(cardId: String): String = cardId.substringAfter(':')
+
+/** One Pokémon with the merged catalog cards found for it. */
 data class PokemonCardGroup(
     /** Null for cards without a Pokédex link, e.g. trainer and energy cards. */
     val dexId: Int?,
     val pokemonName: String,
-    val cards: List<CardEntity>
+    val cards: List<MergedCatalogCard>
 )
 
 /** A generation block of the search result, mirroring the main screen's structure. */
@@ -22,6 +46,11 @@ data class CatalogSearchSection(
  * Turns flat catalog search hits into the Pokémon grouping used by the main screen:
  * generation blocks, inside them Pokémon ordered by Pokédex id, cards without a Pokédex link last.
  *
+ * Cards of the same set with the same artwork (the same raw card id across language prints)
+ * are merged into one [MergedCatalogCard]; the print matching `preferredLanguage` (or German,
+ * or English, in that order) becomes the representative. Merging happens per Pokémon, so a card
+ * that appears under two Pokémon keeps an entry in both groups.
+ *
  * `excludedDexIds` drops every Pokémon the user already declared a full art favourite for, so the
  * wishlist search only offers Pokémon that are still missing one.
  */
@@ -29,13 +58,25 @@ fun groupCatalogSearchByPokemon(
     rows: List<CardSearchRow>,
     cardsById: Map<String, CardEntity>,
     pokemonNameByDexId: Map<Int, String>,
-    excludedDexIds: Set<Int> = emptySet()
+    excludedDexIds: Set<Int> = emptySet(),
+    preferredLanguage: String = "de"
 ): List<CatalogSearchSection> {
-    val groupsByDexId = LinkedHashMap<Int?, MutableList<CardEntity>>()
+    // Prints of the same artwork, in first-seen order; the key keeps the Pokémon so a card
+    // linked to two Pokémon is merged once per Pokémon.
+    val printsByKey = LinkedHashMap<Pair<Int?, String>, MutableList<CardEntity>>()
     for (row in rows) {
         if (row.dexId != null && row.dexId in excludedDexIds) continue
         val card = cardsById[row.cardId] ?: continue
-        groupsByDexId.getOrPut(row.dexId) { mutableListOf() }.add(card)
+        val key = row.dexId to rawCardId(card.id)
+        printsByKey.getOrPut(key) { mutableListOf() }.add(card)
+    }
+
+    val groupsByDexId = LinkedHashMap<Int?, MutableList<MergedCatalogCard>>()
+    for ((key, prints) in printsByKey) {
+        val representative = prints.minByOrNull { representativeRank(it.language, preferredLanguage) }
+            ?: continue
+        groupsByDexId.getOrPut(key.first) { mutableListOf() }
+            .add(MergedCatalogCard(representative = representative, variants = prints.toList()))
     }
 
     val groups = groupsByDexId.map { (dexId, cards) ->
@@ -58,6 +99,17 @@ fun groupCatalogSearchByPokemon(
             )
         }
         .filter { it.groups.isNotEmpty() }
+}
+
+/**
+ * A print wins over the others when its language is closer to the preferred language: exact
+ * match beats German (the app default) beats English beats any other print.
+ */
+private fun representativeRank(language: String, preferredLanguage: String): Int = when {
+    language.equals(preferredLanguage, ignoreCase = true) -> 0
+    language.equals("de", ignoreCase = true) -> 1
+    language.equals("en", ignoreCase = true) -> 2
+    else -> 3
 }
 
 /** Counts how many Pokémon of the result were dropped because they already are full art. */
