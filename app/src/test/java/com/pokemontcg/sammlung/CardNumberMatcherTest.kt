@@ -44,4 +44,32 @@ class CardNumberMatcherTest {
         assertNull(extractCardNumber("Glurak seltene Karte"))
         assertNull(extractCardNumber("2025 edition"))
     }
+
+    @Test
+    fun normalizesOcrLookalikeLettersInsideFractions() {
+        assertEquals("12/102", extractCardNumber("Pikachu 12/1O2 Illustration"))
+        assertEquals("001/024", extractCardNumber("001/O24"))
+        assertEquals("025/198", extractCardNumber("O25/198"))
+    }
+
+    @Test
+    fun normalizesOcrLookalikeLettersInsidePrefixedNumbers() {
+        assertEquals("SV-P001", extractCardNumber("Pikachu SV-P OO1"))
+        assertEquals("SWSH001", extractCardNumber("SWSH OOl"))
+    }
+
+    @Test
+    fun rejectsLetterOnlyMatchesThatMimicNumbers() {
+        // Set names and words must not turn into numbers just because they contain
+        // digit lookalikes.
+        assertNull(extractCardNumber("Scarlet & Violet SVI Base Set"))
+        assertNull(extractCardNumber("Input I/O Fehler"))
+        assertNull(extractCardNumber("S/B"))
+    }
+
+    @Test
+    fun rejectsImplausibleFractions() {
+        // Card numbers are n/m with 0 < n <= m; "5/2" is OCR noise, not a number.
+        assertNull(extractCardNumber("Attack 5/2 Energie"))
+    }
 }
