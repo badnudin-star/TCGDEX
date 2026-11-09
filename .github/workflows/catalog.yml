@@ -40,6 +40,9 @@ jobs:
 
       - name: Self-host set images (TCGdex download + Bulbapedia fallback)
         run: python tools/catalog-builder/collect_set_images.py
+        # Safety net: the script bounds itself via --max-seconds (default 20 min);
+        # this stops a hung process from burning the full job timeout.
+        timeout-minutes: 30
 
       - name: Commit self-hosted set images
         run: |
