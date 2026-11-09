@@ -6,7 +6,17 @@ internal object SyncCheckpointPolicy {
 
     const val STALE_RUN_MS = 24L * 60L * 60L * 1000L
 
-    fun startsNewRun(checkpoints: List<SyncCheckpointEntity>, now: Long): Boolean {
+    /**
+     * A manual sync (user pressed "update now") always starts a new run: a previous run
+     * that ended with skipped-but-DONE units (e.g. a snapshot blocked by an app/schema
+     * mismatch) must never pin the catalog download for the whole stale window.
+     */
+    fun startsNewRun(
+        checkpoints: List<SyncCheckpointEntity>,
+        now: Long,
+        forceNewRun: Boolean = false
+    ): Boolean {
+        if (forceNewRun) return true
         if (checkpoints.isEmpty()) return true
         val newestUpdate = checkpoints.maxOf { it.updatedAt }
         return checkpoints.all { it.state == "DONE" } || now - newestUpdate >= STALE_RUN_MS
