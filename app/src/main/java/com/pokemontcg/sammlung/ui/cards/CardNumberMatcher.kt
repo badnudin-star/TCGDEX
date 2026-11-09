@@ -68,7 +68,26 @@ private fun isPlausibleFraction(normalized: String): Boolean {
 }
 
 
-/** Extracts useful card/set-name clues when OCR cannot read a printed card number. */
+/**
+ * True for CJK characters (Han, Kana, Hangul): these scripts carry far more information
+ * per character than Latin text, so tokens and confirmation thresholds can be shorter.
+ */
+internal fun isCjkChar(c: Char): Boolean =
+    c.code in 0x3400..0x9FFF ||   // CJK ideographs (extension A + unified)
+        c.code in 0xF900..0xFAFF || // CJK compatibility ideographs
+        c.code in 0x3040..0x30FF || // Hiragana + Katakana
+        c.code in 0xAC00..0xD7AF    // Hangul syllables
+
+internal fun containsCjk(value: String): Boolean = value.any(::isCjkChar)
+
+/**
+ * Extracts useful card/set-name clues when OCR cannot read a printed card number.
+ *
+ * Latin tokens need four characters to be useful; CJK runs count from two (Chinese card
+ * names are short, e.g. "皮卡丘"). One long CJK run — the Chinese recognizer returns whole
+ * undivided lines — is split into overlapping trigrams so an embedded card name still
+ * produces searchable fragments for the catalog LIKE search.
+ */
 internal fun extractOcrSearchTokens(text: String, limit: Int = 4): List<String> {
     if (limit <= 0) return emptyList()
     val ignored = setOf(
@@ -77,11 +96,20 @@ internal fun extractOcrSearchTokens(text: String, limit: Int = 4): List<String> 
         "ILLUSTRATOR", "RULE", "CARD", "PROMO", "NUMBER", "SWITCH", "DRAW",
         "TRADING", "GAME", "COLLECTION", "OFFICIAL", "COPYRIGHT"
     )
-    return Regex("[\\p{L}\\p{N}]{4,}")
+    val tokens = LinkedHashSet<String>()
+    Regex("[\\p{L}\\p{N}]+")
         .findAll(text.uppercase())
-        .map { it.value }
+        .forEach { match ->
+            val value = match.value
+            when {
+                containsCjk(value) && value.length > 6 ->
+                    value.windowed(3).forEach { gram -> tokens.add(gram) }
+                containsCjk(value) && value.length >= 2 -> tokens.add(value)
+                value.length >= 4 -> tokens.add(value)
+            }
+        }
+    return tokens
         .filterNot { it in ignored }
-        .distinct()
         .take(limit)
         .toList()
 }

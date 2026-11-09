@@ -23,7 +23,16 @@ internal fun rankCardMatches(
     val normalizedDetectedNumber = detectedNumber?.let(::normalizeNumber)
 
     fun tokenMatches(value: String): Int =
-        tokens(value).count { token -> token.length >= 3 && token in ocrTokens }
+        tokens(value).count { token ->
+            token.length >= 3 && (
+                token in ocrTokens ||
+                    // CJK names come back as one long run; substring overlap in both
+                    // directions still ranks the right card highest.
+                    (token.any(::isCjkChar) &&
+                        ocrTokens.any { ocrToken -> ocrToken.any(::isCjkChar) &&
+                            (ocrToken.contains(token) || token.contains(ocrToken)) })
+                )
+        }
 
     return candidates.sortedWith(
         compareByDescending<CardMatchCandidate> {
@@ -39,8 +48,10 @@ internal fun rankCardMatches(
 }
 
 private fun tokens(value: String): Set<String> =
-    Regex("[\\p{L}\\p{N}]{3,}").findAll(value.uppercase())
+    Regex("[\\p{L}\\p{N}]{2,}").findAll(value.uppercase())
         .map { it.value }
+        // Latin fragments stay at three characters; short CJK names are already precise.
+        .filter { it.length >= 3 || it.any(::isCjkChar) }
         .toSet()
 
 private fun normalizeNumber(value: String): String =

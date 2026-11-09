@@ -58,6 +58,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
+import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -394,6 +395,9 @@ private fun CameraPreview(
     val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
+    // Chinese prints: the Latin model skips Han characters entirely, so the scanner needs
+    // the Chinese model as an automatic fallback whenever the Latin pass finds no card number.
+    val chineseRecognizer = remember { TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build()) }
     val disposed = remember { AtomicBoolean(false) }
     // ML Kit processing is asynchronous; keep at most one frame in flight.
     val frameGate = remember { ScannerFrameGate() }
@@ -427,6 +431,7 @@ private fun CameraPreview(
             cameraProviderRef.get()?.unbindAll()
             executor.shutdownNow()
             recognizer.close()
+            chineseRecognizer.close()
         }
     }
 
@@ -528,27 +533,42 @@ private fun CameraPreview(
                             )
                         }
 
+                        // Emits exactly once per frame and always releases the gate + frame.
+                        val frameDone = AtomicBoolean(false)
+                        fun complete(text: com.google.mlkit.vision.text.Text?) {
+                            if (!frameDone.compareAndSet(false, true)) return
+                            if (!disposed.get() && text != null) {
+                                // Zeilen nach Schriftgroesse sortieren: Der Kartenname
+                                // ist das groesste Textelement, Regel-/Angriffstext und
+                                // Fussnoten sind klein. Die Namenssuche nimmt die ersten
+                                // Tokens - so liefern sie den Kartennamen statt Ballast.
+                                val sizeOrderedText = text.textBlocks
+                                    .asSequence()
+                                    .flatMap { it.lines.asSequence() }
+                                    .sortedByDescending { it.boundingBox?.height() ?: 0 }
+                                    .joinToString("\n") { it.text }
+                                val cardMatch = extractCardNumber(text.text)
+                                onTextRecognized(sizeOrderedText, cardMatch)
+                            }
+                            frameGate.release()
+                            imageProxy.close()
+                        }
+
                         recognizer.process(inputImage)
-                            .addOnSuccessListener { visionText ->
-                                if (!disposed.get()) {
-                                    val fullText = visionText.text
-                                    // Zeilen nach Schriftgroesse sortieren: Der Kartenname
-                                    // ist das groesste Textelement, Regel-/Angriffstext und
-                                    // Fussnoten sind klein. Die Namenssuche nimmt die ersten
-                                    // Tokens - so liefern sie den Kartennamen statt Ballast.
-                                    val sizeOrderedText = visionText.textBlocks
-                                        .asSequence()
-                                        .flatMap { it.lines.asSequence() }
-                                        .sortedByDescending { it.boundingBox?.height() ?: 0 }
-                                        .joinToString("\n") { it.text }
-                                    val cardMatch = extractCardNumber(fullText)
-                                    onTextRecognized(sizeOrderedText, cardMatch)
+                            .addOnSuccessListener { latinText ->
+                                if (extractCardNumber(latinText.text) != null) {
+                                    // Latin pass already found a card number: use it.
+                                    complete(latinText)
+                                    return@addOnSuccessListener
                                 }
+                                // No number: the frame may be a Chinese print the Latin
+                                // model cannot read at all — run the Chinese recognizer on
+                                // the same image before giving the Latin text to the search.
+                                chineseRecognizer.process(inputImage)
+                                    .addOnSuccessListener { chineseText -> complete(chineseText) }
+                                    .addOnFailureListener { complete(latinText) }
                             }
-                            .addOnCompleteListener {
-                                frameGate.release()
-                                imageProxy.close()
-                            }
+                            .addOnFailureListener { complete(null) }
                     } catch (_: Exception) {
                         // Always release both the gate and camera frame on setup failures.
                         frameGate.release()

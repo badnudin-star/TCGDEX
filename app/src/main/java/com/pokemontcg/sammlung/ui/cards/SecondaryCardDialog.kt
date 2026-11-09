@@ -22,6 +22,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
 import com.pokemontcg.sammlung.ui.sets.SetBadge
+import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.CardCategory
@@ -169,7 +170,7 @@ fun SecondaryCardDialog(
                                                     contentDescription = stringResource(R.string.ui_set_symbol_description, representative.setName)
                                                 )
                                             }
-                                            Text(representative.setName, style = MaterialTheme.typography.bodySmall)
+                                            Text(setLabelWithAbbreviation(representative.setName, representative.setAbbreviation), style = MaterialTheme.typography.bodySmall)
                                         }
                                         Text(
                                             stringResource(

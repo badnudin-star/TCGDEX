@@ -2,6 +2,7 @@ package com.pokemontcg.sammlung
 
 import com.pokemontcg.sammlung.ui.sets.setBadgeColorIndex
 import com.pokemontcg.sammlung.ui.sets.setBadgeLabel
+import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -51,6 +52,20 @@ class SetBadgeLogicTest {
         // Non-empty ids produce an index, empty/none falls back to a stable slot too.
         assertTrue(setBadgeColorIndex("", 3) in 0 until 3)
         assertEquals(0, setBadgeColorIndex("sv01", 0))
+    }
+
+    @Test
+    fun setLabelAppendsTheAbbreviation() {
+        assertEquals("Karmesin & Purpur (SVI)", setLabelWithAbbreviation("Karmesin & Purpur", "SVI"))
+        assertEquals("Jungle (JU)", setLabelWithAbbreviation("Jungle", "JU"))
+    }
+
+    @Test
+    fun setLabelHandlesMissingParts() {
+        assertEquals("Karmesin & Purpur", setLabelWithAbbreviation("Karmesin & Purpur", null))
+        assertEquals("Karmesin & Purpur", setLabelWithAbbreviation("Karmesin & Purpur", "   "))
+        assertEquals("SVI", setLabelWithAbbreviation(null, "SVI"))
+        assertEquals("", setLabelWithAbbreviation(null, null))
     }
 
     @Test

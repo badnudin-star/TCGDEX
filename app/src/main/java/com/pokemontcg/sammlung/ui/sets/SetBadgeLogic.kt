@@ -36,3 +36,18 @@ fun setBadgeColorIndex(seed: String?, paletteSize: Int): Int {
     val hash = text.fold(0) { acc, char -> acc * 31 + char.code }
     return (hash and Int.MAX_VALUE) % paletteSize
 }
+
+/**
+ * Display label for a set with its official abbreviation appended, e.g.
+ * "Karmesin & Purpur (SVI)". Used next to cards in the collection, wishlist and scanner
+ * results so the set is identifiable even when its images are still loading or missing.
+ */
+fun setLabelWithAbbreviation(setName: String?, setAbbreviation: String?): String {
+    val name = setName?.trim().orEmpty()
+    val abbreviation = setAbbreviation?.trim().orEmpty()
+    return when {
+        name.isEmpty() -> abbreviation
+        abbreviation.isEmpty() -> name
+        else -> "$name ($abbreviation)"
+    }
+}

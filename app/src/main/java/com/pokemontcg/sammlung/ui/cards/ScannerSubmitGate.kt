@@ -29,11 +29,15 @@ internal class ScannerSubmitGate(
         return submit("number:" + cardNumber.trim().uppercase(), numberConfirmations)
     }
 
-    /** Returns true exactly once per stable name-token fingerprint. */
+    /**
+     * Returns true exactly once per stable name-token fingerprint. CJK fingerprints may be
+     * much shorter than Latin ones — two Chinese characters already identify a scan.
+     */
     @Synchronized
     fun submitNameTokens(tokens: List<String>): Boolean {
         val fingerprint = tokens.joinToString(" ")
-        if (tokens.isEmpty() || fingerprint.length < minNameFingerprintLength) {
+        val minLength = if (fingerprint.any(::isCjkChar)) 2 else minNameFingerprintLength
+        if (tokens.isEmpty() || fingerprint.length < minLength) {
             reset()
             return false
         }

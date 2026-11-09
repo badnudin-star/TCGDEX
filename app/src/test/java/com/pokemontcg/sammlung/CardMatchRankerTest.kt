@@ -53,4 +53,21 @@ class CardMatchRankerTest {
         val first = numberOnly.copy(id = "a")
         assertEquals(listOf("a", "z"), rankCardMatches(listOf(second, first), "025/198", "unknown text").map { it.id })
     }
+
+    @Test
+    fun cjkNameEmbeddedInLongerOcrLineRanksFirst() {
+        // The Chinese recognizer returns one long undivided run; the candidate whose
+        // name overlaps the OCR text must rank above an unrelated candidate.
+        val chinese = CardMatchCandidate("zh", "皮卡丘", "朱＆紫", "025/198")
+        val other = CardMatchCandidate("ja", "パラス", "バイオレット", "011/078")
+        val ocrLine = "宝可梦卡牌皮卡丘基本宝可梦HP60"
+        assertEquals("zh", rankCardMatches(listOf(other, chinese), null, ocrLine).first().id)
+    }
+
+    @Test
+    fun shortCjkCandidateNamesRankToo() {
+        val mewtwo = CardMatchCandidate("a", "超梦", "朱＆紫", "078/198")
+        val unrelated = CardMatchCandidate("b", "喷火龙", "朱＆紫", "201/198")
+        assertEquals("a", rankCardMatches(listOf(unrelated, mewtwo), null, "超梦 HP 130").first().id)
+    }
 }

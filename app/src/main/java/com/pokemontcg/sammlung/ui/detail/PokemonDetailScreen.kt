@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
+import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.model.MergedCatalogCard
 import com.pokemontcg.sammlung.data.local.user.CardCategory
@@ -266,7 +267,14 @@ fun PokemonDetailScreen(
                             Spacer(Modifier.width(12.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(primaryCard.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-                                Text(stringResource(R.string.ui_card_set_number_hash, primaryCard.setName, primaryCard.number), style = MaterialTheme.typography.bodySmall)
+                                Text(
+                                    stringResource(
+                                        R.string.ui_card_set_number_hash,
+                                        setLabelWithAbbreviation(primaryCard.setName, primaryCard.setAbbreviation),
+                                        primaryCard.number
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall
+                                )
                                 Text(PriceFormatter.formatPriceShort(context, primaryCard.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }
                             val isWishlisted = primaryCard.id in wishlistCardIds
@@ -329,7 +337,14 @@ fun PokemonDetailScreen(
                                 Spacer(Modifier.width(10.dp))
                                 Column(Modifier.weight(1f)) {
                                     Text(card.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
-                                    Text(stringResource(R.string.ui_card_set_number_compact, card.setName, card.number), style = MaterialTheme.typography.bodySmall)
+                                    Text(
+                                        stringResource(
+                                            R.string.ui_card_set_number_compact,
+                                            setLabelWithAbbreviation(card.setName, card.setAbbreviation),
+                                            card.number
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall
+                                    )
                                     Text(PriceFormatter.formatPriceShort(context, card.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                                 }
                                 val isWishlisted = card.id in wishlistCardIds
