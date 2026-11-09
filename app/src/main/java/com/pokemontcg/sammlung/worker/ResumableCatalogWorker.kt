@@ -43,6 +43,7 @@ class ResumableCatalogWorker(
         const val KEY_DOWNLOADED_BYTES = "downloaded_bytes"
         const val KEY_TOTAL_BYTES = "total_bytes"
         const val KEY_HAS_FAILURES = "has_failures"
+        const val KEY_FORCE_NEW_RUN = "force_new_run"
         const val KEY_STARTED_AT = "started_at"
         const val KEY_FINISHED_AT = "finished_at"
         const val MAX_TIME_SLICE_MS = 8L * 60L * 1000L // 8 Minuten
@@ -78,7 +79,13 @@ class ResumableCatalogWorker(
 
         val allCheckpoints = checkpointDao.getAllCheckpointsOnce()
         val latestRunId = allCheckpoints.maxOfOrNull { it.runId } ?: 0L
-        val currentRunId = if (SyncCheckpointPolicy.startsNewRun(allCheckpoints, startTime)) {
+        // Manual syncs ("Jetzt aktualisieren") always start a fresh run so that stale DONE
+        // checkpoints from a blocked attempt can never suppress the catalog download.
+        val forceNewRun = inputData.getBoolean(KEY_FORCE_NEW_RUN, false)
+        if (forceNewRun) {
+            AppLogger.log("ResumableCatalogWorker", "Manueller Sync: neuer Lauf erzwungen")
+        }
+        val currentRunId = if (SyncCheckpointPolicy.startsNewRun(allCheckpoints, startTime, forceNewRun)) {
             val newRunId = System.currentTimeMillis()
             checkpointDao.clearOldRunCheckpoints(newRunId)
             AppLogger.log("ResumableCatalogWorker", "Neuer Sync-Lauf gestartet (runId: $newRunId)")

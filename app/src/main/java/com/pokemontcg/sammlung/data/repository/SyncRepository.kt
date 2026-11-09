@@ -7,6 +7,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.workDataOf
 import com.pokemontcg.sammlung.BuildConfig
 import com.pokemontcg.sammlung.R
 import com.pokemontcg.sammlung.data.api.ApiService
@@ -40,8 +41,12 @@ class SyncRepository(
     }
 
     fun startResumableCatalogSync() {
+        // A manual sync must always re-check the remote manifest: a previous run whose
+        // snapshot unit was blocked (e.g. schema mismatch) would otherwise be resumed
+        // with that unit skipped for up to 24h.
         val request = OneTimeWorkRequestBuilder<ResumableCatalogWorker>()
             .addTag(ResumableCatalogWorker.SYNC_TAG)
+            .setInputData(workDataOf(ResumableCatalogWorker.KEY_FORCE_NEW_RUN to true))
             .build()
         workManager.enqueueUniqueWork(
             ResumableCatalogWorker.UNIQUE_WORK_NAME,
@@ -62,7 +67,18 @@ class SyncRepository(
         val hasSets = db.setDao().getAllSets().first().isNotEmpty()
         val hasCards = db.cardDao().getAllCardsOnce().isNotEmpty()
         if (hasSets && hasCards) return CatalogImportResult.AlreadyUpToDate
-        return catalogImporter.importFromAsset("start_catalog.sqlite")
+        val result = catalogImporter.importFromAsset("start_catalog.sqlite")
+        // A build without a bundled starter catalog simply relies on the online catalog.
+        // This is expected and must not fail the unit: a FAILED checkpoint here kept the
+        // run from ever reaching "all DONE", which pinned the snapshot skip for 24h.
+        if (result is CatalogImportResult.Error && result.message == "Asset not found") {
+            com.pokemontcg.sammlung.util.AppLogger.log(
+                "SyncRepository",
+                "Kein Start-Katalog-Asset gebündelt – warte auf den Online-Katalog."
+            )
+            return CatalogImportResult.AlreadyUpToDate
+        }
+        return result
     }
 
     suspend fun ensurePokemonNamesLoaded(
@@ -199,8 +215,12 @@ class SyncRepository(
                     "SyncRepository",
                     "Katalog-Update benötigt App-Update (Schema ${result.remoteSchemaVersion} != ${result.appSchemaVersion})"
                 )
-                // Keep the rest of the sync running; diagnostics shows the blocking state.
-                true
+                // NOT a success: a DONE checkpoint here made every later sync in this run
+                // skip the snapshot unit for up to 24h, so the catalog was never
+                // re-downloaded once the server side caught up. Marking the unit failed
+                // keeps it in the retry loop while the remaining units still run; the
+                // diagnostics surface keeps showing the "app update required" state.
+                false
             }
             CatalogImportResult.Deferred -> {
                 com.pokemontcg.sammlung.util.AppLogger.log(
