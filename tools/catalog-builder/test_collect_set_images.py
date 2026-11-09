@@ -1,9 +1,12 @@
+import contextlib
+import io
 import json
 import os
 import sqlite3
 import sys
 import tempfile
 import unittest
+import urllib.error
 from unittest import mock
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -126,17 +129,21 @@ class CollectSetImagesTest(unittest.TestCase):
         self.assertTrue(os.path.isfile(os.path.join(self.output_dir, "base1.symbol.png")))
         self.assertFalse(os.path.exists(os.path.join(self.output_dir, "base1.logo.png")))
 
-    def test_all_downloads_failing_fails_loudly_with_annotation(self):
+    def test_all_downloads_failing_warns_loudly_but_publishes(self):
+        # Missing images must not abort the pipeline (the app has a badge fallback),
+        # but the warning annotation still names the host and the first error.
+        buffer = io.StringIO()
         with mock.patch.object(collect_set_images, "_http_get",
                                side_effect=OSError("HTTP Error 429")), \
-                mock.patch.object(collect_set_images, "_bulbapedia_symbol_url", return_value=None):
-            with self.assertRaises(ValueError) as ctx:
-                collect_set_images.collect(self.db_path, self.output_dir)
-        message = str(ctx.exception)
-        self.assertIn("0 of 2", message)
-        # The annotation names the host and the first error so CI shows the cause.
-        self.assertIn("[assets.tcgdex.net]", message)
-        self.assertIn("HTTP Error 429", message)
+                mock.patch.object(collect_set_images, "_bulbapedia_symbol_url", return_value=None), \
+                contextlib.redirect_stdout(buffer):
+            stats = collect_set_images.collect(self.db_path, self.output_dir)
+        output = buffer.getvalue()
+        self.assertEqual(stats["logoDownloaded"] + stats["symbolDownloaded"], 0)
+        self.assertIn("::warning", output)
+        self.assertIn("0 of 2", output)
+        self.assertIn("[assets.tcgdex.net]", output)
+        self.assertIn("HTTP Error 429", output)
 
     def test_no_referenced_images_never_fails(self):
         # A catalog without any image URLs (e.g. fresh subsets) must not trip the guard.
@@ -186,10 +193,11 @@ class CollectSetImagesTest(unittest.TestCase):
             calls.append(url)
             raise OSError("connection refused")
 
+        buffer = io.StringIO()
         with mock.patch.object(collect_set_images, "_http_get", side_effect=failing_get), \
-                mock.patch.object(collect_set_images, "MAX_CONSECUTIVE_FAILURES", 1):
-            with self.assertRaises(ValueError) as ctx:
-                collect_set_images.collect(self.db_path, self.output_dir)
+                mock.patch.object(collect_set_images, "MAX_CONSECUTIVE_FAILURES", 1), \
+                contextlib.redirect_stdout(buffer):
+            stats = collect_set_images.collect(self.db_path, self.output_dir)
 
         # sv01 logo fails once -> assets.tcgdex.net disabled, sv01 symbol skipped.
         # base1 symbol lookup fails once -> archives.bulbagarden.net disabled.
@@ -197,7 +205,32 @@ class CollectSetImagesTest(unittest.TestCase):
         self.assertEqual(
             collect_set_images._disabled_hosts,
             {"assets.tcgdex.net", "archives.bulbagarden.net"})
-        self.assertIn("hosts disabled", str(ctx.exception))
+        self.assertEqual(stats["logoDownloaded"] + stats["symbolDownloaded"], 0)
+        self.assertIn("hosts disabled", buffer.getvalue())
+
+    def test_not_found_answers_do_not_trip_the_breaker(self):
+        # On the TCGdex CDN most referenced set images simply do not exist (404).
+        # That is a stable "no" and must neither be retried nor disable the host.
+        calls = []
+
+        def not_found_urlopen(request, timeout=None):
+            calls.append(request.full_url)
+            raise urllib.error.HTTPError(request.full_url, 404, "Not Found", None, None)
+
+        buffer = io.StringIO()
+        with mock.patch.object(collect_set_images.urllib.request, "urlopen",
+                               side_effect=not_found_urlopen), \
+                mock.patch.object(collect_set_images, "MAX_CONSECUTIVE_FAILURES", 1), \
+                contextlib.redirect_stdout(buffer):
+            stats = collect_set_images.collect(self.db_path, self.output_dir, skip_bulbapedia=True)
+
+        # Both sv01 URLs are attempted exactly once (no retry) and the host stays on.
+        self.assertEqual(len(calls), 2, calls)
+        self.assertEqual(collect_set_images._disabled_hosts, set())
+        self.assertEqual(collect_set_images._not_found_requests, 2)
+        self.assertEqual(stats["logoDownloaded"] + stats["symbolDownloaded"], 0)
+        self.assertIn("returned 404", buffer.getvalue())
+        self.assertIn("::warning", buffer.getvalue())
 
     def test_time_budget_stops_all_downloads(self):
         calls = []
@@ -206,12 +239,14 @@ class CollectSetImagesTest(unittest.TestCase):
             calls.append(url)
             return PNG_MAGIC
 
-        with mock.patch.object(collect_set_images, "_http_get", side_effect=counting_get):
-            with self.assertRaises(ValueError) as ctx:
-                collect_set_images.collect(self.db_path, self.output_dir, max_seconds=0)
+        buffer = io.StringIO()
+        with mock.patch.object(collect_set_images, "_http_get", side_effect=counting_get), \
+                contextlib.redirect_stdout(buffer):
+            stats = collect_set_images.collect(self.db_path, self.output_dir, max_seconds=0)
         # Budget exhausted before the first request: no network traffic at all.
         self.assertEqual(calls, [])
-        self.assertIn("time budget exhausted", str(ctx.exception))
+        self.assertEqual(stats["logoDownloaded"] + stats["symbolDownloaded"], 0)
+        self.assertIn("time budget exhausted", buffer.getvalue())
 
     def test_http_get_retries_with_backoff_before_succeeding(self):
         attempts = {"n": 0}
