@@ -23,13 +23,13 @@ lookups for hours because every request failed with retries):
 - Every download is throttled and retried only twice with a short timeout; a full
   retry storm across ~500 requests would still take hours when a host is down.
 - A per-host circuit breaker disables a host for the rest of the run after
-  MAX_CONSECUTIVE_FAILURES consecutive failures.
+  MAX_CONSECUTIVE_FAILURES consecutive failures. HTTP 404 does not count: on the
+  TCGdex CDN most referenced set images simply do not exist, which is a stable
+  answer, not an outage (and it is not retried either).
 - A global time budget (default 20 minutes) stops all further requests; the run
   then finishes with whatever was collected so far.
-- If the database references images but not a single one could be downloaded or
-  reused, the script fails loudly (with a GitHub annotation naming the first
-  error per host) instead of silently publishing a catalog that still points at
-  the TCGdex CDN.
+- Missing images never abort the pipeline (the app has a text badge fallback);
+  a ::warning annotation with the first error per host keeps the cause visible.
 
 Run after build_catalog.py: python tools/catalog-builder/collect_set_images.py
 """
@@ -41,6 +41,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -72,6 +73,10 @@ class _Skipped(Exception):
     """Raised when a host is circuit-broken or the time budget is exhausted."""
 
 
+class _NotFound(Exception):
+    """HTTP 404 - the image does not exist at that URL (common on the TCGdex CDN)."""
+
+
 # Per-run network state (reset by collect()).
 _download_errors: dict[str, list[str]] = {}
 _host_failures: dict[str, int] = {}
@@ -79,6 +84,7 @@ _disabled_hosts: set[str] = set()
 _budget_deadline: float | None = None
 _budget_exhausted = False
 _skipped_requests = 0
+_not_found_requests = 0
 
 
 def _sleep(seconds: float) -> None:
@@ -89,13 +95,14 @@ def _sleep(seconds: float) -> None:
 
 def _reset_network_state() -> None:
     global _download_errors, _host_failures, _disabled_hosts
-    global _budget_deadline, _budget_exhausted, _skipped_requests
+    global _budget_deadline, _budget_exhausted, _skipped_requests, _not_found_requests
     _download_errors = {}
     _host_failures = {}
     _disabled_hosts = set()
     _budget_deadline = None
     _budget_exhausted = False
     _skipped_requests = 0
+    _not_found_requests = 0
 
 
 def _host_of(url: str) -> str:
@@ -115,16 +122,21 @@ def _http_get(url: str) -> bytes:
             request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
             with urllib.request.urlopen(request, timeout=DOWNLOAD_TIMEOUT) as response:
                 return response.read()
+        except urllib.error.HTTPError as exc:
+            if exc.code == 404:
+                # "Does not exist" is a stable answer: retrying cannot help.
+                raise _NotFound(f"{url} -> HTTP Error 404") from exc
+            last_error = exc
         except Exception as exc:  # noqa: BLE001 - urllib raises many error types
             last_error = exc
-            if attempt + 1 < DOWNLOAD_ATTEMPTS:
-                _sleep(DOWNLOAD_BACKOFF_SECONDS * (attempt + 1))
+        if attempt + 1 < DOWNLOAD_ATTEMPTS:
+            _sleep(DOWNLOAD_BACKOFF_SECONDS * (attempt + 1))
     raise last_error if last_error else RuntimeError(f"download failed: {url}")
 
 
 def _fetch(url: str) -> bytes:
     """HTTP GET with circuit breaker, time budget, and per-host error recording."""
-    global _skipped_requests, _budget_exhausted
+    global _skipped_requests, _budget_exhausted, _not_found_requests
     host = _host_of(url)
     if _budget_deadline is not None and time.monotonic() >= _budget_deadline:
         _budget_exhausted = True
@@ -135,6 +147,10 @@ def _fetch(url: str) -> bytes:
         raise _Skipped(f"{host} disabled after {MAX_CONSECUTIVE_FAILURES} consecutive failures")
     try:
         data = _http_get(url)
+    except _NotFound:
+        # Most TCGdex set-image URLs simply do not exist; that is not an outage.
+        _not_found_requests += 1
+        raise
     except Exception as exc:  # noqa: BLE001
         failures = _host_failures.get(host, 0) + 1
         _host_failures[host] = failures
@@ -152,6 +168,9 @@ def _download_image(url: str) -> bytes | None:
         data = _fetch(url)
     except _Skipped as exc:
         print(f"  skipped: {url} ({exc})")
+        return None
+    except _NotFound:
+        print(f"  not found: {url}")
         return None
     except Exception as exc:  # noqa: BLE001
         print(f"  download failed: {url} ({exc})")
@@ -315,26 +334,29 @@ def collect(db_path: str, output_dir: str, *, skip_bulbapedia: bool = False,
             if _budget_exhausted:
                 reasons.append("time budget exhausted")
             containment = f" Skipped {_skipped_requests} requests ({'; '.join(reasons)})."
+        not_found_note = (f" {_not_found_requests} requests returned 404 "
+                          f"(the CDN has no such image).") if _not_found_requests else ""
         print(f"Set images collected: {stats['logoDownloaded']} logos + "
               f"{stats['symbolDownloaded']} symbols from TCGdex, {stats['bulbapediaSymbols']} "
               f"symbols from Bulbapedia, {stats['alreadyPresent']} reused from "
               f"{os.path.basename(output_dir)}/; {stats['setsWithoutAnything']} sets remain "
               f"without any image, {remaining} sets without a symbol (badges cover them)."
-              f"{containment}")
+              f"{not_found_note}{containment}")
 
         downloaded_total = (stats["logoDownloaded"] + stats["symbolDownloaded"] +
                             stats["bulbapediaSymbols"])
         referenced_total = stats["logoCandidates"] + stats["symbolCandidates"]
         covered_total = downloaded_total + stats["alreadyPresent"]
         if referenced_total > 0 and covered_total == 0:
-            # Nothing worked at all: fail loudly instead of silently publishing a catalog
-            # that still points at the TCGdex CDN while set-images/ stays empty.
+            # Nothing could be fetched, but missing images must not block the catalog
+            # release: the app renders text badges for sets without images. Emit a
+            # loud, actionable warning instead of failing the pipeline.
             message = (f"collect_set_images: 0 of {referenced_total} referenced set images "
-                       f"downloaded or reused. First errors: {_first_errors_summary()}"
-                       f"{containment}")
-            print(f"::error title=collect_set_images failed::{message}")
-            raise ValueError(message)
-        if (downloaded_total > 0 or stats["alreadyPresent"] > 0) and (_disabled_hosts or _budget_exhausted):
+                       f"downloaded or reused; set-images/ stays as-is and the app keeps "
+                       f"its badge fallback. First errors: {_first_errors_summary()}"
+                       f"{not_found_note}{containment}")
+            print(f"::warning title=collect_set_images found nothing::{message}")
+        elif (downloaded_total > 0 or stats["alreadyPresent"] > 0) and (_disabled_hosts or _budget_exhausted):
             print(f"::warning title=collect_set_images incomplete::collected "
                   f"{downloaded_total} new + {stats['alreadyPresent']} reused images, but the "
                   f"run was cut short.{containment}")
