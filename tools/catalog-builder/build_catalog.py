@@ -183,6 +183,40 @@ def set_abbreviations() -> dict[str, dict[str, str]]:
     return _SET_ABBREVIATIONS_CACHE
 
 
+_RARITY_TRANSLATIONS_CACHE: dict[str, str] | None = None
+
+
+def rarity_translations() -> dict[str, str]:
+    """Localized rarity labels (e.g. German "Häufig") mapped back to the canonical English
+    TCGdex key. The API translates rarities per language but falls back to English for
+    untranslated keys, so the raw catalog mixes languages; storing the canonical key keeps
+    rarity filters and grouping in one language."""
+    global _RARITY_TRANSLATIONS_CACHE
+    if _RARITY_TRANSLATIONS_CACHE is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "rarity_translations.json")
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            _RARITY_TRANSLATIONS_CACHE = {
+                str(localized).strip(): str(english).strip()
+                for localized, english in (data.get("translations") or {}).items()
+            }
+        except Exception as exc:
+            print(f"Warning: rarity_translations.json unavailable ({exc}); rarities stay localized")
+            _RARITY_TRANSLATIONS_CACHE = {}
+    return _RARITY_TRANSLATIONS_CACHE
+
+
+def normalize_rarity(value: Any) -> Any:
+    """Maps a localized rarity label to the canonical English key; unknown values pass through."""
+    if not isinstance(value, str):
+        return value
+    trimmed = value.strip()
+    if not trimmed:
+        return value
+    return rarity_translations().get(trimmed, trimmed)
+
+
 def upsert_set(db: sqlite3.Connection, lang: str, item: dict[str, Any]) -> None:
     """Upserts one set. German keeps name authority; set images are aggregated across all
     languages: a NULL never overwrites an image another language delivered, and a later
@@ -242,7 +276,7 @@ def upsert_card(db: sqlite3.Connection, lang: str, card: dict[str, Any], set_ite
     release_date = str(set_data.get("releaseDate") or set_item.get("releaseDate") or "")
     # Cardmarket values are EUR on TCGdex; missing prices remain NULL.
     set_abbrev = set_abbreviations().get(set_id, {}).get("abbreviation") or None
-    values = (card_id, name, category, local_id, card.get("rarity"), set_id, set_name, series,
+    values = (card_id, name, category, local_id, normalize_rarity(card.get("rarity")), set_id, set_name, series,
               image, large_image, cardmarket.get("avg"), cardmarket.get("low"), cardmarket.get("trend"),
               dex_ids[0] if dex_ids else None, None, _language_code(lang),
               ",".join(map(str, dex_ids)) if dex_ids else None,

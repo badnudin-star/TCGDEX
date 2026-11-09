@@ -65,4 +65,16 @@ class ScannerSubmitGateTest {
         assertFalse(gate.submitNameTokens(listOf("AB")))
         assertFalse(gate.submitNameTokens(listOf("PIKA")))
     }
+
+    @Test
+    fun shortCjkNameFingerprintsSubmit() {
+        // Two Chinese characters already identify a scanned card; the Latin minimum
+        // of eight characters would never let a Chinese name submit.
+        val gate = ScannerSubmitGate(nameConfirmations = 2)
+        assertFalse(gate.submitNameTokens(listOf("皮卡丘")))
+        assertTrue(gate.submitNameTokens(listOf("皮卡丘")))
+        // ...but a single character is still too little signal.
+        val other = ScannerSubmitGate(nameConfirmations = 2)
+        assertFalse(other.submitNameTokens(listOf("梦")))
+    }
 }

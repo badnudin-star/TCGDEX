@@ -35,6 +35,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
+import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.ui.about.AboutAndSourcesDialog
 import com.pokemontcg.sammlung.ui.catalog.CatalogManagerScreen
@@ -55,6 +56,7 @@ import com.pokemontcg.sammlung.ui.main.MainViewModel
 import com.pokemontcg.sammlung.ui.sets.SetDetailScreen
 import com.pokemontcg.sammlung.ui.sets.SetDetailViewModel
 import com.pokemontcg.sammlung.ui.sets.SetProgressViewModel
+import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
 import com.pokemontcg.sammlung.ui.settings.SettingsScreen
 import com.pokemontcg.sammlung.ui.settings.SettingsViewModel
 import com.pokemontcg.sammlung.ui.theme.TCGSammlungTheme
@@ -98,6 +100,12 @@ class MainActivity : ComponentActivity() {
                     var scannerBatchActive by rememberSaveable { mutableStateOf(false) }
                     var scannerBatchItems by remember { mutableStateOf<List<BatchScanItem>>(emptyList()) }
                     var showBatchResults by remember { mutableStateOf(false) }
+                    // After a scanned card was added while a favourite already existed:
+                    // (scanned card, name of the current favourite, pokemon id) for the
+                    // "replace the favourite?" follow-up dialog.
+                    var pendingPrimarySwitch by remember {
+                        mutableStateOf<Triple<CardEntity, String, String>?>(null)
+                    }
                     // A newer OCR event invalidates any slower lookup started by an earlier frame.
                     var scannerRequestSequence by remember { mutableLongStateOf(0L) }
                     val currentBackStackEntry by navController.currentBackStackEntryAsState()
@@ -113,6 +121,7 @@ class MainActivity : ComponentActivity() {
                             selectedScannedCard = null
                             scanLookupFailed = false
                             showBatchResults = false
+                            pendingPrimarySwitch = null
                         }
                     }
 
@@ -364,7 +373,7 @@ class MainActivity : ComponentActivity() {
                                             ) {
                                                 androidx.compose.foundation.layout.Column {
                                                     Text(card.name, style = MaterialTheme.typography.bodyLarge)
-                                                    Text(stringResource(R.string.ui_scanner_card_candidate, card.setName, card.number, card.language.uppercase()), style = MaterialTheme.typography.bodySmall)
+                                                    Text(stringResource(R.string.ui_scanner_card_candidate, setLabelWithAbbreviation(card.setName, card.setAbbreviation), card.number, card.language.uppercase()), style = MaterialTheme.typography.bodySmall)
                                                 }
                                             }
                                         }
@@ -388,7 +397,7 @@ class MainActivity : ComponentActivity() {
                                     modifier = Modifier.semantics { heading() }
                                 )
                             },
-                            text = { Text(stringResource(R.string.ui_scanner_confirm_text, card.name, card.setName, card.number)) },
+                            text = { Text(stringResource(R.string.ui_scanner_confirm_text, card.name, setLabelWithAbbreviation(card.setName, card.setAbbreviation), card.number)) },
                             confirmButton = {
                                 Button(onClick = {
                                     scope.launch {
@@ -405,23 +414,37 @@ class MainActivity : ComponentActivity() {
                                         if (pokemon == null) {
                                             Toast.makeText(applicationContext, getString(R.string.ui_scanner_pokemon_missing), Toast.LENGTH_LONG).show()
                                         } else {
-                                            val alreadyCollected = collectionRepo.getAllUserCardsOnce().any {
+                                            val userCards = collectionRepo.getAllUserCardsOnce()
+                                            val alreadyCollected = userCards.any {
                                                 it.cardId == card.id && (it.pokemonId == pokemon.id || it.pokemonDexId == pokemon.dexId)
                                             }
-                                            if (alreadyCollected) {
-                                                Toast.makeText(applicationContext, getString(R.string.ui_scanner_already_collected), Toast.LENGTH_LONG).show()
-                                            } else {
-                                                collectionRepo.addUserCard(
-                                                    UserCardEntityV2(
+                                            val currentPrimary = userCards.firstOrNull {
+                                                it.isPrimary && (it.pokemonId == pokemon.id || it.pokemonDexId == pokemon.dexId)
+                                            }
+                                            when {
+                                                alreadyCollected ->
+                                                    Toast.makeText(applicationContext, getString(R.string.ui_scanner_already_collected), Toast.LENGTH_LONG).show()
+                                                // No favourite yet: the scanned card becomes it directly.
+                                                currentPrimary == null -> {
+                                                    collectionRepo.setAsPrimaryCard(card, pokemon.id, null)
+                                                    Toast.makeText(applicationContext, getString(R.string.ui_scanner_added_as_primary, card.name), Toast.LENGTH_LONG).show()
+                                                }
+                                                else -> {
+                                                    // A favourite exists: add as another card, then offer to
+                                                    // swap — the replaced favourite stays in the collection as
+                                                    // a normal (non-favourite) card.
+                                                    collectionRepo.addSecondaryCard(
                                                         cardId = card.id,
                                                         pokemonId = pokemon.id,
-                                                        pokemonDexId = pokemon.dexId,
-                                                        language = card.language,
-                                                        quantity = 1,
-                                                        isPrimary = false
+                                                        category = CardCategory.NONE,
+                                                        language = card.language
                                                     )
-                                                )
-                                                Toast.makeText(applicationContext, getString(R.string.ui_scanner_added, card.name), Toast.LENGTH_LONG).show()
+                                                    Toast.makeText(applicationContext, getString(R.string.ui_scanner_added, card.name), Toast.LENGTH_LONG).show()
+                                                    val primaryName = catalogRepo
+                                                        .getCardsByIds(listOf(currentPrimary.cardId))
+                                                        .firstOrNull()?.name ?: currentPrimary.cardId
+                                                    pendingPrimarySwitch = Triple(card, primaryName, pokemon.id)
+                                                }
                                             }
                                         }
                                         selectedScannedCard = null
@@ -462,7 +485,7 @@ class MainActivity : ComponentActivity() {
                                                 Text(
                                                     stringResource(
                                                         R.string.ui_scanner_card_candidate,
-                                                        item.card.setName,
+                                                        setLabelWithAbbreviation(item.card.setName, item.card.setAbbreviation),
                                                         item.card.number,
                                                         item.card.language.uppercase()
                                                     ),
@@ -500,23 +523,28 @@ class MainActivity : ComponentActivity() {
                                                     card.nationalPokedexNumbers.orEmpty().split(',').mapNotNull { it.trim().toIntOrNull() }
                                                 ).filter { it > 0 }.distinct()
                                             val pokemon = dexIds.singleOrNull()?.let { catalogRepo.getPokemonByDexId(it) }
-                                            val alreadyCollected = pokemon != null && collectionRepo.getAllUserCardsOnce().any {
+                                            val userCards = collectionRepo.getAllUserCardsOnce()
+                                            val alreadyCollected = pokemon != null && userCards.any {
                                                 it.cardId == card.id && (it.pokemonId == pokemon.id || it.pokemonDexId == pokemon.dexId)
                                             }
                                             if (pokemon == null || alreadyCollected) {
                                                 skipped++
                                                 continue
                                             }
-                                            repeat(item.count) {
-                                                collectionRepo.addUserCard(
-                                                    UserCardEntityV2(
-                                                        cardId = card.id,
-                                                        pokemonId = pokemon.id,
-                                                        pokemonDexId = pokemon.dexId,
-                                                        language = card.language,
-                                                        quantity = 1,
-                                                        isPrimary = false
-                                                    )
+                                            // Batch rule without a follow-up dialog: the first card of a
+                                            // Pokémon becomes the favourite; if one already exists the scan
+                                            // lands as another card and the favourite stays untouched.
+                                            val currentPrimary = userCards.firstOrNull {
+                                                it.isPrimary && (it.pokemonId == pokemon.id || it.pokemonDexId == pokemon.dexId)
+                                            }
+                                            if (currentPrimary == null) {
+                                                collectionRepo.setAsPrimaryCard(card, pokemon.id, null)
+                                            } else {
+                                                collectionRepo.addSecondaryCard(
+                                                    cardId = card.id,
+                                                    pokemonId = pokemon.id,
+                                                    category = CardCategory.NONE,
+                                                    language = card.language
                                                 )
                                             }
                                             added += item.count
@@ -533,6 +561,41 @@ class MainActivity : ComponentActivity() {
                             dismissButton = {
                                 androidx.compose.material3.TextButton(onClick = { showBatchResults = false }) {
                                     Text(stringResource(R.string.ui_close))
+                                }
+                            }
+                        )
+                    }
+
+                    pendingPrimarySwitch?.let { (card, currentPrimaryName, pokemonId) ->
+                        AlertDialog(
+                            onDismissRequest = { pendingPrimarySwitch = null },
+                            title = {
+                                Text(
+                                    stringResource(R.string.ui_scanner_primary_switch_title),
+                                    modifier = Modifier.semantics { heading() }
+                                )
+                            },
+                            text = {
+                                Text(stringResource(R.string.ui_scanner_primary_switch_text, card.name, currentPrimaryName))
+                            },
+                            confirmButton = {
+                                Button(onClick = {
+                                    pendingPrimarySwitch = null
+                                    scope.launch {
+                                        // Replacing the favourite keeps the old card in the
+                                        // collection as a normal "weitere Karte".
+                                        collectionRepo.setAsPrimaryCard(card, pokemonId, null)
+                                        Toast.makeText(
+                                            applicationContext,
+                                            getString(R.string.ui_scanner_added_as_primary, card.name),
+                                            Toast.LENGTH_LONG
+                                        ).show()
+                                    }
+                                }) { Text(stringResource(R.string.ui_scanner_primary_switch_confirm)) }
+                            },
+                            dismissButton = {
+                                androidx.compose.material3.TextButton(onClick = { pendingPrimarySwitch = null }) {
+                                    Text(stringResource(R.string.ui_scanner_primary_switch_keep))
                                 }
                             }
                         )

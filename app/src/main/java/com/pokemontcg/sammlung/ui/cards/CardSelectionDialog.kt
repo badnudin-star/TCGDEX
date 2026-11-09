@@ -18,6 +18,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
+import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.CardCondition
@@ -101,7 +102,7 @@ fun CardSelectionDialog(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleLarge
                 )
-                Text(stringResource(R.string.ui_card_set_number, card.setName, card.number))
+                Text(stringResource(R.string.ui_card_set_number, setLabelWithAbbreviation(card.setName, card.setAbbreviation), card.number))
                 Text(
                     PriceFormatter.formatPrice(context, card.marketPrice, dateString = card.setReleaseDate),
                     fontWeight = FontWeight.Bold,

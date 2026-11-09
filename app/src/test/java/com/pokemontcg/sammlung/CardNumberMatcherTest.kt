@@ -72,4 +72,29 @@ class CardNumberMatcherTest {
         // Card numbers are n/m with 0 < n <= m; "5/2" is OCR noise, not a number.
         assertNull(extractCardNumber("Attack 5/2 Energie"))
     }
+
+    @Test
+    fun shortCjkRunsAreSearchTokensWhileShortLatinIsNot() {
+        // Chinese card names are two or three characters; Latin noise needs four.
+        assertEquals(listOf("皮卡丘"), extractOcrSearchTokens("皮卡丘 HP 60", limit = 4))
+        assertEquals(listOf("超梦"), extractOcrSearchTokens("超梦", limit = 4))
+        assertEquals(listOf("ABCD"), extractOcrSearchTokens("ABCD HP 60 DEF", limit = 4))
+        // Short Latin fragments stay filtered out (minimum length four).
+        assertEquals(emptyList<String>(), extractOcrSearchTokens("ABC HP 60 no", limit = 4))
+    }
+
+    @Test
+    fun longCjkRunsBecomeSlidingTrigrams() {
+        // The Chinese recognizer returns whole undivided lines; trigrams keep the
+        // embedded card name searchable for the catalog LIKE search.
+        val tokens = extractOcrSearchTokens("宝可梦卡牌皮卡丘基本宝可梦", limit = 4)
+        assertEquals(listOf("宝可梦", "可梦卡", "梦卡牌", "卡牌皮"), tokens)
+    }
+
+    @Test
+    fun mixedScriptsKeepLatinAndCjkTokens() {
+        val tokens = extractOcrSearchTokens("Pikachu 皮卡丘 025/198", limit = 4)
+        // Numbers are searched through extractCardNumber, not as name tokens.
+        assertEquals(listOf("PIKACHU", "皮卡丘"), tokens)
+    }
 }

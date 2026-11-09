@@ -1154,6 +1154,33 @@ class TestCatalogBuilder(unittest.TestCase):
         finally:
             conn.close()
 
+    def test_localized_rarities_are_normalized_to_canonical_english(self):
+        # The TCGdex API translates rarities per language (and falls back to English for
+        # untranslated keys); the catalog must store one canonical value per card.
+        self.assertEqual(build_catalog.normalize_rarity("Häufig"), "Common")
+        self.assertEqual(build_catalog.normalize_rarity("Ungewöhnlich"), "Uncommon")
+        self.assertEqual(build_catalog.normalize_rarity("Peu Commune"), "Uncommon")
+        self.assertEqual(build_catalog.normalize_rarity("Común"), "Common")
+        self.assertEqual(build_catalog.normalize_rarity("Holografisch Selten"), "Holo Rare")
+        # Unknown values and non-strings pass through unchanged.
+        self.assertEqual(build_catalog.normalize_rarity("Some Future Rarity"), "Some Future Rarity")
+        self.assertEqual(build_catalog.normalize_rarity("  Trimmed  "), "Trimmed")
+        self.assertIsNone(build_catalog.normalize_rarity(None))
+        self.assertEqual(build_catalog.normalize_rarity("  "), "  ")
+
+    def test_upsert_card_stores_canonical_rarity(self):
+        db_file = os.path.join(self.temp_dir, "cards.sqlite")
+        conn = create_database(db_file, load_schema(SCHEMA_JSON_PATH))
+        try:
+            upsert_set(conn, "de", {"id": "sv01", "name": "Karmesin & Purpur", "serie": {"name": "KP"}})
+            upsert_card(conn, "fr", {"id": "sv01-25", "localId": "25", "name": "Pikachu",
+                                     "set": {"id": "sv01", "name": "Karmesin & Purpur"},
+                                     "rarity": "Peu Commune"}, {"id": "sv01", "name": "Karmesin & Purpur"})
+            row = conn.execute("SELECT rarity FROM cards WHERE id='fr:sv01-25'").fetchone()
+            self.assertEqual(row[0], "Uncommon")
+        finally:
+            conn.close()
+
     def test_pokemon_rows_use_high_resolution_official_artwork(self):
         rows, _ = fetch_pokemon_names(fetcher=lambda url, params=None: {
             "results": [{"name": "pikachu", "url": "https://pokeapi.co/api/v2/pokemon-species/25/"}]

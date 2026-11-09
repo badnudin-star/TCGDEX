@@ -73,7 +73,7 @@ interface CardDao {
     @Query("SELECT * FROM cards WHERE UPPER(REPLACE(number, ' ', '')) = :normalizedNumber OR (:localNumber IS NOT NULL AND TRIM(number) <> '' AND TRIM(number) NOT GLOB '*[^0-9]*' AND CAST(number AS INTEGER) = :localNumber) ORDER BY CASE WHEN :denominator IS NOT NULL AND (setCardCountOfficial = :denominator OR setCardCountTotal = :denominator) THEN 0 ELSE 1 END, COALESCE(setReleaseDate, '') DESC, setName COLLATE NOCASE ASC LIMIT 30")
     suspend fun getCardsByNumber(normalizedNumber: String, localNumber: Int?, denominator: Int?): List<CardEntity>
 
-    @Query("SELECT * FROM cards WHERE LOWER(name) LIKE '%' || LOWER(:fragment) || '%' OR LOWER(setName) LIKE '%' || LOWER(:fragment) || '%' ORDER BY COALESCE(setReleaseDate, '') DESC, setName COLLATE NOCASE ASC, sortNumber ASC, number COLLATE NOCASE ASC LIMIT 30")
+    @Query("SELECT * FROM cards WHERE LOWER(name) LIKE '%' || LOWER(:fragment) || '%' OR LOWER(setName) LIKE '%' || LOWER(:fragment) || '%' OR LOWER(COALESCE(setAbbreviation, '')) LIKE '%' || LOWER(:fragment) || '%' ORDER BY COALESCE(setReleaseDate, '') DESC, setName COLLATE NOCASE ASC, sortNumber ASC, number COLLATE NOCASE ASC LIMIT 30")
     suspend fun getCardsByNameFragment(fragment: String): List<CardEntity>
 
     @Query("SELECT * FROM cards")
@@ -123,6 +123,7 @@ interface CardDao {
             "AND (:maxPrice IS NULL OR (c.marketPrice IS NOT NULL AND c.marketPrice <= :maxPrice)) " +
             "AND (:query = '' OR LOWER(c.name) LIKE '%' || LOWER(:query) || '%' " +
             "OR LOWER(c.setName) LIKE '%' || LOWER(:query) || '%' " +
+            "OR LOWER(COALESCE(c.setAbbreviation, '')) LIKE '%' || LOWER(:query) || '%' " +
             "OR LOWER(c.number) LIKE '%' || LOWER(:query) || '%') " +
             "GROUP BY c.id " +
             "ORDER BY CASE WHEN MIN(cp.dexId) IS NULL THEN 1 ELSE 0 END, MIN(cp.dexId) ASC, " +

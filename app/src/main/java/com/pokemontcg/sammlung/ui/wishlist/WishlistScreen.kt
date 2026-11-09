@@ -48,6 +48,7 @@ import com.pokemontcg.sammlung.data.model.RarityGrouper
 import com.pokemontcg.sammlung.data.export.WishlistTextExporter
 import com.pokemontcg.sammlung.ui.components.CardImageDialog
 import com.pokemontcg.sammlung.ui.components.TcgImage
+import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.WishlistEntity
 import com.pokemontcg.sammlung.util.CardmarketLinks
@@ -490,8 +491,11 @@ private fun WishlistListTab(
                             )
                             if (card != null) {
                                 Text(
-                                    stringResource(R.string.ui_card_set_number_compact, card.setName, card.number) +
-                                        " · " + card.language.uppercase(Locale.ROOT),
+                                    stringResource(
+                                        R.string.ui_card_set_number_compact,
+                                        setLabelWithAbbreviation(card.setName, card.setAbbreviation),
+                                        card.number
+                                    ) + " · " + card.language.uppercase(Locale.ROOT),
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -831,7 +835,11 @@ private fun WishlistSearchCardRow(
             Column(modifier = Modifier.weight(1f)) {
                 Text(representative.name, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleSmall)
                 Text(
-                    stringResource(R.string.ui_card_set_number_compact, representative.setName, representative.number),
+                    stringResource(
+                        R.string.ui_card_set_number_compact,
+                        setLabelWithAbbreviation(representative.setName, representative.setAbbreviation),
+                        representative.number
+                    ),
                     style = MaterialTheme.typography.bodySmall
                 )
                 if (rarityGroup != "None") {

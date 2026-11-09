@@ -438,6 +438,13 @@
     <string name="ui_scanner_batch_increase">Anzahl erhöhen</string>
     <string name="ui_scanner_batch_decrease">Anzahl verringern</string>
 
+    <!-- Scanner: scanned cards become the favourite card, with an optional swap -->
+    <string name="ui_scanner_added_as_primary">%1$s wurde als Lieblingskarte hinzugefügt.</string>
+    <string name="ui_scanner_primary_switch_title">Als Lieblingskarte auswählen?</string>
+    <string name="ui_scanner_primary_switch_text">%1$s wurde als weitere Karte eingetragen. Soll sie die aktuelle Lieblingskarte %2$s ersetzen? Die ersetzte Karte bleibt als weitere Karte in der Sammlung.</string>
+    <string name="ui_scanner_primary_switch_confirm">Ersetzen</string>
+    <string name="ui_scanner_primary_switch_keep">Behalten</string>
+
     <!-- T13: user-visible texts moved out of Kotlin sources -->
     <string name="diag_integrity_ok">✓ Beide Datenbanken sind intakt. Unzugeordnet: %1$d</string>
     <string name="diag_integrity_failed">⚠ Integritätsprüfung meldet Fehler!</string>
