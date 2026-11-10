@@ -101,7 +101,7 @@ class UserCardDetailsSanitizerTest {
             sanitize(category = CardCategory.FULLART.name).category
         )
     }
-}
+
 
     @Test
     fun gradingWithoutCompanyIsDroppedEntirely() {
@@ -179,3 +179,4 @@ class UserCardDetailsSanitizerTest {
         assertNull(sanitized.grade)
         assertNull(sanitized.certNumber)
     }
+}
