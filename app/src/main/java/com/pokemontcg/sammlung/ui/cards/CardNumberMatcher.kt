@@ -22,7 +22,7 @@ private val SET_PREFIXES =
     "SWSH-P|HGSS-P|SV-P|SM-P|XY-P|BW-P|DP-P|S-P|SVP|SWSH|HGSS|PROMO|SV|TG|PR|SM|XY|BW|DP|EX"
 
 /** Canonical prefixed number, e.g. "SV-P001" -> set "SV-P" + plain number "001". */
-private val PREFIXED_NUMBER = Regex("^(?:$SET_PREFIXES)(\\d{1,4})$")
+private val PREFIXED_NUMBER = Regex("^($SET_PREFIXES)(\\d{1,4})$")
 
 /** Normalizes OCR lookalikes to digits, e.g. "12/1O2" -> "12/102". */
 internal fun normalizeOcrDigits(value: String): String = buildString {
