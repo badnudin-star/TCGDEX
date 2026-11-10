@@ -183,6 +183,50 @@ def set_abbreviations() -> dict[str, dict[str, str]]:
     return _SET_ABBREVIATIONS_CACHE
 
 
+_SET_LOGO_OVERRIDES_CACHE: dict[str, str] | None = None
+
+
+def set_logo_overrides() -> dict[str, str]:
+    """Official Pokémon CDN set logos (German gallery) keyed by TCGdex set id.
+
+    The TCGdex CDN renders set images only for a handful of sets - every other
+    referenced logo URL 404s. For the current era the official expansion logos
+    from tcg.pokemon.com/de-de/all-galleries/ are therefore linked directly:
+    referenced, never copied. collect_set_images.py leaves non-TCGdex hosts
+    untouched so these links survive the self-hosting pass."""
+    global _SET_LOGO_OVERRIDES_CACHE
+    if _SET_LOGO_OVERRIDES_CACHE is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "set_logo_overrides.json")
+        try:
+            with open(path, "r", encoding="utf-8") as handle:
+                data = json.load(handle)
+            _SET_LOGO_OVERRIDES_CACHE = {
+                str(set_id): str(url)
+                for set_id, url in (data.get("sets") or {}).items() if url
+            }
+        except Exception as exc:
+            print(f"Warning: set_logo_overrides.json unavailable ({exc}); "
+                  "sets keep their TCGdex logo URLs")
+            _SET_LOGO_OVERRIDES_CACHE = {}
+    return _SET_LOGO_OVERRIDES_CACHE
+
+
+def apply_set_logo_overrides(db: sqlite3.Connection) -> int:
+    """Replaces the (mostly dead) TCGdex set logo URLs with the official CDN logos
+    and mirrors them onto the card rows, whose setLogoUrl snapshot would otherwise
+    keep pointing at the dead CDN. Idempotent, safe to re-run on --resume."""
+    applied = 0
+    for set_id, url in set_logo_overrides().items():
+        updated = db.execute("UPDATE sets SET logoUrl=? WHERE id=?", (url, set_id)).rowcount
+        if updated:
+            db.execute("UPDATE cards SET setLogoUrl=? WHERE setId=?", (url, set_id))
+            applied += updated
+    db.commit()
+    if applied:
+        print(f"Set logos: {applied} set(s) now link the official Pokémon CDN logo")
+    return applied
+
+
 _RARITY_TRANSLATIONS_CACHE: dict[str, str] | None = None
 
 
@@ -672,6 +716,7 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
         orphan_links = _remove_orphan_card_links(db)
         if orphan_links:
             print(f"Note: removed {orphan_links} card->Pokémon link(s) whose dexId is missing in the PokéAPI snapshot")
+    set_logo_overrides_applied = apply_set_logo_overrides(db)
     image_fallbacks = apply_image_fallbacks(db)
     bulbapedia_titles = fetch_bulbapedia_set_titles(fetcher=fetcher) if include_bulbapedia else set()
     api_names = {name.lower() for name in all_set_names.values()}
@@ -680,6 +725,7 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
             "pokemonCount": len(pokemon_rows), "pokemonNameCount": len(name_rows),
             "pokemonError": pokemon_error, "failedSetsByLanguage": failed_sets_by_language,
             "orphanLinksRemoved": orphan_links,
+            "setLogoOverrides": set_logo_overrides_applied,
             "imageFallbacks": image_fallbacks,
             "bulbapediaSetTitles": len(bulbapedia_titles), "bulbapediaUnmatched": missing_bulba}
 
