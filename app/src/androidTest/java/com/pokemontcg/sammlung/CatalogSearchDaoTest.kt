@@ -162,4 +162,49 @@ class CatalogSearchDaoTest {
 
         assertEquals(listOf("Common", "Ultra Rare"), repository.getAllRarities().first())
     }
+
+    @Test
+    fun prefixedScannerNumberMatchesAsianPromoSetIdAndPlainNumber(): Unit = runBlocking {
+        // Japanese promo cards live in set "SV-P" with a plain digit number, while the
+        // scanner reads the printed "SV-P 001".
+        seed(
+            listOf(
+                card("ja-promo", name = "ピカチュウ", setName = "プロモカード", number = "001", rarity = "Promo").copy(
+                    id = "ja:sv-p-001", setId = "SV-P", language = "ja"
+                ),
+                card("de-normal", name = "Pikachu", setName = "Karmesin & Purpur", number = "001").copy(
+                    id = "sv01-1", setId = "sv01", language = "de"
+                )
+            )
+        )
+
+        val hits = repository.getCardsByNumber("SV-P001")
+        assertEquals(listOf("ja:sv-p-001"), hits.map { it.id })
+
+        // Leading zeros in the printed number must not break the match either.
+        val shortTail = repository.getCardsByNumber("SV-P1")
+        assertEquals(listOf("ja:sv-p-001"), shortTail.map { it.id })
+    }
+
+    @Test
+    fun ocrTextWithoutAccentsStillFindsAccentedCardNames(): Unit = runBlocking {
+        seed(
+            listOf(
+                card("fr-evoli", name = "Évoli", setName = "Épée et Bouclier", number = "057/202").copy(
+                    id = "fr:swh01-57", setId = "swh01", language = "fr"
+                ),
+                card("de-pikachu", name = "Pikachu", setName = "Karmesin & Purpur", number = "025/198").copy(
+                    id = "sv01-25", setId = "sv01", language = "de"
+                )
+            )
+        )
+
+        // OCR dropped the accent: "EVOLI" must still find "Évoli" via the folded retry.
+        val byFoldedName = repository.getCardsByOcrText("EVOLI")
+        assertEquals(listOf("fr:swh01-57"), byFoldedName.map { it.id })
+
+        // The accented set name is reachable the same way.
+        val byFoldedSet = repository.getCardsByOcrText("EPEE")
+        assertEquals(listOf("fr:swh01-57"), byFoldedSet.map { it.id })
+    }
 }

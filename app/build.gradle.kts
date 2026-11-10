@@ -115,8 +115,11 @@ dependencies {
 
     // ML Kit & CameraX for Card Scanning
     implementation("com.google.mlkit:text-recognition:16.0.1")
-    // Second on-device recognizer for Chinese prints: the Latin model cannot read Han
-    // characters, so card names on zh-cn/zh-tw cards were invisible to the scanner.
+    // Additional on-device recognizers for Asian prints: the Latin model cannot read
+    // Han, Kana or Hangul, so card names on Japanese, Korean and Chinese cards were
+    // invisible to the scanner. The scanner chains all four models per frame.
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.1")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.1")
     implementation("com.google.mlkit:text-recognition-chinese:16.0.1")
     implementation("androidx.camera:camera-core:1.3.4")
     implementation("androidx.camera:camera-camera2:1.3.4")

@@ -2,6 +2,8 @@ package com.pokemontcg.sammlung
 
 import com.pokemontcg.sammlung.ui.cards.extractCardNumber
 import com.pokemontcg.sammlung.ui.cards.extractOcrSearchTokens
+import com.pokemontcg.sammlung.ui.cards.foldOcrAccents
+import com.pokemontcg.sammlung.ui.cards.splitPrefixedNumber
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -71,6 +73,51 @@ class CardNumberMatcherTest {
     fun rejectsImplausibleFractions() {
         // Card numbers are n/m with 0 < n <= m; "5/2" is OCR noise, not a number.
         assertNull(extractCardNumber("Attack 5/2 Energie"))
+    }
+
+    @Test
+    fun extractsJapaneseReversedPromoNumbers() {
+        // Japanese promo prints put the set prefix behind the number.
+        assertEquals("SV-P001", extractCardNumber("ピカチュウ 001/SV-P"))
+        assertEquals("SM-P203", extractCardNumber("203/SM-P"))
+        assertEquals("S-P001", extractCardNumber("001/S-P"))
+        // Reversed runs before the fraction branch: "001/S-P" must not become "001/5".
+        assertEquals("S-P016", extractCardNumber("016/S-P"))
+    }
+
+    @Test
+    fun plainFractionsStillWinWhenNoSetPrefixIsPresent() {
+        assertEquals("016/102", extractCardNumber("ピカチュウ 016/102"))
+    }
+
+    @Test
+    fun splitsPrefixedNumbersIntoSetIdAndPlainNumber() {
+        assertEquals("SV-P" to "001", splitPrefixedNumber("SV-P001"))
+        assertEquals("SWSH" to "001", splitPrefixedNumber("SWSH001"))
+        assertEquals("SM-P" to "203", splitPrefixedNumber("sm-p203"))
+        assertNull(splitPrefixedNumber("025/198"))
+        assertNull(splitPrefixedNumber("GLURAK"))
+    }
+
+    @Test
+    fun foldsLatinDiacriticsForAccentInsensitiveSearch() {
+        assertEquals("EVOLI", foldOcrAccents("Évoli"))
+        assertEquals("ENERGIE", foldOcrAccents("ÉNERGIE"))
+        assertEquals("PIKACHU", foldOcrAccents("Pikachu"))
+        assertEquals("皮卡丘", foldOcrAccents("皮卡丘"))
+    }
+
+    @Test
+    fun ignoresMultilingualLayoutBoilerplate() {
+        // French/Spanish/Italian layout words must not burn the token budget...
+        assertEquals(
+            listOf("ÉVOLI"),
+            extractOcrSearchTokens("ÉVOLI TALENT ATTAQUE FAIBLESSE RETRAITE ÉNERGIE")
+        )
+        assertEquals(emptyList<String>(), extractOcrSearchTokens("ENERGÍA RETIRADA DEBILIDAD"))
+        // ...while Asian layout words step aside for real card names.
+        assertEquals(listOf("ピカチュウ"), extractOcrSearchTokens("ポケモン ピカチュウ トレーナー エネルギー"))
+        assertEquals(listOf("皮卡丘"), extractOcrSearchTokens("宝可梦 皮卡丘 训练家 能量"))
     }
 
     @Test

@@ -11,6 +11,8 @@ import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.entities.SourceAuditEntity
 import com.pokemontcg.sammlung.data.model.batchCardIds
 import com.pokemontcg.sammlung.ui.cards.extractOcrSearchTokens
+import com.pokemontcg.sammlung.ui.cards.foldOcrAccents
+import com.pokemontcg.sammlung.ui.cards.splitPrefixedNumber
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -48,7 +50,17 @@ class CatalogRepository(private val db: AppDatabase) {
         val parts = normalized.split('/', limit = 2)
         val localNumber = if (parts.size == 2) parts[0].toIntOrNull() else null
         val denominator = if (parts.size == 2) parts[1].toIntOrNull() else null
-        return db.cardDao().getCardsByNumber(normalized, localNumber, denominator)
+        // Asian promo prints ("SV-P 001"): the catalog stores the prefix as set id and the
+        // plain digits as the card number, so the query also matches set id + number.
+        val split = splitPrefixedNumber(normalized)
+        return db.cardDao().getCardsByNumber(
+            normalizedNumber = normalized,
+            localNumber = localNumber,
+            denominator = denominator,
+            setIdPrefix = split?.first,
+            plainNumber = split?.second,
+            plainNumberInt = split?.second?.toIntOrNull()
+        )
     }
 
     /** Searches a small, bounded set of OCR name/set clues when no card number was readable. */
@@ -58,7 +70,13 @@ class CatalogRepository(private val db: AppDatabase) {
         val dao = db.cardDao()
         val byId = LinkedHashMap<String, CardEntity>()
         for (token in tokens) {
-            for (card in dao.getCardsByNameFragment(token)) {
+            var found = dao.getCardsByNameFragment(token)
+            if (found.isEmpty()) {
+                // OCR often drops diacritics ("EVOLI" instead of "ÉVOLI"); French, Spanish
+                // and Portuguese card names carry them, so retry against folded columns.
+                found = dao.getCardsByNameFragmentAccentFolded(foldOcrAccents(token))
+            }
+            for (card in found) {
                 byId.putIfAbsent(card.id, card)
                 if (byId.size >= 60) break
             }

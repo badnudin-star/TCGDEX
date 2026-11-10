@@ -59,6 +59,8 @@ import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
+import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
+import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import kotlinx.coroutines.delay
 import java.util.Locale
@@ -395,8 +397,11 @@ private fun CameraPreview(
     val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
     val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
-    // Chinese prints: the Latin model skips Han characters entirely, so the scanner needs
-    // the Chinese model as an automatic fallback whenever the Latin pass finds no card number.
+    // Asian prints: the Latin model is blind to Han, Kana and Hangul, so the scanner
+    // chains Japanese, Korean and Chinese models whenever the Latin pass alone cannot
+    // identify the card (no number, or a number without any readable name text).
+    val japaneseRecognizer = remember { TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()) }
+    val koreanRecognizer = remember { TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build()) }
     val chineseRecognizer = remember { TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build()) }
     val disposed = remember { AtomicBoolean(false) }
     // ML Kit processing is asynchronous; keep at most one frame in flight.
@@ -431,6 +436,8 @@ private fun CameraPreview(
             cameraProviderRef.get()?.unbindAll()
             executor.shutdownNow()
             recognizer.close()
+            japaneseRecognizer.close()
+            koreanRecognizer.close()
             chineseRecognizer.close()
         }
     }
@@ -535,40 +542,76 @@ private fun CameraPreview(
 
                         // Emits exactly once per frame and always releases the gate + frame.
                         val frameDone = AtomicBoolean(false)
-                        fun complete(text: com.google.mlkit.vision.text.Text?) {
+
+                        // Zeilen nach Schriftgroesse sortieren: Der Kartenname
+                        // ist das groesste Textelement, Regel-/Angriffstext und
+                        // Fussnoten sind klein. Die Namenssuche nimmt die ersten
+                        // Tokens - so liefern sie den Kartennamen statt Ballast.
+                        fun sizeOrderedLines(text: com.google.mlkit.vision.text.Text): List<String> =
+                            text.textBlocks
+                                .asSequence()
+                                .flatMap { it.lines.asSequence() }
+                                .sortedByDescending { it.boundingBox?.height() ?: 0 }
+                                .map { it.text }
+                                .toList()
+
+                        fun complete(primary: com.google.mlkit.vision.text.Text?, secondary: com.google.mlkit.vision.text.Text?) {
                             if (!frameDone.compareAndSet(false, true)) return
-                            if (!disposed.get() && text != null) {
-                                // Zeilen nach Schriftgroesse sortieren: Der Kartenname
-                                // ist das groesste Textelement, Regel-/Angriffstext und
-                                // Fussnoten sind klein. Die Namenssuche nimmt die ersten
-                                // Tokens - so liefern sie den Kartennamen statt Ballast.
-                                val sizeOrderedText = text.textBlocks
-                                    .asSequence()
-                                    .flatMap { it.lines.asSequence() }
-                                    .sortedByDescending { it.boundingBox?.height() ?: 0 }
-                                    .joinToString("\n") { it.text }
-                                val cardMatch = extractCardNumber(text.text)
+                            if (!disposed.get() && (primary != null || secondary != null)) {
+                                val sizeOrderedText = (primary?.let(::sizeOrderedLines).orEmpty() +
+                                        secondary?.let(::sizeOrderedLines).orEmpty())
+                                    .joinToString("\n")
+                                val rawText = listOfNotNull(primary?.text, secondary?.text)
+                                    .joinToString("\n")
+                                val cardMatch = extractCardNumber(rawText)
                                 onTextRecognized(sizeOrderedText, cardMatch)
                             }
                             frameGate.release()
                             imageProxy.close()
                         }
 
+                        // Asian script models run on the same frame when the Latin pass
+                        // alone cannot identify the card. The first script model that
+                        // reads a card number wins (it usually also reads the name);
+                        // otherwise the CJK-richest text is merged with the Latin one so
+                        // number and name clues are both preserved.
+                        val scriptResults = mutableListOf<com.google.mlkit.vision.text.Text>()
+                        fun finishScriptChain(latinText: com.google.mlkit.vision.text.Text?) {
+                            val best = scriptResults
+                                .filter { containsCjk(it.text) }
+                                .maxWithOrNull(compareBy({ it.text.count(::isCjkChar) }, { it.text.length }))
+                            complete(best, latinText)
+                        }
+                        fun runScriptChain(index: Int, latinText: com.google.mlkit.vision.text.Text?) {
+                            val recognizers = listOf(japaneseRecognizer, koreanRecognizer, chineseRecognizer)
+                            if (index >= recognizers.size) {
+                                finishScriptChain(latinText)
+                                return
+                            }
+                            recognizers[index].process(inputImage)
+                                .addOnSuccessListener { scriptText ->
+                                    if (extractCardNumber(scriptText.text) != null) {
+                                        complete(scriptText, latinText)
+                                    } else {
+                                        scriptResults.add(scriptText)
+                                        runScriptChain(index + 1, latinText)
+                                    }
+                                }
+                                .addOnFailureListener { runScriptChain(index + 1, latinText) }
+                        }
+
                         recognizer.process(inputImage)
                             .addOnSuccessListener { latinText ->
-                                if (extractCardNumber(latinText.text) != null) {
-                                    // Latin pass already found a card number: use it.
-                                    complete(latinText)
+                                if (!needsScriptFallback(latinText.text)) {
+                                    // Latin pass already identifies the card: use it directly.
+                                    complete(latinText, null)
                                     return@addOnSuccessListener
                                 }
-                                // No number: the frame may be a Chinese print the Latin
-                                // model cannot read at all — run the Chinese recognizer on
-                                // the same image before giving the Latin text to the search.
-                                chineseRecognizer.process(inputImage)
-                                    .addOnSuccessListener { chineseText -> complete(chineseText) }
-                                    .addOnFailureListener { complete(latinText) }
+                                // No usable identification from the Latin model: the frame may
+                                // be a Japanese, Korean or Chinese print - or simply unreadable.
+                                runScriptChain(0, latinText)
                             }
-                            .addOnFailureListener { complete(null) }
+                            .addOnFailureListener { runScriptChain(0, null) }
                     } catch (_: Exception) {
                         // Always release both the gate and camera frame on setup failures.
                         frameGate.release()

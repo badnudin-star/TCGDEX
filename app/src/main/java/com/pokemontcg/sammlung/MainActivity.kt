@@ -290,7 +290,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         val rankedIds = rankCardMatches(
                                             candidates = matches.map { card ->
-                                                CardMatchCandidate(card.id, card.name, card.setName, card.number)
+                                                CardMatchCandidate(card.id, card.name, card.setName, card.number, card.language)
                                             },
                                             detectedNumber = detectedNumber,
                                             rawOcrText = rawOcrText
