@@ -80,7 +80,7 @@ class CollectionExporterTest {
         )
 
         val csvString = CollectionExporter.exportToCsvString(cards)
-        assertTrue(csvString.contains("cardId;language;quantity;condition;category;isPrimary;pokemonDexId;notes;addedAt"))
+        assertTrue(csvString.contains("cardId;language;quantity;condition;category;isPrimary;pokemonDexId;notes;gradingCompany;grade;certNumber;addedAt"))
         assertTrue(csvString.contains("\"Notiz mit \"\"Anführungszeichen\"\" und ; Semikolon\""))
 
         val parsed = CollectionExporter.parseExportJson(csvString)
