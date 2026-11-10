@@ -70,4 +70,41 @@ class CardMatchRankerTest {
         val unrelated = CardMatchCandidate("b", "喷火龙", "朱＆紫", "201/198")
         assertEquals("a", rankCardMatches(listOf(unrelated, mewtwo), null, "超梦 HP 130").first().id)
     }
+
+    @Test
+    fun kanaOcrRanksTheJapanesePrintAheadOfOtherLanguages() {
+        // Same card, same number - only the OCR script tells the prints apart.
+        val japanese = CardMatchCandidate("ja", "ピカチュウ", "スカーレット&バイオレット", "025/198", language = "ja")
+        val german = CardMatchCandidate("de", "Pikachu", "Karmesin & Purpur", "025/198", language = "de")
+        val english = CardMatchCandidate("en", "Pikachu", "Scarlet & Violet", "025/198", language = "en")
+        val ranked = rankCardMatches(listOf(german, english, japanese), "025/198", "ピカチュウ 025/198")
+        assertEquals("ja", ranked.first().id)
+    }
+
+    @Test
+    fun hanOnlyOcrPrefersChineseCatalogRows() {
+        val chinese = CardMatchCandidate("zh", "皮卡丘", "朱＆紫", "025/198", language = "zh-tw")
+        val japanese = CardMatchCandidate("ja", "ピカチュウ", "スカーレット", "025/198", language = "ja")
+        val ranked = rankCardMatches(listOf(japanese, chinese), "025/198", "皮卡丘 025/198")
+        assertEquals("zh", ranked.first().id)
+    }
+
+    @Test
+    fun numberOnlyScanDefaultsToGermanThenEnglish() {
+        // No name and no script clue: the German-first app puts the German print on top.
+        val french = CardMatchCandidate("fr", "Pikachu", "Écarlate et Violet", "025/198", language = "fr")
+        val english = CardMatchCandidate("en", "Pikachu", "Scarlet & Violet", "025/198", language = "en")
+        val german = CardMatchCandidate("de", "Pikachu", "Karmesin & Purpur", "025/198", language = "de")
+        val ranked = rankCardMatches(listOf(french, english, german), "025/198", "025/198")
+        assertEquals(listOf("de", "en", "fr"), ranked.map { it.id })
+    }
+
+    @Test
+    fun nameEvidenceStillBeatsTheLanguageDefault() {
+        // French name tokens in the OCR outrank the German default bias.
+        val french = CardMatchCandidate("fr", "Pikachu", "Écarlate et Violet", "025/198", language = "fr")
+        val german = CardMatchCandidate("de", "Pikachu", "Karmesin & Purpur", "025/198", language = "de")
+        val ranked = rankCardMatches(listOf(german, french), "025/198", "PIKACHU ÉCARLATE ET VIOLET 025/198")
+        assertEquals("fr", ranked.first().id)
+    }
 }
