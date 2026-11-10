@@ -101,6 +101,71 @@ class CollectSetImagesTest(unittest.TestCase):
                 digest.update(block)
         self.assertEqual(manifest["sha256"], digest.hexdigest())
 
+    def test_external_logos_are_linked_not_downloaded(self):
+        official = "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv01.png"
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("UPDATE sets SET logoUrl=? WHERE id='sv01'", (official,))
+        conn.execute("UPDATE cards SET setLogoUrl=? WHERE setId='sv01'", (official,))
+        conn.commit()
+        conn.close()
+
+        def guarded_download(url: str) -> bytes | None:
+            # The official CDN host must never be contacted by the collector.
+            self.assertNotIn("d1i787aglh9bmb.cloudfront.net", url)
+            return None  # TCGdex CDN: dead for this fixture
+
+        with mock.patch.object(collect_set_images, "_download_image", side_effect=guarded_download), \
+                mock.patch.object(collect_set_images, "_bulbapedia_symbol_url", return_value=None):
+            stats = collect_set_images.collect(self.db_path, self.output_dir, skip_bulbapedia=True)
+
+        # The official reference is not a candidate, nothing was fetched for it, and
+        # the set is not counted as "without anything" just because it links out.
+        self.assertEqual(stats["logoCandidates"], 0)
+        self.assertEqual(stats["logoDownloaded"], 0)
+        self.assertEqual(stats["externalReferences"], 1)
+        self.assertEqual(stats["setsWithoutAnything"], 1)  # only base1
+        # sv01's symbol stays a TCGdex candidate and fails silently, as before.
+        self.assertEqual(stats["symbolCandidates"], 1)
+
+        conn = sqlite3.connect(self.db_path)
+        set_row = conn.execute("SELECT logoUrl, symbolUrl FROM sets WHERE id='sv01'").fetchone()
+        card_row = conn.execute("SELECT setLogoUrl, setSymbolUrl FROM cards WHERE setId='sv01'").fetchone()
+        conn.close()
+        self.assertEqual(set_row[0], official)
+        self.assertEqual(card_row[0], official)
+        self.assertFalse(os.path.exists(os.path.join(self.output_dir, "sv01.logo.png")))
+        # Host check helper: only the TCGdex CDN is a self-hosting candidate.
+        self.assertTrue(collect_set_images._is_selfhost_candidate("https://assets.tcgdex.net/de/sv/sv1/logo"))
+        self.assertTrue(collect_set_images._is_selfhost_candidate("https://ASSETS.TCGDEX.NET/de/sv/sv1/logo"))
+        self.assertFalse(collect_set_images._is_selfhost_candidate(official))
+        self.assertFalse(collect_set_images._is_selfhost_candidate("https://evil.example/assets.tcgdex.net/logo.png"))
+        self.assertFalse(collect_set_images._is_selfhost_candidate("assets.tcgdex.net/de/sv/sv1/logo"))
+
+    def test_symbol_rewrite_keeps_external_logo_on_cards(self):
+        official = "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv01.png"
+        conn = sqlite3.connect(self.db_path)
+        conn.execute("UPDATE sets SET logoUrl=? WHERE id='sv01'", (official,))
+        conn.execute("UPDATE cards SET setLogoUrl=? WHERE setId='sv01'", (official,))
+        conn.commit()
+        conn.close()
+
+        def fake_download(url: str) -> bytes | None:
+            return PNG_MAGIC if "assets.tcgdex.net" in url else None  # sv01 symbol resolves
+
+        with mock.patch.object(collect_set_images, "_download_image", side_effect=fake_download), \
+                mock.patch.object(collect_set_images, "_bulbapedia_symbol_url", return_value=None):
+            stats = collect_set_images.collect(self.db_path, self.output_dir)
+
+        self.assertEqual(stats["urlRewrites"], 1)
+        conn = sqlite3.connect(self.db_path)
+        set_row = conn.execute("SELECT logoUrl, symbolUrl FROM sets WHERE id='sv01'").fetchone()
+        card_row = conn.execute("SELECT setLogoUrl, setSymbolUrl FROM cards WHERE setId='sv01'").fetchone()
+        conn.close()
+        base = collect_set_images.JSDELIVR_BASE
+        # The symbol got self-hosted while the externally linked logo survived the rewrite.
+        self.assertEqual(set_row, (official, f"{base}/sv01.symbol.png"))
+        self.assertEqual(card_row, (official, f"{base}/sv01.symbol.png"))
+
     def test_bulbapedia_symbol_fallback_fills_missing_symbols(self):
         def fake_download(url: str) -> bytes | None:
             if "sv01" in url:

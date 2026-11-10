@@ -213,6 +213,63 @@ class TestCatalogBuilder(unittest.TestCase):
         self.assertEqual(links, [(1,), (2,)])
         conn.close()
 
+    def test_set_logo_overrides_link_official_cdn_and_mirror_to_cards(self):
+        db_file = os.path.join(self.temp_dir, "catalog.sqlite")
+        conn = create_database(db_file, load_schema(SCHEMA_JSON_PATH))
+        # The API delivers the usual TCGdex CDN logo - which 404s for almost every set.
+        upsert_set(conn, "de", {"id": "sv01", "name": "Karmesin & Purpur",
+                                "logo": "https://assets.tcgdex.net/de/sv/sv01/logo",
+                                "symbol": "https://assets.tcgdex.net/de/sv/sv01/symbol"})
+        upsert_set(conn, "de", {"id": "swsh1", "name": "Schwert & Schild",
+                                "logo": "https://assets.tcgdex.net/de/swsh/swsh1/logo"})
+        dead_logo = "https://assets.tcgdex.net/de/sv/sv01/logo/high.png"
+        card = {
+            "id": "sv01-1", "localId": "1", "name": "Bisasam", "category": "Pokemon",
+            "rarity": "Common", "dexId": [1],
+            "set": {"id": "sv01", "name": "Karmesin & Purpur", "serie": {"name": "Karmesin & Purpur"},
+                    "cardCount": {"official": 1, "total": 1}, "releaseDate": "2023-03-31",
+                    "logo": dead_logo},
+        }
+        # Second card without a set snapshot logo -> NULL setLogoUrl until the mirror pass.
+        bare_card = {
+            "id": "sv01-2", "localId": "2", "name": "Glumanda", "category": "Pokemon",
+            "rarity": "Common", "dexId": [4],
+            "set": {"id": "sv01", "name": "Karmesin & Purpur",
+                    "cardCount": {"official": 1, "total": 1}},
+        }
+        upsert_card(conn, "de", card, {"id": "sv01", "name": "Karmesin & Purpur"})
+        upsert_card(conn, "de", bare_card, {"id": "sv01", "name": "Karmesin & Purpur"})
+        conn.commit()
+
+        overrides = build_catalog.set_logo_overrides()
+        self.assertIn("sv01", overrides)
+        self.assertTrue(overrides["sv01"].startswith(
+            "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/"),
+            f"unexpected override URL: {overrides['sv01']}")
+        # The committed mapping must stay complete and free of placeholders.
+        self.assertGreaterEqual(len(overrides), 20)
+        self.assertTrue(all(url.startswith("https://d1i787aglh9bmb.cloudfront.net/")
+                            for url in overrides.values()))
+
+        applied = build_catalog.apply_set_logo_overrides(conn)
+        self.assertEqual(applied, 1)
+        set_row = conn.execute("SELECT logoUrl FROM sets WHERE id='sv01'").fetchone()[0]
+        card_logo = conn.execute("SELECT setLogoUrl FROM cards WHERE id='sv01-1'").fetchone()[0]
+        untouched = conn.execute("SELECT logoUrl FROM sets WHERE id='swsh1'").fetchone()[0]
+        self.assertEqual(set_row, overrides["sv01"])
+        self.assertEqual(card_logo, overrides["sv01"])  # dead CDN snapshot replaced as well
+        self.assertEqual(untouched, "https://assets.tcgdex.net/de/swsh/swsh1/logo/high.png")
+
+        # Idempotent: a re-run (e.g. --resume) applies the same single update again.
+        self.assertEqual(build_catalog.apply_set_logo_overrides(conn), 1)
+
+        # The mirror pass afterwards fills the NULL card columns from the sets table,
+        # so the bare card also ends up with the official logo.
+        build_catalog.apply_image_fallbacks(conn)
+        bare_logo = conn.execute("SELECT setLogoUrl FROM cards WHERE id='sv01-2'").fetchone()[0]
+        self.assertEqual(bare_logo, overrides["sv01"])
+        conn.close()
+
     def test_coverage_uses_final_database_counts_when_a_listed_set_has_no_cards(self):
         db_file = os.path.join(self.temp_dir, "catalog.sqlite")
         conn = create_database(db_file, load_schema(SCHEMA_JSON_PATH))

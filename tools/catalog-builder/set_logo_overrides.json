@@ -1,0 +1,29 @@
+{
+  "_source": "Official Pokemon TCG gallery site tcg.pokemon.com/de-de/all-galleries/ (German expansion logos on The Pokemon Company International's CloudFront CDN). Set-id mapping generated from setkeeper's MIT-licensed data/galleries/index.json.",
+  "_note": "The TCGdex CDN renders set images only for a few sets (everything else 404s). build_catalog.py links these official logos directly - referenced, never copied - and collect_set_images.py leaves non-TCGdex hosts untouched.",
+  "sets": {
+    "30th": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/thirty.png",
+    "me01": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/me01.png",
+    "me02": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/me02.png",
+    "me02.5": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/me02pt5.png",
+    "me03": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/me03.png",
+    "me04": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/me04.png",
+    "me05": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/me05.png",
+    "sv01": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv01.png",
+    "sv02": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv02.png",
+    "sv03": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv03.png",
+    "sv03.5": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv03pt5.png",
+    "sv04": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv04.png",
+    "sv04.5": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv04pt5.png",
+    "sv05": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv05.png",
+    "sv06": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv06.png",
+    "sv06.5": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv06pt5.png",
+    "sv07": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv07.png",
+    "sv08": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv08.png",
+    "sv08.5": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv08pt5.png",
+    "sv09": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv09.png",
+    "sv10": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv10.png",
+    "sv10.5b": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv10pt5.png",
+    "sv10.5w": "https://d1i787aglh9bmb.cloudfront.net/assets/img/global/cards/de-de/sv10pt5.png"
+  }
+}

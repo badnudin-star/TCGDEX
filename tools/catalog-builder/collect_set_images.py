@@ -57,6 +57,10 @@ REPO_IMAGE_DIR = os.path.join(ROOT, "set-images")
 BULBAPEDIA_API = "https://archives.bulbagarden.net/w/api.php"
 USER_AGENT = "TCG-Sammlung catalog pipeline (github.com/badnudin-star/TCGDEX)"
 JSDELIVR_BASE = "https://cdn.jsdelivr.net/gh/badnudin-star/TCGDEX@main/set-images"
+# Only URLs on the TCGdex CDN are candidates for self-hosting. Other hosts in
+# logoUrl/symbolUrl are deliberate external references (official Pokémon CDN logos
+# from set_logo_overrides.json): linked, never downloaded or rewritten.
+TCGDEX_CDN_HOST = "assets.tcgdex.net"
 DOWNLOAD_TIMEOUT = 10
 DOWNLOAD_ATTEMPTS = 2
 DOWNLOAD_BACKOFF_SECONDS = 1.0
@@ -260,6 +264,19 @@ def _first_errors_summary() -> str:
                      for host, errors in sorted(_download_errors.items()))
 
 
+def _is_selfhost_candidate(url: str) -> bool:
+    """True only for URLs the pipeline may download and self-host (TCGdex CDN).
+
+    Everything else in logoUrl/symbolUrl is a deliberate external reference - the
+    official Pokémon CDN logos linked by set_logo_overrides.json. Those are
+    referenced, never copied, so they are skipped as download candidates."""
+    try:
+        host = urllib.parse.urlparse(url).hostname or ""
+    except ValueError:
+        return False
+    return host.lower() == TCGDEX_CDN_HOST
+
+
 def collect(db_path: str, output_dir: str, *, skip_bulbapedia: bool = False,
             release_base: str = JSDELIVR_BASE,
             max_seconds: float | None = DEFAULT_MAX_SECONDS) -> dict[str, int]:
@@ -277,33 +294,43 @@ def collect(db_path: str, output_dir: str, *, skip_bulbapedia: bool = False,
         stats = {"logoCandidates": 0, "symbolCandidates": 0,
                  "logoDownloaded": 0, "symbolDownloaded": 0,
                  "bulbapediaSymbols": 0, "alreadyPresent": 0,
-                 "setsWithoutAnything": 0, "urlRewrites": 0}
+                 "setsWithoutAnything": 0, "urlRewrites": 0,
+                 "externalReferences": 0}
         for set_id, name, logo_url, symbol_url in sets:
             collected = {"logo": None, "symbol": None}
+            external = False
             if logo_url:
-                stats["logoCandidates"] += 1
-                existing = _existing_image(output_dir, release_base, set_id, "logo")
-                if existing:
-                    collected["logo"] = existing
-                    stats["alreadyPresent"] += 1
+                if _is_selfhost_candidate(logo_url):
+                    stats["logoCandidates"] += 1
+                    existing = _existing_image(output_dir, release_base, set_id, "logo")
+                    if existing:
+                        collected["logo"] = existing
+                        stats["alreadyPresent"] += 1
+                    else:
+                        data = _download_image(logo_url)
+                        if data:
+                            _save_image(output_dir, set_id, "logo", data)
+                            collected["logo"] = f"{release_base}/{set_id}.logo.png"
+                            stats["logoDownloaded"] += 1
                 else:
-                    data = _download_image(logo_url)
-                    if data:
-                        _save_image(output_dir, set_id, "logo", data)
-                        collected["logo"] = f"{release_base}/{set_id}.logo.png"
-                        stats["logoDownloaded"] += 1
+                    # Deliberate external reference (official Pokémon CDN logo):
+                    # linked, never downloaded or rewritten.
+                    external = True
             if symbol_url:
-                stats["symbolCandidates"] += 1
-                existing = _existing_image(output_dir, release_base, set_id, "symbol")
-                if existing:
-                    collected["symbol"] = existing
-                    stats["alreadyPresent"] += 1
+                if _is_selfhost_candidate(symbol_url):
+                    stats["symbolCandidates"] += 1
+                    existing = _existing_image(output_dir, release_base, set_id, "symbol")
+                    if existing:
+                        collected["symbol"] = existing
+                        stats["alreadyPresent"] += 1
+                    else:
+                        data = _download_image(symbol_url)
+                        if data:
+                            _save_image(output_dir, set_id, "symbol", data)
+                            collected["symbol"] = f"{release_base}/{set_id}.symbol.png"
+                            stats["symbolDownloaded"] += 1
                 else:
-                    data = _download_image(symbol_url)
-                    if data:
-                        _save_image(output_dir, set_id, "symbol", data)
-                        collected["symbol"] = f"{release_base}/{set_id}.symbol.png"
-                        stats["symbolDownloaded"] += 1
+                    external = True
             if not skip_bulbapedia and not collected["symbol"]:
                 # No logo fallback: Bulbapedia Archives has no TCG set logos.
                 en_name = abbreviations.get(set_id, {}).get("enName") or ""
@@ -317,9 +344,14 @@ def collect(db_path: str, output_dir: str, *, skip_bulbapedia: bool = False,
             if collected["logo"] or collected["symbol"]:
                 db.execute("UPDATE sets SET logoUrl=COALESCE(?, logoUrl), symbolUrl=COALESCE(?, symbolUrl) WHERE id=?",
                            (collected["logo"], collected["symbol"], set_id))
-                db.execute("UPDATE cards SET setLogoUrl=?, setSymbolUrl=? WHERE setId=?",
+                # COALESCE keeps card rows that only got one new image (e.g. a
+                # Bulbapedia symbol) from losing their other set column - the
+                # official externally linked logos must survive this pass.
+                db.execute("UPDATE cards SET setLogoUrl=COALESCE(?, setLogoUrl), setSymbolUrl=COALESCE(?, setSymbolUrl) WHERE setId=?",
                            (collected["logo"], collected["symbol"], set_id))
                 stats["urlRewrites"] += 1
+            elif external:
+                stats["externalReferences"] += 1
             else:
                 stats["setsWithoutAnything"] += 1
         db.commit()
@@ -339,7 +371,8 @@ def collect(db_path: str, output_dir: str, *, skip_bulbapedia: bool = False,
         print(f"Set images collected: {stats['logoDownloaded']} logos + "
               f"{stats['symbolDownloaded']} symbols from TCGdex, {stats['bulbapediaSymbols']} "
               f"symbols from Bulbapedia, {stats['alreadyPresent']} reused from "
-              f"{os.path.basename(output_dir)}/; {stats['setsWithoutAnything']} sets remain "
+              f"{os.path.basename(output_dir)}/, {stats['externalReferences']} sets keep an "
+              f"external reference; {stats['setsWithoutAnything']} sets remain "
               f"without any image, {remaining} sets without a symbol (badges cover them)."
               f"{not_found_note}{containment}")
 
