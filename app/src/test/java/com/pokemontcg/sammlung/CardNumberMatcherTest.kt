@@ -133,9 +133,11 @@ class CardNumberMatcherTest {
     @Test
     fun longCjkRunsBecomeSlidingTrigrams() {
         // The Chinese recognizer returns whole undivided lines; trigrams keep the
-        // embedded card name searchable for the catalog LIKE search.
+        // embedded card name searchable for the catalog LIKE search. A trigram that
+        // exactly equals a layout word ("宝可梦") is filtered just like the standalone
+        // token would be - it is never part of a card name.
         val tokens = extractOcrSearchTokens("宝可梦卡牌皮卡丘基本宝可梦", limit = 4)
-        assertEquals(listOf("宝可梦", "可梦卡", "梦卡牌", "卡牌皮"), tokens)
+        assertEquals(listOf("可梦卡", "梦卡牌", "卡牌皮", "牌皮卡"), tokens)
     }
 
     @Test
