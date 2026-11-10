@@ -35,6 +35,9 @@ object CollectionExporter {
                 isPrimary = card.isPrimary,
                 pokemonDexId = card.pokemonDexId,
                 notes = card.notes,
+                gradingCompany = card.gradingCompany,
+                grade = card.grade,
+                certNumber = card.certNumber,
                 addedAt = card.addedAt
             )
         }
@@ -64,7 +67,7 @@ object CollectionExporter {
     ): String {
         AppLogger.log("CollectionExporter", "CSV Export gestartet: ${userCards.size} Karten")
         val sb = StringBuilder()
-        sb.append("cardId;language;quantity;condition;category;isPrimary;pokemonDexId;notes;addedAt\n")
+        sb.append("cardId;language;quantity;condition;category;isPrimary;pokemonDexId;notes;gradingCompany;grade;certNumber;addedAt\n")
         for (card in userCards) {
             listOf(
                 card.cardId,
@@ -75,6 +78,9 @@ object CollectionExporter {
                 card.isPrimary.toString(),
                 card.pokemonDexId.toString(),
                 card.notes.orEmpty(),
+                card.gradingCompany.orEmpty(),
+                card.grade.orEmpty(),
+                card.certNumber.orEmpty(),
                 card.addedAt.toString()
             ).joinTo(sb, separator = ";", postfix = "\n") { value -> csvField(value) }
         }
@@ -208,6 +214,12 @@ object CollectionExporter {
             val isPrimary = isPrimaryVal == "1" || isPrimaryVal.equals("true", ignoreCase = true)
             val dexId = if (dexIdx != -1 && dexIdx < cols.size) cols[dexIdx].trim().toIntOrNull() ?: -1 else -1
             val notes = if (notesIdx != -1 && notesIdx < cols.size) cols[notesIdx].trim().ifBlank { null } else null
+            val gradingCompanyIdx = headerCols.indexOf("gradingcompany")
+            val gradeIdx = headerCols.indexOf("grade")
+            val certIdx = headerCols.indexOf("certnumber")
+            val gradingCompany = if (gradingCompanyIdx != -1 && gradingCompanyIdx < cols.size) cols[gradingCompanyIdx].trim().ifBlank { null } else null
+            val grade = if (gradeIdx != -1 && gradeIdx < cols.size) cols[gradeIdx].trim().ifBlank { null } else null
+            val certNumber = if (certIdx != -1 && certIdx < cols.size) cols[certIdx].trim().ifBlank { null } else null
             val addedAt = if (addedIdx != -1 && addedIdx < cols.size) cols[addedIdx].trim().toLongOrNull() ?: -1 else -1
 
             items.add(
@@ -220,6 +232,9 @@ object CollectionExporter {
                     isPrimary = isPrimary,
                     pokemonDexId = dexId,
                     notes = notes,
+                    gradingCompany = gradingCompany,
+                    grade = grade,
+                    certNumber = certNumber,
                     addedAt = addedAt
                 )
             )
@@ -405,6 +420,9 @@ object CollectionExporter {
                     quantity = item.quantity.coerceAtLeast(1),
                     condition = item.condition,
                     notes = item.notes,
+                    gradingCompany = item.gradingCompany,
+                    grade = item.grade,
+                    certNumber = item.certNumber,
                     category = if (item.category.isNotBlank()) item.category else "NONE",
                     isPrimary = isPrimaryEffective,
                     addedAt = item.addedAt
@@ -479,12 +497,18 @@ object CollectionExporter {
             condition = item.condition ?: existing.condition,
             category = item.category.ifBlank { existing.category },
             notes = item.notes ?: existing.notes,
+            gradingCompany = item.gradingCompany ?: existing.gradingCompany,
+            grade = item.grade ?: existing.grade,
+            certNumber = item.certNumber ?: existing.certNumber,
             isPrimary = isPrimaryEffective
         )
         ExportMergeStrategy.MERGE_ADD -> existing.copy(
             quantity = existing.quantity + item.quantity,
             condition = item.condition ?: existing.condition,
             notes = item.notes ?: existing.notes,
+            gradingCompany = item.gradingCompany ?: existing.gradingCompany,
+            grade = item.grade ?: existing.grade,
+            certNumber = item.certNumber ?: existing.certNumber,
             isPrimary = isPrimaryEffective || existing.isPrimary
         )
     }

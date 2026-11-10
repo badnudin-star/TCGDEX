@@ -25,6 +25,7 @@ class AppPreferencesRepository(
 
     companion object {
         val KEY_WIFI_ONLY = booleanPreferencesKey("wifi_only_updates")
+        val KEY_SHOW_EN_NAMES = booleanPreferencesKey("show_english_names")
         val KEY_PREFERRED_LANGUAGE = stringPreferencesKey("preferred_language")
         val KEY_CURRENCY_SOURCE = stringPreferencesKey("currency_source")
         val KEY_COLLAPSED_GENERATIONS = stringSetPreferencesKey("collapsed_generations")
@@ -48,6 +49,11 @@ class AppPreferencesRepository(
 
     val wifiOnlyFlow: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[KEY_WIFI_ONLY] ?: true
+    }
+
+    /** English card names as an additional display line; off by default. */
+    val showEnglishNamesFlow: Flow<Boolean> = dataStore.data.map { prefs ->
+        prefs[KEY_SHOW_EN_NAMES] ?: false
     }
 
     val preferredLanguageFlow: Flow<String> = dataStore.data.map { prefs ->
@@ -131,6 +137,12 @@ class AppPreferencesRepository(
     suspend fun setWifiOnly(wifiOnly: Boolean) {
         dataStore.edit { prefs ->
             prefs[KEY_WIFI_ONLY] = wifiOnly
+        }
+    }
+
+    suspend fun setShowEnglishNames(enabled: Boolean) {
+        dataStore.edit { prefs ->
+            prefs[KEY_SHOW_EN_NAMES] = enabled
         }
     }
 

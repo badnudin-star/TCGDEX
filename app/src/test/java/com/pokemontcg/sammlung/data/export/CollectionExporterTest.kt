@@ -332,6 +332,100 @@ class CollectionExporterTest {
     }
 
     @Test
+    fun testGradingSurvivesJsonRoundtrip() {
+        val graded = UserCardEntityV2(
+            cardId = "sv3-180",
+            pokemonId = "25",
+            pokemonDexId = 25,
+            language = "de",
+            quantity = 1,
+            gradingCompany = "PSA",
+            grade = "10",
+            certNumber = "84390123"
+        )
+
+        val parsed = CollectionExporter.parseExportJson(CollectionExporter.exportToJsonString(listOf(graded)))
+        val item = parsed.items.single()
+
+        assertEquals("PSA", item.gradingCompany)
+        assertEquals("10", item.grade)
+        assertEquals("84390123", item.certNumber)
+    }
+
+    @Test
+    fun testUngradedCardOmitsGradingFieldsInJson() {
+        val raw = UserCardEntityV2(
+            cardId = "sv3-180",
+            pokemonId = "25",
+            pokemonDexId = 25,
+            language = "de",
+            quantity = 1
+        )
+
+        val json = CollectionExporter.exportToJsonString(listOf(raw))
+
+        assertFalse(json.contains("gradingCompany"))
+        assertFalse(json.contains("certNumber"))
+    }
+
+    @Test
+    fun testGradingSurvivesCsvRoundtrip() {
+        val graded = UserCardEntityV2(
+            cardId = "sv3-180",
+            pokemonId = "25",
+            pokemonDexId = 25,
+            language = "de",
+            quantity = 1,
+            gradingCompany = "CGC",
+            grade = "9.5",
+            certNumber = "22-1234567"
+        )
+
+        val parsed = CollectionExporter.parseExportJson(CollectionExporter.exportToCsvString(listOf(graded)))
+
+        val item = parsed.items.single()
+        assertEquals("CGC", item.gradingCompany)
+        assertEquals("9.5", item.grade)
+        assertEquals("22-1234567", item.certNumber)
+    }
+
+    @Test
+    fun testLegacyCsvWithoutGradingColumnsStillImports() {
+        val csv = "cardId;language;quantity;condition;category;isPrimary;pokemonDexId;notes;addedAt\n" +
+            "\"sv3-180\";\"de\";\"1\";\"\";\"COMMON\";\"0\";\"25\";\"\";\"1000\"\n"
+
+        val parsed = CollectionExporter.parseExportJson(csv)
+
+        val item = parsed.items.single()
+        assertEquals("sv3-180", item.cardId)
+        assertEquals(null, item.gradingCompany)
+        assertEquals(null, item.grade)
+        assertEquals(null, item.certNumber)
+    }
+
+    @Test
+    fun testMergeStrategiesKeepExistingGradingWhenImportHasNone() {
+        val existing = UserCardEntityV2(
+            cardId = "card1", pokemonId = "1", pokemonDexId = 1, language = "de",
+            quantity = 2, category = "COMMON", gradingCompany = "PSA", grade = "10", certNumber = "84390123"
+        )
+        val item = ExportedUserCardItem(
+            cardId = "card1", language = "de", quantity = 3, category = "COMMON", pokemonDexId = 1
+        )
+
+        val overwritten = CollectionExporter.mergeExistingCard(existing, item, ExportMergeStrategy.OVERWRITE_EXISTING, false)!!
+        assertEquals("PSA", overwritten.gradingCompany)
+        assertEquals("10", overwritten.grade)
+        assertEquals("84390123", overwritten.certNumber)
+
+        val itemGraded = item.copy(gradingCompany = "BGS", grade = "9")
+        val regraded = CollectionExporter.mergeExistingCard(existing, itemGraded, ExportMergeStrategy.MERGE_ADD, false)!!
+        assertEquals("BGS", regraded.gradingCompany)
+        assertEquals("9", regraded.grade)
+        assertEquals("84390123", regraded.certNumber)
+    }
+
+    @Test
     fun testJsonWithoutWishlistDefaultsToEmptyList() {
         val json = """{"schemaVersion":2,"exportedAt":"2026-01-01T00:00:00Z","appVersion":"2.0.0","items":[]}"""
 

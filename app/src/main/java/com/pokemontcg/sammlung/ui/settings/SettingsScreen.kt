@@ -317,6 +317,30 @@ fun SettingsScreen(
                             }
                         }
                         HorizontalDivider()
+                        // English names as an additional line under card names -
+                        // helpful for international trading.
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(stringResource(R.string.settings_english_names), fontWeight = FontWeight.Bold)
+                                Text(stringResource(R.string.settings_english_names_desc), style = MaterialTheme.typography.bodySmall)
+                            }
+                            Switch(
+                                checked = uiState.showEnglishNames,
+                                onCheckedChange = { viewModel.setShowEnglishNames(it) },
+                                modifier = Modifier
+                                    .minimumInteractiveComponentSize()
+                                    .semantics {
+                                        stateDescription = context.getString(
+                                            if (uiState.showEnglishNames) R.string.a11y_state_on else R.string.a11y_state_off
+                                        )
+                                    }
+                            )
+                        }
+                        HorizontalDivider()
                         Text(stringResource(R.string.settings_currency_source), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

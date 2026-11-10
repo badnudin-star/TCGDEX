@@ -414,4 +414,46 @@ class DatabaseMigrationTest {
         }
     }
 
+    @Test
+    fun testUserDatabaseMigration2To3() {
+        val userHelper = MigrationTestHelper(
+            InstrumentationRegistry.getInstrumentation(),
+            UserDatabase::class.java,
+            emptyList(),
+            FrameworkSQLiteOpenHelperFactory()
+        )
+
+        // A v2 fixture with a filled card: grading columns do not exist yet.
+        val db2 = userHelper.createDatabase("user-test-db-v3", 2).apply {
+            execSQL(
+                "INSERT INTO user_cards (cardId, pokemonId, pokemonDexId, language, quantity, condition, notes, category, isPrimary, addedAt) " +
+                "VALUES ('xy1-1', '25', 25, 'de', 2, 'NEAR_MINT', 'kept', 'COMMON', 1, 1700000000000)"
+            )
+            close()
+        }
+
+        val db3 = userHelper.runMigrationsAndValidate("user-test-db-v3", 3, true, *UserDatabase.ALL_MIGRATIONS)
+        db3.query("SELECT gradingCompany, grade, certNumber, quantity, condition, notes FROM user_cards").use { cursor ->
+            assertTrue("Existing user card must survive 2→3", cursor.moveToFirst())
+            assertNull("Grading company must default to NULL", cursor.getString(0))
+            assertNull("Grade must default to NULL", cursor.getString(1))
+            assertNull("Certificate number must default to NULL", cursor.getString(2))
+            assertEquals(2, cursor.getInt(3))
+            assertEquals("NEAR_MINT", cursor.getString(4))
+            assertEquals("kept", cursor.getString(5))
+            assertTrue("Fixture must contain exactly one user card", !cursor.moveToNext())
+        }
+
+        // New grading values must round-trip through the migrated columns.
+        db3.execSQL(
+            "UPDATE user_cards SET gradingCompany = 'PSA', grade = '10', certNumber = '84390123' WHERE cardId = 'xy1-1'"
+        )
+        db3.query("SELECT gradingCompany, grade, certNumber FROM user_cards WHERE cardId = 'xy1-1'").use { cursor ->
+            assertTrue(cursor.moveToFirst())
+            assertEquals("PSA", cursor.getString(0))
+            assertEquals("10", cursor.getString(1))
+            assertEquals("84390123", cursor.getString(2))
+        }
+    }
+
 }

@@ -7,6 +7,7 @@ import androidx.lifecycle.createSavedStateHandle
 import androidx.lifecycle.viewModelScope
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.CardCategory
+import com.pokemontcg.sammlung.data.local.user.CardGrading
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.model.MergedCatalogCard
@@ -68,6 +69,14 @@ class PokemonDetailViewModel(
             initialValue = emptyList()
         )
 
+    /** English card names as an additional display line; off by default. */
+    val showEnglishNames: StateFlow<Boolean> = preferencesRepository.showEnglishNamesFlow
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = false
+        )
+
     val wishlistCardIds: StateFlow<Set<String>> = collectionRepository.getWishlist()
         .map { wishlist -> wishlist.map { it.cardId }.toSet() }
         .stateIn(
@@ -110,7 +119,8 @@ class PokemonDetailViewModel(
         condition: String?,
         language: String,
         notes: String?,
-        category: String
+        category: String,
+        grading: CardGrading = CardGrading()
     ) {
         viewModelScope.launch {
             // The row id pins the edit to exactly the tapped entry; a card id could match
@@ -123,7 +133,8 @@ class PokemonDetailViewModel(
                     condition = condition,
                     language = language,
                     notes = notes,
-                    category = category
+                    category = category,
+                    grading = grading
                 )
             )
         }
@@ -137,7 +148,9 @@ class PokemonDetailViewModel(
             condition = primary.condition,
             language = primary.language,
             notes = primary.notes,
-            category = category
+            category = category,
+            // A category change must not wipe the stored grading of the slab.
+            grading = CardGrading(primary.gradingCompany, primary.grade, primary.certNumber)
         )
     }
 

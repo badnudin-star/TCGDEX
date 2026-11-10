@@ -23,6 +23,13 @@ data class MergedCatalogCard(
     /** Catalog ids of all prints, e.g. to check whether one of them is already owned. */
     val variantIds: Set<String>
         get() = variants.map { it.id }.toSet()
+
+    /**
+     * The English print's name, or null when the artwork has no English variant in the
+     * catalog - typically the case for Asian-only prints.
+     */
+    val englishName: String?
+        get() = variants.firstOrNull { it.language == "en" }?.name
 }
 
 /**

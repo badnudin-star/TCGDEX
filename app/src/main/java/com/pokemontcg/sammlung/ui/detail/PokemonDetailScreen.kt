@@ -32,7 +32,9 @@ import com.pokemontcg.sammlung.ui.components.TcgImage
 import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.model.MergedCatalogCard
+import com.pokemontcg.sammlung.data.model.rawCardId
 import com.pokemontcg.sammlung.data.local.user.CardCategory
+import com.pokemontcg.sammlung.data.local.user.CardGrading
 import com.pokemontcg.sammlung.data.local.entities.PokemonEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.ui.cards.CardCategoryDialog
@@ -48,6 +50,8 @@ fun PokemonDetailScreen(
     cards: List<CardEntity>,
     /** Language prints merged per artwork, for the favourite and secondary card dialogs. */
     mergedCards: List<MergedCatalogCard>,
+    /** English card names as an additional display line; off by default. */
+    showEnglishNames: Boolean = false,
     userCards: List<UserCardEntityV2>,
     wishlistCardIds: Set<String>,
     totalPrice: Double?,
@@ -57,7 +61,7 @@ fun PokemonDetailScreen(
     onAddSecondary: (CardEntity, CardCategory) -> Unit,
     onRemoveSecondary: (Long) -> Unit,
     onToggleWishlist: (CardEntity) -> Unit,
-    onUpdateCardDetails: (rowId: Long, quantity: Int, condition: String?, language: String, notes: String?, category: String) -> Unit,
+    onUpdateCardDetails: (rowId: Long, quantity: Int, condition: String?, language: String, notes: String?, category: String, grading: CardGrading) -> Unit,
     onClassificationChange: (String) -> Unit
 ) {
     val context = LocalContext.current
@@ -133,6 +137,7 @@ fun PokemonDetailScreen(
             initialCondition = uc.condition,
             initialLanguage = uc.language,
             initialNotes = uc.notes,
+            initialGrading = CardGrading(uc.gradingCompany, uc.grade, uc.certNumber),
             onPrimaryChange = { isPrimary ->
                 if (isPrimary) {
                     val category = CardCategory.entries.firstOrNull { it.name == pendingCategory }
@@ -143,14 +148,15 @@ fun PokemonDetailScreen(
                 }
             },
             onCategoryChange = { selectedCategory -> pendingCategory = selectedCategory },
-            onDetailsChange = { quantity, condition, language, notes ->
+            onDetailsChange = { quantity, condition, language, notes, grading ->
                 onUpdateCardDetails(
                     uc.id,
                     quantity,
                     condition,
                     language,
                     notes,
-                    pendingCategory
+                    pendingCategory,
+                    grading
                 )
             },
             onConfirm = { selectedCardForEdit = null },
@@ -275,6 +281,26 @@ fun PokemonDetailScreen(
                                     ),
                                     style = MaterialTheme.typography.bodySmall
                                 )
+                                if (showEnglishNames) {
+                                    englishNameFor(primaryCard, cards)?.let { englishName ->
+                                        Text(
+                                            stringResource(R.string.ui_english_name_hint, englishName),
+                                            style = MaterialTheme.typography.bodySmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                    }
+                                }
+                                primaryUserCard?.takeIf { !it.gradingCompany.isNullOrBlank() }?.let { graded ->
+                                    Text(
+                                        stringResource(
+                                            R.string.ui_grading_summary,
+                                            graded.gradingCompany.orEmpty(),
+                                            graded.grade.orEmpty().ifBlank { "—" }
+                                        ),
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.tertiary
+                                    )
+                                }
                                 Text(PriceFormatter.formatPriceShort(context, primaryCard.marketPrice), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold)
                             }
                             val isWishlisted = primaryCard.id in wishlistCardIds
@@ -369,3 +395,10 @@ fun PokemonDetailScreen(
         }
     }
 }
+
+/**
+ * The English print of the same artwork (same raw id), or null when the catalog has no
+ * English variant - typically the case for Asian-only prints.
+ */
+private fun englishNameFor(card: CardEntity, allCards: List<CardEntity>): String? =
+    allCards.firstOrNull { it.language == "en" && rawCardId(it.id) == rawCardId(card.id) }?.name

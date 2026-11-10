@@ -123,19 +123,35 @@ def newest_schema(schema_dir: Path = SCHEMA_DIR) -> tuple[int, Path]:
     return versions[-1]
 
 
+# Both Room databases export their schemas; every newest schema is guarded.
+SCHEMA_DIRS = (
+    SCHEMA_DIR,
+    SCHEMA_DIR.parent / "com.pokemontcg.sammlung.data.local.user.UserDatabase",
+)
+
+
 def main() -> int:
-    version, path = newest_schema()
-    database = json.loads(path.read_text(encoding="utf-8"))["database"]
-    stored = database["identityHash"]
-    computed = database_identity_hash(database)
-    if stored != computed:
-        print(f"Room identity hash check: FAIL ({path.name})")
-        print(f"- stored:   {stored}")
-        print(f"- computed: {computed}")
-        print("The newest schema JSON does not match the Room 2.6.1 identity hash algorithm.")
-        return 1
-    print(f"Room identity hash check: PASS (schema {version}, {computed})")
-    return 0
+    failed = False
+    for schema_dir in SCHEMA_DIRS:
+        try:
+            version, path = newest_schema(schema_dir)
+        except FileNotFoundError as exc:
+            print(f"Room identity hash check: FAIL ({schema_dir.name})")
+            print(f"- {exc}")
+            failed = True
+            continue
+        database = json.loads(path.read_text(encoding="utf-8"))["database"]
+        stored = database["identityHash"]
+        computed = database_identity_hash(database)
+        if stored != computed:
+            print(f"Room identity hash check: FAIL ({schema_dir.name}/{path.name})")
+            print(f"- stored:   {stored}")
+            print(f"- computed: {computed}")
+            print("The newest schema JSON does not match the Room 2.6.1 identity hash algorithm.")
+            failed = True
+        else:
+            print(f"Room identity hash check: PASS ({schema_dir.name}, schema {version}, {computed})")
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":

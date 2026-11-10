@@ -169,6 +169,44 @@ fun CardScannerScreen(
     // ROI mode (region of interest): only the area inside the guide frame is OCR-read.
     // Less surrounding card text means fewer false matches on the number line.
     var roiMode by rememberSaveable { mutableStateOf(false) }
+    // Shared OCR models: the live camera analyzer and the gallery import use the
+    // same clients, so the ML Kit models are loaded (and released) exactly once.
+    val recognizers = remember {
+        listOf(
+            TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS),
+            TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()),
+            TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build()),
+            TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build())
+        )
+    }
+    DisposableEffect(recognizers) {
+        onDispose { recognizers.forEach { it.close() } }
+    }
+    // Fotoimport: gleiche OCR-Kette wie die Live-Kamera, nur als Standbild.
+    var galleryBusy by rememberSaveable { mutableStateOf(false) }
+    val galleryPicker = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri ->
+        galleryBusy = false
+        if (uri != null) {
+            // A still image is a single, usually sharp sample - the multi-frame
+            // submit gate of the live camera is not needed here.
+            analyzeStillImage(
+                context = context,
+                uri = uri,
+                recognizers = recognizers,
+                onResult = { rawText, cardNumber ->
+                    detectedText = rawText
+                    if (!cardNumber.isNullOrBlank()) {
+                        onCardDetected(cardNumber, rawText)
+                    } else {
+                        onCardDetected(null, rawText)
+                    }
+                },
+                onUnreadable = { message -> detectedText = message }
+            )
+        }
+    }
     val density = LocalDensity.current
     // The analyzer crop needs the guide frame (300x420dp) in bitmap-view pixels.
     val roiFrameWidthPx = with(density) { 300.dp.toPx() }.roundToInt()
@@ -193,6 +231,7 @@ fun CardScannerScreen(
                 onCameraError = { cameraError = true },
                 zoomRatio = zoomRatio,
                 torchOn = torchOn,
+                recognizers = recognizers,
                 roiEnabled = roiMode,
                 roiFrameWidthPx = roiFrameWidthPx,
                 roiFrameHeightPx = roiFrameHeightPx
@@ -335,6 +374,20 @@ fun CardScannerScreen(
                         label = { Text(stringResource(R.string.scanner_mode_batch)) }
                     )
                 }
+                // Gallery import: a photo runs through the same OCR chain as the
+                // live camera - useful for already taken pictures of single cards.
+                TextButton(
+                    onClick = {
+                        if (!galleryBusy) {
+                            galleryBusy = true
+                            galleryPicker.launch("image/*")
+                        }
+                    },
+                    enabled = !galleryBusy
+                ) {
+                    Text(stringResource(R.string.scanner_gallery_pick))
+                }
+                Spacer(Modifier.height(4.dp))
                 if (batchMode) {
                     Spacer(Modifier.height(8.dp))
                     Text(
@@ -382,6 +435,88 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     else -> null
 }
 
+/**
+ * OCR lines ordered by rendered font height: the card name is the largest text element,
+ * rule/attack text and footnotes are small. The name search takes the first tokens.
+ */
+private fun sizeOrderedLines(text: com.google.mlkit.vision.text.Text): List<String> =
+    text.textBlocks
+        .asSequence()
+        .flatMap { it.lines.asSequence() }
+        .sortedByDescending { it.boundingBox?.height() ?: 0 }
+        .map { it.text }
+        .toList()
+
+/**
+ * Runs the OCR chain (Latin -> Japanese -> Korean -> Chinese) on one still image from
+ * the gallery. Mirrors the live-camera chain: the Latin pass wins when it identifies
+ * the card alone, otherwise the script models run and the CJK-richest text is merged
+ * with the Latin one so number and name clues both survive.
+ */
+internal fun analyzeStillImage(
+    context: android.content.Context,
+    uri: Uri,
+    recognizers: List<com.google.mlkit.vision.text.TextRecognizer>,
+    onResult: (rawText: String, cardNumber: String?) -> Unit,
+    onUnreadable: (message: String) -> Unit
+) {
+    val inputImage = try {
+        InputImage.fromFilePath(context, uri)
+    } catch (_: Exception) {
+        onUnreadable(context.getString(R.string.scanner_gallery_error))
+        return
+    }
+    val scriptResults = mutableListOf<com.google.mlkit.vision.text.Text>()
+
+    fun merged(primary: com.google.mlkit.vision.text.Text?, secondary: com.google.mlkit.vision.text.Text?) {
+        val rawText = listOfNotNull(primary?.text, secondary?.text).joinToString("\n")
+        if (rawText.isBlank()) {
+            onUnreadable(context.getString(R.string.scanner_gallery_no_card))
+            return
+        }
+        // Like the live camera: name-search tokens come from size-ordered lines
+        // (largest text first), the number match from the plain text.
+        val sizeOrderedText = (primary?.let(::sizeOrderedLines).orEmpty() +
+            secondary?.let(::sizeOrderedLines).orEmpty())
+            .joinToString("\n")
+            .ifBlank { rawText }
+        onResult(sizeOrderedText, extractCardNumber(rawText))
+    }
+
+    fun finish(latin: com.google.mlkit.vision.text.Text?) {
+        val best = scriptResults
+            .filter { containsCjk(it.text) }
+            .maxWithOrNull(compareBy({ it.text.count(::isCjkChar) }, { it.text.length }))
+        merged(best, latin)
+    }
+
+    fun runChain(index: Int, latin: com.google.mlkit.vision.text.Text?) {
+        if (index >= recognizers.size) {
+            finish(latin)
+            return
+        }
+        recognizers[index].process(inputImage)
+            .addOnSuccessListener { text ->
+                if (index == 0) {
+                    if (!needsScriptFallback(text.text)) {
+                        merged(text, null)
+                    } else {
+                        runChain(1, text)
+                    }
+                } else if (extractCardNumber(text.text) != null) {
+                    merged(text, latin)
+                } else {
+                    scriptResults.add(text)
+                    runChain(index + 1, latin)
+                }
+            }
+            .addOnFailureListener {
+                if (index == 0) runChain(1, null) else runChain(index + 1, latin)
+            }
+    }
+    runChain(0, null)
+}
+
 @SuppressLint("UnsafeOptInUsageError")
 @Composable
 private fun CameraPreview(
@@ -389,6 +524,7 @@ private fun CameraPreview(
     onCameraError: () -> Unit,
     zoomRatio: Float,
     torchOn: Boolean,
+    recognizers: List<com.google.mlkit.vision.text.TextRecognizer>,
     roiEnabled: Boolean = false,
     roiFrameWidthPx: Int = 0,
     roiFrameHeightPx: Int = 0
@@ -396,13 +532,11 @@ private fun CameraPreview(
     val currentOnCameraError by rememberUpdatedState(onCameraError)
     val lifecycleOwner = LocalLifecycleOwner.current
     val executor = remember { Executors.newSingleThreadExecutor() }
-    val recognizer = remember { TextRecognition.getClient(TextRecognizerOptions.DEFAULT_OPTIONS) }
     // Asian prints: the Latin model is blind to Han, Kana and Hangul, so the scanner
     // chains Japanese, Korean and Chinese models whenever the Latin pass alone cannot
     // identify the card (no number, or a number without any readable name text).
-    val japaneseRecognizer = remember { TextRecognition.getClient(JapaneseTextRecognizerOptions.Builder().build()) }
-    val koreanRecognizer = remember { TextRecognition.getClient(KoreanTextRecognizerOptions.Builder().build()) }
-    val chineseRecognizer = remember { TextRecognition.getClient(ChineseTextRecognizerOptions.Builder().build()) }
+    // The recognizers (index 0 = Latin) are owned by the screen and shared with
+    // the gallery import.
     val disposed = remember { AtomicBoolean(false) }
     // ML Kit processing is asynchronous; keep at most one frame in flight.
     val frameGate = remember { ScannerFrameGate() }
@@ -429,16 +563,12 @@ private fun CameraPreview(
         }
     }
 
-    DisposableEffect(executor, recognizer) {
+    DisposableEffect(executor) {
         disposed.set(false)
         onDispose {
             disposed.set(true)
             cameraProviderRef.get()?.unbindAll()
             executor.shutdownNow()
-            recognizer.close()
-            japaneseRecognizer.close()
-            koreanRecognizer.close()
-            chineseRecognizer.close()
         }
     }
 
@@ -547,14 +677,7 @@ private fun CameraPreview(
                         // ist das groesste Textelement, Regel-/Angriffstext und
                         // Fussnoten sind klein. Die Namenssuche nimmt die ersten
                         // Tokens - so liefern sie den Kartennamen statt Ballast.
-                        fun sizeOrderedLines(text: com.google.mlkit.vision.text.Text): List<String> =
-                            text.textBlocks
-                                .asSequence()
-                                .flatMap { it.lines.asSequence() }
-                                .sortedByDescending { it.boundingBox?.height() ?: 0 }
-                                .map { it.text }
-                                .toList()
-
+                        // (sizeOrderedLines ist der geteilte Datei-Level-Helfer.)
                         fun complete(primary: com.google.mlkit.vision.text.Text?, secondary: com.google.mlkit.vision.text.Text?) {
                             if (!frameDone.compareAndSet(false, true)) return
                             if (!disposed.get() && (primary != null || secondary != null)) {
@@ -583,12 +706,12 @@ private fun CameraPreview(
                             complete(best, latinText)
                         }
                         fun runScriptChain(index: Int, latinText: com.google.mlkit.vision.text.Text?) {
-                            val recognizers = listOf(japaneseRecognizer, koreanRecognizer, chineseRecognizer)
-                            if (index >= recognizers.size) {
+                            val scriptRecognizers = recognizers.drop(1)
+                            if (index >= scriptRecognizers.size) {
                                 finishScriptChain(latinText)
                                 return
                             }
-                            recognizers[index].process(inputImage)
+                            scriptRecognizers[index].process(inputImage)
                                 .addOnSuccessListener { scriptText ->
                                     if (extractCardNumber(scriptText.text) != null) {
                                         complete(scriptText, latinText)
@@ -600,7 +723,7 @@ private fun CameraPreview(
                                 .addOnFailureListener { runScriptChain(index + 1, latinText) }
                         }
 
-                        recognizer.process(inputImage)
+                        recognizers.first().process(inputImage)
                             .addOnSuccessListener { latinText ->
                                 if (!needsScriptFallback(latinText.text)) {
                                     // Latin pass already identifies the card: use it directly.

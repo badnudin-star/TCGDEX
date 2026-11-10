@@ -20,6 +20,23 @@ enum class CardCategory {
     FULLART
 }
 
+/**
+ * Grading information for a professionally graded copy (PSA/CGC/BGS slab).
+ * All fields are null for raw, ungraded copies - the default case.
+ */
+data class CardGrading(
+    val gradingCompany: String? = null,
+    val grade: String? = null,
+    val certNumber: String? = null
+)
+
+/** Grading companies with dedicated UI labels. */
+enum class GradingCompany {
+    PSA,
+    CGC,
+    BGS
+}
+
 @Entity(
     tableName = "user_cards",
     indices = [
@@ -38,5 +55,8 @@ data class UserCardEntityV2(
     val notes: String? = null,
     val category: String = CardCategory.NONE.name,
     val isPrimary: Boolean = false,
-    val addedAt: Long = System.currentTimeMillis()
+    val addedAt: Long = System.currentTimeMillis(),
+    val gradingCompany: String? = null,
+    val grade: String? = null,
+    val certNumber: String? = null
 )
