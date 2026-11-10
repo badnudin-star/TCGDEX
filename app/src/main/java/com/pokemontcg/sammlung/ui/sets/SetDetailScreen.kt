@@ -242,6 +242,8 @@ private fun SetCardRow(
 ) {
     val representative = card.representative
     val rarityGroup = RarityGrouper.canonical(representative.rarity)
+    // Local capture: englishName has a custom getter and cannot be smart-cast.
+    val englishName = card.englishName
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(10.dp),
@@ -272,9 +274,9 @@ private fun SetCardRow(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleSmall
                 )
-                if (showEnglishName && card.englishName != null && card.englishName != representative.name) {
+                if (showEnglishName && englishName != null && englishName != representative.name) {
                     Text(
-                        stringResource(R.string.ui_english_name_hint, card.englishName),
+                        stringResource(R.string.ui_english_name_hint, englishName),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
