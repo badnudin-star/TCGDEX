@@ -180,12 +180,14 @@ class MainActivity : ComponentActivity() {
                             val uCards by pokemonDetailViewModel.userCards.collectAsState()
                             val wishlistCardIds by pokemonDetailViewModel.wishlistCardIds.collectAsState()
                             val totalPrice by pokemonDetailViewModel.totalPrice.collectAsState()
+                            val showEnglishNames by pokemonDetailViewModel.showEnglishNames.collectAsState()
 
                             if (pokemon != null) {
                                 PokemonDetailScreen(
                                     pokemon = pokemon!!,
                                     cards = cards,
                                     mergedCards = mergedCards,
+                                    showEnglishNames = showEnglishNames,
                                     userCards = uCards,
                                     wishlistCardIds = wishlistCardIds,
                                     totalPrice = totalPrice,
@@ -197,14 +199,15 @@ class MainActivity : ComponentActivity() {
                                     },
                                     onRemoveSecondary = { rowId -> pokemonDetailViewModel.removeSecondaryCard(rowId) },
                                     onToggleWishlist = { card -> pokemonDetailViewModel.toggleWishlist(card) },
-                                    onUpdateCardDetails = { rowId, quantity, condition, language, notes, category ->
+                                    onUpdateCardDetails = { rowId, quantity, condition, language, notes, category, grading ->
                                         pokemonDetailViewModel.updateCardDetails(
                                             rowId,
                                             quantity,
                                             condition,
                                             language,
                                             notes,
-                                            category
+                                            category,
+                                            grading
                                         )
                                     },
                                     onClassificationChange = { category ->

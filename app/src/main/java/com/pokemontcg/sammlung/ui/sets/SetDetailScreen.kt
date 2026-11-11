@@ -26,6 +26,7 @@ import com.pokemontcg.sammlung.data.model.RarityGrouper
 import com.pokemontcg.sammlung.data.model.rawCardId
 import com.pokemontcg.sammlung.ui.components.CardImageDialog
 import com.pokemontcg.sammlung.ui.components.TcgImage
+import com.pokemontcg.sammlung.ui.components.TcgLogoImage
 import com.pokemontcg.sammlung.util.PriceFormatter
 
 /**
@@ -134,6 +135,7 @@ private fun SetDetailContent(
                 SetCardRow(
                     card = card,
                     ownedQuantity = state.ownedQuantitiesByRawId[rawCardId(card.representative.id)] ?: 0,
+                    showEnglishName = state.showEnglishNames,
                     onEnlargeImage = onEnlargeImage,
                     enlargeLabel = enlargeLabel
                 )
@@ -154,7 +156,7 @@ private fun SetDetailHeader(
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (!set.symbolUrl.isNullOrBlank()) {
-                    TcgImage(
+                    TcgLogoImage(
                         model = set.symbolUrl,
                         contentDescription = stringResource(R.string.ui_set_symbol_description, set.name),
                         modifier = Modifier.size(32.dp),
@@ -173,7 +175,7 @@ private fun SetDetailHeader(
                     Spacer(Modifier.width(10.dp))
                 }
                 if (!set.logoUrl.isNullOrBlank()) {
-                    TcgImage(
+                    TcgLogoImage(
                         model = set.logoUrl,
                         contentDescription = stringResource(R.string.ui_set_logo_description, set.name),
                         modifier = Modifier
@@ -234,11 +236,14 @@ private fun SetDetailHeader(
 private fun SetCardRow(
     card: MergedCatalogCard,
     ownedQuantity: Int,
+    showEnglishName: Boolean,
     onEnlargeImage: (MergedCatalogCard) -> Unit,
     enlargeLabel: String
 ) {
     val representative = card.representative
     val rarityGroup = RarityGrouper.canonical(representative.rarity)
+    // Local capture: englishName has a custom getter and cannot be smart-cast.
+    val englishName = card.englishName
     Card(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(10.dp),
@@ -269,6 +274,13 @@ private fun SetCardRow(
                     fontWeight = FontWeight.Bold,
                     style = MaterialTheme.typography.titleSmall
                 )
+                if (showEnglishName && englishName != null && englishName != representative.name) {
+                    Text(
+                        stringResource(R.string.ui_english_name_hint, englishName),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 if (rarityGroup != "None") {
                     Text(rarityGroup, style = MaterialTheme.typography.labelSmall)
                 }

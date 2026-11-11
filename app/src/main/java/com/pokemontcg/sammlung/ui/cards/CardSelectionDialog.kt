@@ -22,6 +22,8 @@ import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.CardCondition
+import com.pokemontcg.sammlung.data.local.user.CardGrading
+import com.pokemontcg.sammlung.data.local.user.GradingCompany
 import com.pokemontcg.sammlung.util.PriceFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -34,9 +36,10 @@ fun CardSelectionDialog(
     initialCondition: String? = null,
     initialLanguage: String = "de",
     initialNotes: String? = null,
+    initialGrading: CardGrading = CardGrading(),
     onPrimaryChange: (Boolean) -> Unit,
     onCategoryChange: (String) -> Unit,
-    onDetailsChange: (quantity: Int, condition: String?, language: String, notes: String?) -> Unit,
+    onDetailsChange: (quantity: Int, condition: String?, language: String, notes: String?, grading: CardGrading) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit
 ) {
@@ -47,6 +50,10 @@ fun CardSelectionDialog(
     var condition by remember { mutableStateOf(initialCondition ?: CardCondition.NEAR_MINT.name) }
     var language by remember { mutableStateOf(initialLanguage.ifBlank { "de" }) }
     var notes by remember { mutableStateOf(initialNotes.orEmpty()) }
+    var gradingCompany by remember { mutableStateOf(initialGrading.gradingCompany.orEmpty()) }
+    var grade by remember { mutableStateOf(initialGrading.grade.orEmpty()) }
+    var certNumber by remember { mutableStateOf(initialGrading.certNumber.orEmpty()) }
+    var gradingExpanded by remember { mutableStateOf(false) }
     val decreaseQuantityDescription = stringResource(R.string.ui_quantity_decrease)
     val increaseQuantityDescription = stringResource(R.string.ui_quantity_increase)
 
@@ -248,6 +255,67 @@ fun CardSelectionDialog(
                     maxLines = 3
                 )
 
+                // Grading (PSA/CGC/BGS slabs): company dropdown plus optional grade and
+                // certificate number. "Nicht gradiert" clears all three fields.
+                Text(stringResource(R.string.ui_grading_header), fontWeight = FontWeight.Bold)
+                ExposedDropdownMenuBox(
+                    expanded = gradingExpanded,
+                    onExpandedChange = { gradingExpanded = !gradingExpanded }
+                ) {
+                    val gradingOptions = listOf(null) + GradingCompany.entries.map { it.name }
+                    OutlinedTextField(
+                        value = gradingCompany.takeIf { it in gradingOptions }
+                            ?.let { selected -> stringResource(gradingLabel(selected)) }
+                            ?: stringResource(R.string.ui_grading_none),
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text(stringResource(R.string.ui_grading_company)) },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = gradingExpanded) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = gradingExpanded,
+                        onDismissRequest = { gradingExpanded = false }
+                    ) {
+                        gradingOptions.forEach { option ->
+                            DropdownMenuItem(
+                                text = { Text(stringResource(gradingLabel(option))) },
+                                onClick = {
+                                    gradingCompany = option.orEmpty()
+                                    if (option == null) {
+                                        grade = ""
+                                        certNumber = ""
+                                    }
+                                    gradingExpanded = false
+                                }
+                            )
+                        }
+                    }
+                }
+                if (gradingCompany.isNotBlank()) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = grade,
+                            onValueChange = { grade = it.take(6) },
+                            label = { Text(stringResource(R.string.ui_grading_grade)) },
+                            modifier = Modifier.weight(1f),
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = certNumber,
+                            onValueChange = { certNumber = it.take(24) },
+                            label = { Text(stringResource(R.string.ui_grading_cert_number)) },
+                            modifier = Modifier.weight(2f),
+                            singleLine = true
+                        )
+                    }
+                }
+
                 // Primary Chip
                 FilterChip(
                     selected = primary,
@@ -261,7 +329,17 @@ fun CardSelectionDialog(
         },
         confirmButton = {
             TextButton(onClick = {
-                onDetailsChange(quantity, condition, language, notes.ifBlank { null })
+                onDetailsChange(
+                    quantity,
+                    condition,
+                    language,
+                    notes.ifBlank { null },
+                    CardGrading(
+                        gradingCompany = gradingCompany.ifBlank { null },
+                        grade = grade.ifBlank { null },
+                        certNumber = certNumber.ifBlank { null }
+                    )
+                )
                 onConfirm()
             }) {
                 Text(stringResource(R.string.ui_speichern_70b73b))
@@ -271,4 +349,11 @@ fun CardSelectionDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(R.string.ui_abbrechen_07af7c)) }
         }
     )
+}
+
+private fun gradingLabel(company: String?): Int = when (company) {
+    GradingCompany.PSA.name -> R.string.ui_grading_psa
+    GradingCompany.CGC.name -> R.string.ui_grading_cgc
+    GradingCompany.BGS.name -> R.string.ui_grading_bgs
+    else -> R.string.ui_grading_none
 }

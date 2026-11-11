@@ -22,6 +22,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
+import com.pokemontcg.sammlung.ui.components.TcgLogoImage
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
@@ -174,7 +175,7 @@ fun SetProgressTab(
                                 // Both set marks: the symbol printed on the cards and the big
                                 // set logo. Older promo sets sometimes only have one of them.
                                 if (!item.set.symbolUrl.isNullOrBlank()) {
-                                    TcgImage(
+                                    TcgLogoImage(
                                         model = item.set.symbolUrl,
                                         contentDescription = stringResource(
                                             R.string.ui_set_symbol_description,
@@ -199,7 +200,7 @@ fun SetProgressTab(
                                     Spacer(Modifier.width(10.dp))
                                 }
                                 if (!item.set.logoUrl.isNullOrBlank()) {
-                                    TcgImage(
+                                    TcgLogoImage(
                                         model = item.set.logoUrl,
                                         contentDescription = stringResource(
                                             R.string.ui_set_logo_description,

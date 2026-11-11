@@ -13,7 +13,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         PriceHistoryEntity::class,
         WishlistEntity::class
     ],
-    version = 2,
+    version = 3,
     exportSchema = true
 )
 abstract class UserDatabase : RoomDatabase() {
@@ -46,8 +46,18 @@ abstract class UserDatabase : RoomDatabase() {
             }
         }
 
+        private val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Graded slabs (PSA/CGC/BGS): company, grade and certificate number per
+                // copy. All nullable - raw copies keep NULL everywhere.
+                db.execSQL("ALTER TABLE user_cards ADD COLUMN gradingCompany TEXT")
+                db.execSQL("ALTER TABLE user_cards ADD COLUMN grade TEXT")
+                db.execSQL("ALTER TABLE user_cards ADD COLUMN certNumber TEXT")
+            }
+        }
+
         /** The production migration chain, shared with instrumentation tests. */
-        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2)
+        val ALL_MIGRATIONS: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 
         @Volatile
         private var INSTANCE: UserDatabase? = null

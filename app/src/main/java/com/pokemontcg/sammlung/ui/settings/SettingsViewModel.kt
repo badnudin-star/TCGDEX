@@ -15,6 +15,7 @@ import kotlinx.coroutines.launch
 
 data class SettingsUiState(
     val wifiOnly: Boolean = true,
+    val showEnglishNames: Boolean = false,
     val preferredLanguage: String = "de",
     val currencySource: String = "EUR_CARDMARKET",
     val priceAlertsEnabled: Boolean = false,
@@ -64,10 +65,12 @@ class SettingsViewModel(
     val uiState: StateFlow<SettingsUiState> = combine(
         corePreferences,
         alertPreferences,
-        catalogRepository.getAvailablePokemonNameLanguages()
-    ) { core, alerts, languages ->
+        catalogRepository.getAvailablePokemonNameLanguages(),
+        preferencesRepository.showEnglishNamesFlow
+    ) { core, alerts, languages, showEnglishNames ->
         SettingsUiState(
             wifiOnly = core.wifiOnly,
+            showEnglishNames = showEnglishNames,
             preferredLanguage = core.preferredLanguage,
             currencySource = core.currencySource,
             priceAlertsEnabled = alerts.enabled,
@@ -82,6 +85,12 @@ class SettingsViewModel(
         started = SharingStarted.WhileSubscribed(5000),
         initialValue = SettingsUiState()
     )
+
+    fun setShowEnglishNames(enabled: Boolean) {
+        viewModelScope.launch {
+            preferencesRepository.setShowEnglishNames(enabled)
+        }
+    }
 
     fun setWifiOnly(wifiOnly: Boolean) {
         viewModelScope.launch {

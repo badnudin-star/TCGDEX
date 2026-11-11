@@ -499,4 +499,25 @@
     <string name="generation_region_paldea">Paldea</string>
     <string name="generation_region_special_formats">Sonderformate</string>
 
+    <!-- Graded slabs (PSA/CGC/BGS), Runde 20 -->
+    <string name="ui_grading_header">Grading</string>
+    <string name="ui_grading_company">Grading-Firma</string>
+    <string name="ui_grading_none">Nicht gradiert</string>
+    <string name="ui_grading_psa">PSA</string>
+    <string name="ui_grading_cgc">CGC</string>
+    <string name="ui_grading_bgs">BGS</string>
+    <string name="ui_grading_grade">Note</string>
+    <string name="ui_grading_cert_number">Zertifikatsnr.</string>
+    <string name="ui_grading_summary">Grading: %1$s %2$s</string>
+
+    <!-- Scanner: Fotoimport aus der Galerie -->
+    <string name="scanner_gallery_pick">Aus Galerie</string>
+    <string name="scanner_gallery_error">Foto konnte nicht gelesen werden.</string>
+    <string name="scanner_gallery_no_card">Auf dem Foto wurde keine Karte erkannt – Foto schärfer oder gerader versuchen.</string>
+
+    <!-- Englische Kartennamen als Zusatzanzeige -->
+    <string name="settings_english_names">Englische Kartennamen anzeigen</string>
+    <string name="settings_english_names_desc">Blendet den englischen Namen zusätzlich ein – nützlich für internationales Tauschen. Asiatische Drucke haben keinen englischen Gegenpart im Katalog.</string>
+    <string name="ui_english_name_hint">EN: %1$s</string>
+
 </resources>

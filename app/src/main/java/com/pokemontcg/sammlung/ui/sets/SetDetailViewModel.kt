@@ -35,6 +35,8 @@ class SetDetailViewModel(
         val ownedQuantitiesByRawId: Map<String, Int> = emptyMap(),
         /** All languages the set exists in. */
         val setLanguages: List<String> = emptyList(),
+        /** English card names as an additional display line; off by default. */
+        val showEnglishNames: Boolean = false,
         val isLoading: Boolean = true
     ) {
         val ownedCardCount: Int
@@ -49,8 +51,9 @@ class SetDetailViewModel(
         set,
         catalogRepository.getCardsForSet(setId),
         collectionRepository.getAllUserCards(),
-        preferencesRepository.preferredLanguageFlow
-    ) { set, cards, userCards, preferredLanguage ->
+        preferencesRepository.preferredLanguageFlow,
+        preferencesRepository.showEnglishNamesFlow
+    ) { set, cards, userCards, preferredLanguage, showEnglishNames ->
         val mergedCards = mergeCardsByRawId(cards, preferredLanguage)
         val quantities = userCards
             .groupBy { rawCardId(it.cardId) }
@@ -60,6 +63,7 @@ class SetDetailViewModel(
             cards = mergedCards,
             ownedQuantitiesByRawId = quantities,
             setLanguages = cards.map { it.language }.distinct().sorted(),
+            showEnglishNames = showEnglishNames,
             isLoading = false
         )
     }.stateIn(

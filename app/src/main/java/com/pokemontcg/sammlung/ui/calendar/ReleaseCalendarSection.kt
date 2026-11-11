@@ -30,6 +30,7 @@ import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.model.UpcomingSetRelease
 import com.pokemontcg.sammlung.data.model.allDayReleaseEventBounds
 import com.pokemontcg.sammlung.ui.components.TcgImage
+import com.pokemontcg.sammlung.ui.components.TcgLogoImage
 import com.pokemontcg.sammlung.ui.sets.SetBadge
 
 /** Upcoming releases embedded in the set progress screen. */
@@ -73,7 +74,7 @@ private fun ReleaseCalendarEntry(release: UpcomingSetRelease) {
         ) {
             val setImage = set.symbolUrl ?: set.logoUrl
             if (!setImage.isNullOrBlank()) {
-                TcgImage(
+                TcgLogoImage(
                     model = setImage,
                     contentDescription = stringResource(
                         R.string.ui_set_symbol_description,

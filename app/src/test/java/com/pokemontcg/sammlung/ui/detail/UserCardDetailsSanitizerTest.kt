@@ -2,6 +2,7 @@ package com.pokemontcg.sammlung.ui.detail
 
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.CardCondition
+import com.pokemontcg.sammlung.data.local.user.CardGrading
 import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -25,14 +26,16 @@ class UserCardDetailsSanitizerTest {
         condition: String? = null,
         language: String = "de",
         notes: String? = null,
-        category: String = CardCategory.NONE.name
+        category: String = CardCategory.NONE.name,
+        grading: CardGrading = CardGrading()
     ): UserCardEntityV2 = sanitizeUserCardDetails(
         userCard = original,
         quantity = quantity,
         condition = condition,
         language = language,
         notes = notes,
-        category = category
+        category = category,
+        grading = grading
     )
 
     @Test
@@ -97,5 +100,83 @@ class UserCardDetailsSanitizerTest {
             CardCategory.FULLART.name,
             sanitize(category = CardCategory.FULLART.name).category
         )
+    }
+
+
+    @Test
+    fun gradingWithoutCompanyIsDroppedEntirely() {
+        val sanitized = sanitize(
+            grading = CardGrading(gradingCompany = null, grade = "10", certNumber = "12345678")
+        )
+
+        assertNull(sanitized.gradingCompany)
+        assertNull(sanitized.grade)
+        assertNull(sanitized.certNumber)
+    }
+
+    @Test
+    fun unknownGradingCompanyIsDropped() {
+        val sanitized = sanitize(
+            grading = CardGrading(gradingCompany = "ACE", grade = "9", certNumber = "1")
+        )
+
+        assertNull(sanitized.gradingCompany)
+        assertNull(sanitized.grade)
+        assertNull(sanitized.certNumber)
+    }
+
+    @Test
+    fun validGradingIsKept() {
+        val sanitized = sanitize(
+            grading = CardGrading(gradingCompany = "PSA", grade = "10", certNumber = "84390123")
+        )
+
+        assertEquals("PSA", sanitized.gradingCompany)
+        assertEquals("10", sanitized.grade)
+        assertEquals("84390123", sanitized.certNumber)
+    }
+
+    @Test
+    fun gradingFieldsAreTrimmedAndBlankBecomesNull() {
+        val sanitized = sanitize(
+            grading = CardGrading(gradingCompany = " CGC ", grade = " 9.5 ", certNumber = "  ")
+        )
+
+        assertEquals("CGC", sanitized.gradingCompany)
+        assertEquals("9.5", sanitized.grade)
+        assertNull(sanitized.certNumber)
+    }
+
+    @Test
+    fun gradingCompanyIsTrimmedBeforeValidation() {
+        val sanitized = sanitize(
+            grading = CardGrading(gradingCompany = " BGS ", grade = "9", certNumber = null)
+        )
+
+        assertEquals("BGS", sanitized.gradingCompany)
+    }
+
+    @Test
+    fun gradeAndCertNumberAreLengthCapped() {
+        val sanitized = sanitize(
+            grading = CardGrading(
+                gradingCompany = "PSA",
+                grade = "1234567",
+                certNumber = "1234567890123456789012345"
+            )
+        )
+
+        assertEquals(6, sanitized.grade?.length)
+        assertEquals("123456", sanitized.grade)
+        assertEquals(24, sanitized.certNumber?.length)
+    }
+
+    @Test
+    fun defaultGradingLeavesAllFieldsNull() {
+        val sanitized = sanitize(grading = CardGrading())
+
+        assertNull(sanitized.gradingCompany)
+        assertNull(sanitized.grade)
+        assertNull(sanitized.certNumber)
     }
 }

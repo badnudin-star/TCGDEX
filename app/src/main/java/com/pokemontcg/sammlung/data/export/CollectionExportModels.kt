@@ -26,6 +26,9 @@ data class ExportedUserCardItem(
     @SerializedName("isPrimary") val isPrimary: Boolean = false,
     @SerializedName("pokemonDexId") val pokemonDexId: Int = 0,
     @SerializedName("notes") val notes: String? = null,
+    @SerializedName("gradingCompany") val gradingCompany: String? = null,
+    @SerializedName("grade") val grade: String? = null,
+    @SerializedName("certNumber") val certNumber: String? = null,
     @SerializedName("addedAt") val addedAt: Long = System.currentTimeMillis()
 )
 
