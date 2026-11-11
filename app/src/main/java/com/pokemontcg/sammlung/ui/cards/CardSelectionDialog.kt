@@ -6,6 +6,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -16,6 +17,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.ui.components.TcgImage
 import com.pokemontcg.sammlung.ui.sets.setLabelWithAbbreviation
@@ -24,6 +26,7 @@ import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.CardCondition
 import com.pokemontcg.sammlung.data.local.user.CardGrading
 import com.pokemontcg.sammlung.data.local.user.GradingCompany
+import com.pokemontcg.sammlung.data.local.user.MAX_GRADE_LENGTH
 import com.pokemontcg.sammlung.util.PriceFormatter
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -301,8 +304,15 @@ fun CardSelectionDialog(
                     ) {
                         OutlinedTextField(
                             value = grade,
-                            onValueChange = { grade = it.take(6) },
+                            // Slab notation only: digits plus a decimal separator
+                            // (dot or German comma); the sanitizer normalizes the rest.
+                            onValueChange = { input ->
+                                grade = input
+                                    .filter { it.isDigit() || it == '.' || it == ',' }
+                                    .take(MAX_GRADE_LENGTH)
+                            },
                             label = { Text(stringResource(R.string.ui_grading_grade)) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                             modifier = Modifier.weight(1f),
                             singleLine = true
                         )

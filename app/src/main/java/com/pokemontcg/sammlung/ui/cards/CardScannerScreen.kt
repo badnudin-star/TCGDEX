@@ -62,7 +62,9 @@ import com.google.mlkit.vision.text.chinese.ChineseTextRecognizerOptions
 import com.google.mlkit.vision.text.japanese.JapaneseTextRecognizerOptions
 import com.google.mlkit.vision.text.korean.KoreanTextRecognizerOptions
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 import java.util.Locale
 import java.util.concurrent.Executors
 import kotlin.math.roundToInt
@@ -183,19 +185,47 @@ fun CardScannerScreen(
         onDispose { recognizers.forEach { it.close() } }
     }
     // Fotoimport: gleiche OCR-Kette wie die Live-Kamera, nur als Standbild.
-    var galleryBusy by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    // Mirrors the camera analyzer: results that arrive after the user left the
+    // scanner are dropped instead of popping the match dialog on another screen.
+    val galleryDisposed = remember { AtomicBoolean(false) }
+    DisposableEffect(Unit) {
+        galleryDisposed.set(false)
+        onDispose { galleryDisposed.set(true) }
+    }
+    // Plain remember on purpose: remembered across process death, the flag would
+    // stay true forever and permanently disable the import button.
+    var galleryBusy by remember { mutableStateOf(false) }
     val galleryPicker = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri ->
-        galleryBusy = false
-        if (uri != null) {
+        if (uri == null) {
+            galleryBusy = false
+            return@rememberLauncherForActivityResult
+        }
+        // Busy stays set until the analysis finishes - a second tap cannot stack
+        // a second OCR run on top of the running one.
+        scope.launch {
+            // fromFilePath reads and decodes the image: plain file I/O that does
+            // not belong on the main thread.
+            val inputImage = withContext(Dispatchers.IO) {
+                runCatching { InputImage.fromFilePath(context, uri) }.getOrNull()
+            }
+            if (inputImage == null) {
+                galleryBusy = false
+                if (!galleryDisposed.get()) {
+                    detectedText = context.getString(R.string.scanner_gallery_error)
+                }
+                return@launch
+            }
             // A still image is a single, usually sharp sample - the multi-frame
             // submit gate of the live camera is not needed here.
             analyzeStillImage(
-                context = context,
-                uri = uri,
+                inputImage = inputImage,
                 recognizers = recognizers,
                 onResult = { rawText, cardNumber ->
+                    galleryBusy = false
+                    if (galleryDisposed.get()) return@analyzeStillImage
                     detectedText = rawText
                     if (!cardNumber.isNullOrBlank()) {
                         onCardDetected(cardNumber, rawText)
@@ -203,7 +233,12 @@ fun CardScannerScreen(
                         onCardDetected(null, rawText)
                     }
                 },
-                onUnreadable = { message -> detectedText = message }
+                onUnreadable = {
+                    galleryBusy = false
+                    if (!galleryDisposed.get()) {
+                        detectedText = context.getString(R.string.scanner_gallery_no_card)
+                    }
+                }
             )
         }
     }
@@ -454,24 +489,17 @@ private fun sizeOrderedLines(text: com.google.mlkit.vision.text.Text): List<Stri
  * with the Latin one so number and name clues both survive.
  */
 internal fun analyzeStillImage(
-    context: android.content.Context,
-    uri: Uri,
+    inputImage: InputImage,
     recognizers: List<com.google.mlkit.vision.text.TextRecognizer>,
     onResult: (rawText: String, cardNumber: String?) -> Unit,
-    onUnreadable: (message: String) -> Unit
+    onUnreadable: () -> Unit
 ) {
-    val inputImage = try {
-        InputImage.fromFilePath(context, uri)
-    } catch (_: Exception) {
-        onUnreadable(context.getString(R.string.scanner_gallery_error))
-        return
-    }
     val scriptResults = mutableListOf<com.google.mlkit.vision.text.Text>()
 
     fun merged(primary: com.google.mlkit.vision.text.Text?, secondary: com.google.mlkit.vision.text.Text?) {
         val rawText = listOfNotNull(primary?.text, secondary?.text).joinToString("\n")
         if (rawText.isBlank()) {
-            onUnreadable(context.getString(R.string.scanner_gallery_no_card))
+            onUnreadable()
             return
         }
         // Like the live camera: name-search tokens come from size-ordered lines

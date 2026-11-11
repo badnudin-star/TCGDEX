@@ -282,13 +282,17 @@ fun PokemonDetailScreen(
                                     style = MaterialTheme.typography.bodySmall
                                 )
                                 if (showEnglishNames) {
-                                    englishNameFor(primaryCard, cards)?.let { englishName ->
-                                        Text(
-                                            stringResource(R.string.ui_english_name_hint, englishName),
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
+                                    englishNameFor(primaryCard, cards)
+                                        // Skip when the owned print already IS the English
+                                        // one - the line would just duplicate the name.
+                                        ?.takeIf { it != primaryCard.name }
+                                        ?.let { englishName ->
+                                            Text(
+                                                stringResource(R.string.ui_english_name_hint, englishName),
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
                                 }
                                 primaryUserCard?.takeIf { !it.gradingCompany.isNullOrBlank() }?.let { graded ->
                                     Text(

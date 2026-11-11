@@ -157,18 +157,46 @@ class UserCardDetailsSanitizerTest {
     }
 
     @Test
-    fun gradeAndCertNumberAreLengthCapped() {
+    fun certNumberIsLengthCapped() {
         val sanitized = sanitize(
             grading = CardGrading(
                 gradingCompany = "PSA",
-                grade = "1234567",
+                grade = "10",
                 certNumber = "1234567890123456789012345"
             )
         )
 
-        assertEquals(6, sanitized.grade?.length)
-        assertEquals("123456", sanitized.grade)
         assertEquals(24, sanitized.certNumber?.length)
+    }
+
+    @Test
+    fun gradeMustMatchSlabNotation() {
+        // Whole numbers 1-10 and half grades in .5 steps are the only notations
+        // printed on PSA/CGC/BGS slab labels.
+        for (valid in listOf("10", "9.5", "9", "1", "5.5")) {
+            assertEquals(valid, sanitize(grading = CardGrading("PSA", valid)).grade)
+        }
+        for (invalid in listOf("0", "11", "9.75", "10.5", "abc", "9.", "1234567", "")) {
+            assertNull(invalid, sanitize(grading = CardGrading("PSA", invalid)).grade)
+        }
+    }
+
+    @Test
+    fun germanCommaGradeIsNormalizedToDot() {
+        assertEquals("9.5", sanitize(grading = CardGrading("CGC", "9,5")).grade)
+        // A dangling comma is not a grade - it is dropped, not "repaired" to 9.
+        assertNull(sanitize(grading = CardGrading("CGC", "9,")).grade)
+    }
+
+    @Test
+    fun invalidGradeKeepsCompanyAndCertNumber() {
+        val sanitized = sanitize(
+            grading = CardGrading(gradingCompany = "BGS", grade = "sehr gut", certNumber = "22-1")
+        )
+
+        assertEquals("BGS", sanitized.gradingCompany)
+        assertNull(sanitized.grade)
+        assertEquals("22-1", sanitized.certNumber)
     }
 
     @Test
