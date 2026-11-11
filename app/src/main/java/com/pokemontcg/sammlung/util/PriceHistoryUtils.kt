@@ -27,7 +27,14 @@ fun buildValueSeries(
         elapsedDays + 1
     }
 
+    // Sorted once per card. A moving index walks the days from oldest to newest, so every
+    // price point is visited at most once - the previous per-day filter rescanned the whole
+    // history of every card for every chart day, which stalled the main thread on large
+    // collections (O(days x cards x points)).
     val historyByCard = history.groupBy { it.cardId }
+        .mapValues { (_, points) -> points.sortedBy { it.timestamp } }
+    val nextIndexByCard = HashMap<String, Int>(quantities.size)
+
     val points = mutableListOf<ValuePoint>()
 
     for (dayIndex in (effectiveDays - 1) downTo 0) {
@@ -40,10 +47,16 @@ fun buildValueSeries(
             // Only measurements taken at or before this day count. A card that was first recorded
             // later contributes nothing here; it must not be projected backwards, because that
             // invents a value for a day nobody ever measured (bug review 2026-11-07, finding E).
-            val pointBeforeDay = cardHistory.filter { it.timestamp <= dayEndTs }.maxByOrNull { it.timestamp }
-
-            if (pointBeforeDay != null) {
-                dayTotal += pointBeforeDay.marketPrice * qty
+            var idx = nextIndexByCard[cardId] ?: 0
+            while (idx < cardHistory.size && cardHistory[idx].timestamp <= dayEndTs) idx++
+            nextIndexByCard[cardId] = idx
+            if (idx > 0) {
+                // Among points sharing the newest timestamp the previous
+                // filter + maxByOrNull kept the first one - mirror that exactly.
+                var latest = idx - 1
+                val latestTs = cardHistory[latest].timestamp
+                while (latest > 0 && cardHistory[latest - 1].timestamp == latestTs) latest--
+                dayTotal += cardHistory[latest].marketPrice * qty
                 measured = true
             }
         }

@@ -65,6 +65,21 @@ class PriceHistoryAndAlertTest {
     }
 
     @Test
+    fun testBuildValueSeriesUsesFirstPointOfDuplicateTimestamps() {
+        // Two points in the same millisecond: the first one wins, exactly like the
+        // filter + maxByOrNull semantics the series was originally built with.
+        val duplicateTs = now - oneDayMs
+        val history = listOf(
+            PriceHistoryEntity(id = 1, cardId = "card1", marketPrice = 10.0, timestamp = duplicateTs),
+            PriceHistoryEntity(id = 2, cardId = "card1", marketPrice = 99.0, timestamp = duplicateTs)
+        )
+
+        val series = buildValueSeries(history, mapOf("card1" to 1), rangeDays = 3, now = now)
+
+        assertTrue(series.all { it.totalValue == 10.0 })
+    }
+
+    @Test
     fun testBuildValueSeriesDoesNotProjectTheFirstPriceBackwards() {
         val history = listOf(point(1, "new-card", 7.0, 2))
 
