@@ -426,6 +426,47 @@ class CollectionExporterTest {
     }
 
     @Test
+    fun testMergeNormalizesInvalidImportedGrading() {
+        val existing = UserCardEntityV2(
+            cardId = "card1", pokemonId = "1", pokemonDexId = 1, language = "de",
+            quantity = 2, category = "COMMON",
+            gradingCompany = "PSA", grade = "10", certNumber = "84390123"
+        )
+        // Unknown grader and a free-text grade: both must not reach the database.
+        val junkItem = ExportedUserCardItem(
+            cardId = "card1", language = "de", quantity = 3, category = "COMMON", pokemonDexId = 1,
+            gradingCompany = "ACE", grade = "sehr gut", certNumber = "9999"
+        )
+
+        val overwritten = CollectionExporter.mergeExistingCard(existing, junkItem, ExportMergeStrategy.OVERWRITE_EXISTING, false)!!
+        assertEquals("PSA", overwritten.gradingCompany)
+        assertEquals("10", overwritten.grade)
+        assertEquals("84390123", overwritten.certNumber)
+
+        val merged = CollectionExporter.mergeExistingCard(existing, junkItem, ExportMergeStrategy.MERGE_ADD, false)!!
+        assertEquals("PSA", merged.gradingCompany)
+        assertEquals("10", merged.grade)
+    }
+
+    @Test
+    fun testMergeNormalizesImportedGradeNotation() {
+        val existing = UserCardEntityV2(
+            cardId = "card1", pokemonId = "1", pokemonDexId = 1, language = "de",
+            quantity = 2, category = "COMMON"
+        )
+        val commaItem = ExportedUserCardItem(
+            cardId = "card1", language = "de", quantity = 1, category = "COMMON", pokemonDexId = 1,
+            gradingCompany = "CGC", grade = "9,5", certNumber = "22-1234567"
+        )
+
+        val overwritten = CollectionExporter.mergeExistingCard(existing, commaItem, ExportMergeStrategy.OVERWRITE_EXISTING, false)!!
+
+        assertEquals("CGC", overwritten.gradingCompany)
+        assertEquals("9.5", overwritten.grade)
+        assertEquals("22-1234567", overwritten.certNumber)
+    }
+
+    @Test
     fun testJsonWithoutWishlistDefaultsToEmptyList() {
         val json = """{"schemaVersion":2,"exportedAt":"2026-01-01T00:00:00Z","appVersion":"2.0.0","items":[]}"""
 

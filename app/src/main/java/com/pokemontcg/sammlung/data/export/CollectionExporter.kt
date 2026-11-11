@@ -12,6 +12,8 @@ import com.pokemontcg.sammlung.data.local.user.UserDatabase
 import com.pokemontcg.sammlung.data.local.user.WishlistEntity
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.local.user.CardCondition
+import com.pokemontcg.sammlung.data.local.user.CardGrading
+import com.pokemontcg.sammlung.data.local.user.normalizeGrading
 import com.pokemontcg.sammlung.util.AppLogger
 import java.time.Instant
 import java.time.format.DateTimeFormatter
@@ -410,6 +412,9 @@ object CollectionExporter {
                     }
                 }
             } else {
+                val importedGrading = normalizeGrading(
+                    CardGrading(item.gradingCompany, item.grade, item.certNumber)
+                )
                 val newEntity = UserCardEntityV2(
                     cardId = item.cardId,
                     // Detail screens, the scanner and the Pokédex progress count all expect the
@@ -420,9 +425,9 @@ object CollectionExporter {
                     quantity = item.quantity.coerceAtLeast(1),
                     condition = item.condition,
                     notes = item.notes,
-                    gradingCompany = item.gradingCompany,
-                    grade = item.grade,
-                    certNumber = item.certNumber,
+                    gradingCompany = importedGrading.gradingCompany,
+                    grade = importedGrading.grade,
+                    certNumber = importedGrading.certNumber,
                     category = if (item.category.isNotBlank()) item.category else "NONE",
                     isPrimary = isPrimaryEffective,
                     addedAt = item.addedAt
@@ -490,27 +495,34 @@ object CollectionExporter {
         item: ExportedUserCardItem,
         strategy: ExportMergeStrategy,
         isPrimaryEffective: Boolean
-    ): UserCardEntityV2? = when (strategy) {
+    ): UserCardEntityV2? {
+        // Hand-edited files must not smuggle unknown graders or bogus grade
+        // notations into the database - the same rules as the edit dialog apply.
+        val importedGrading = normalizeGrading(
+            CardGrading(item.gradingCompany, item.grade, item.certNumber)
+        )
+        return when (strategy) {
         ExportMergeStrategy.SKIP_EXISTING -> null
         ExportMergeStrategy.OVERWRITE_EXISTING -> existing.copy(
             quantity = item.quantity.coerceAtLeast(1),
             condition = item.condition ?: existing.condition,
             category = item.category.ifBlank { existing.category },
             notes = item.notes ?: existing.notes,
-            gradingCompany = item.gradingCompany ?: existing.gradingCompany,
-            grade = item.grade ?: existing.grade,
-            certNumber = item.certNumber ?: existing.certNumber,
+            gradingCompany = importedGrading.gradingCompany ?: existing.gradingCompany,
+            grade = importedGrading.grade ?: existing.grade,
+            certNumber = importedGrading.certNumber ?: existing.certNumber,
             isPrimary = isPrimaryEffective
         )
         ExportMergeStrategy.MERGE_ADD -> existing.copy(
             quantity = existing.quantity + item.quantity,
             condition = item.condition ?: existing.condition,
             notes = item.notes ?: existing.notes,
-            gradingCompany = item.gradingCompany ?: existing.gradingCompany,
-            grade = item.grade ?: existing.grade,
-            certNumber = item.certNumber ?: existing.certNumber,
+            gradingCompany = importedGrading.gradingCompany ?: existing.gradingCompany,
+            grade = importedGrading.grade ?: existing.grade,
+            certNumber = importedGrading.certNumber ?: existing.certNumber,
             isPrimary = isPrimaryEffective || existing.isPrimary
         )
+        }
     }
 
     internal fun shouldKeepImportedPrimary(
