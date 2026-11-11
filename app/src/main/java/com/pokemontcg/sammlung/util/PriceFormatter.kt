@@ -15,7 +15,16 @@ data class PriceLabels(
 
 object PriceFormatter {
 
-    private val decimalFormat = DecimalFormat("#,##0.00", DecimalFormatSymbols(Locale.GERMANY))
+    // DecimalFormat is not thread-safe, and this formatter is shared between the UI
+    // (main thread) and the nightly worker (PriceAlertManager on Dispatchers.IO).
+    // A single shared instance could corrupt its internal state and produce garbage
+    // prices or crash - so every thread gets its own.
+    private val decimalFormat = object : ThreadLocal<DecimalFormat>() {
+        override fun initialValue(): DecimalFormat =
+            DecimalFormat("#,##0.00", DecimalFormatSymbols(Locale.GERMANY))
+    }
+
+    private fun formatAmount(price: Double): String = decimalFormat.get()!!.format(price)
 
     fun labels(context: Context): PriceLabels = PriceLabels(
         noPrice = context.getString(R.string.price_no_price),
@@ -32,7 +41,7 @@ object PriceFormatter {
         if (price == null || price <= 0.0) {
             return labels.noPrice
         }
-        val formattedPrice = "${decimalFormat.format(price)} €"
+        val formattedPrice = "${formatAmount(price)} €"
         return when {
             !dateString.isNullOrBlank() ->
                 "$formattedPrice · ${labels.sourceName} · ${labels.priceType} · ${labels.dateLabel} $dateString"
@@ -62,7 +71,7 @@ object PriceFormatter {
         if (price == null || price <= 0.0) {
             return noPriceText
         }
-        return "${decimalFormat.format(price)} €"
+        return "${formatAmount(price)} €"
     }
 
     fun formatPriceShort(context: Context, price: Double?): String =
