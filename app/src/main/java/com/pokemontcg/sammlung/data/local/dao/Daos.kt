@@ -155,6 +155,9 @@ interface CardPokemonDao {
 
     @Query("DELETE FROM card_pokemon")
     suspend fun deleteAll()
+
+    @Query("SELECT dexId FROM card_pokemon WHERE cardId = :cardId ORDER BY dexId ASC")
+    suspend fun getDexIdsForCard(cardId: String): List<Int>
 }
 
 @Dao
@@ -164,6 +167,12 @@ interface PokemonNameDao {
 
     @Query("SELECT dexId FROM pokemon_names WHERE language = :language AND name = :name LIMIT 1")
     suspend fun findDexIdByName(language: String, name: String): Int?
+
+    @Query("SELECT dexId FROM pokemon_names WHERE LOWER(name) = LOWER(:name) LIMIT 1")
+    suspend fun findDexIdByNameCaseInsensitive(name: String): Int?
+
+    @Query("SELECT dexId FROM pokemon_names WHERE language = :language AND LOWER(name) = LOWER(:name) LIMIT 1")
+    suspend fun findDexIdByNameAndLanguageCaseInsensitive(language: String, name: String): Int?
 
     @Query("SELECT * FROM pokemon_names")
     fun getAllPokemonNames(): Flow<List<PokemonNameEntity>>
