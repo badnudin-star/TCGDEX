@@ -23,6 +23,7 @@ import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.model.MergedCatalogCard
 import com.pokemontcg.sammlung.data.model.RarityGrouper
+import com.pokemontcg.sammlung.data.model.RarityGroupLocalization
 import com.pokemontcg.sammlung.data.model.rawCardId
 import com.pokemontcg.sammlung.ui.components.CardImageDialog
 import com.pokemontcg.sammlung.ui.components.TcgImage
@@ -282,7 +283,7 @@ private fun SetCardRow(
                     )
                 }
                 if (rarityGroup != "None") {
-                    Text(rarityGroup, style = MaterialTheme.typography.labelSmall)
+                    Text(RarityGroupLocalization.localizedLabel(rarityGroup), style = MaterialTheme.typography.labelSmall)
                 }
                 if (card.languages.size > 1) {
                     Text(

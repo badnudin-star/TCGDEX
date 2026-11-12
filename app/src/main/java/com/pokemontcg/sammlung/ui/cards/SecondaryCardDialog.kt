@@ -28,6 +28,7 @@ import com.pokemontcg.sammlung.data.local.user.UserCardEntityV2
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 import com.pokemontcg.sammlung.data.model.MergedCatalogCard
 import com.pokemontcg.sammlung.data.model.RarityGrouper
+import com.pokemontcg.sammlung.data.model.RarityGroupLocalization
 import com.pokemontcg.sammlung.data.model.filterMerged
 import com.pokemontcg.sammlung.util.PriceFormatter
 
@@ -89,7 +90,7 @@ fun SecondaryCardDialog(
                                         if (rarityGroup in selectedRarityGroups) selectedRarityGroups - rarityGroup
                                         else selectedRarityGroups + rarityGroup
                                 },
-                                label = { Text(rarityGroup) }
+                                label = { Text(RarityGroupLocalization.localizedLabel(rarityGroup)) }
                             )
                         }
                         if (selectedRarityGroups.isNotEmpty()) {
@@ -176,7 +177,7 @@ fun SecondaryCardDialog(
                                             stringResource(
                                                 R.string.ui_card_number_rarity,
                                                 representative.number,
-                                                if (rarityGroup == "None") stringResource(R.string.ui_keine_oder_noch_ohne_) else rarityGroup
+                                                if (rarityGroup == "None") stringResource(R.string.ui_keine_oder_noch_ohne_) else RarityGroupLocalization.localizedLabel(rarityGroup)
                                             ),
                                             style = MaterialTheme.typography.labelSmall
                                         )

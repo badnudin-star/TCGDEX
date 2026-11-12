@@ -262,6 +262,15 @@
     <string name="wishlist_search_max_price_hint">Nur Karten mit Marktpreis bis zu diesem Wert. Leer lassen für alle Preise.</string>
     <string name="wishlist_search_rarity_title">Seltenheit (Mehrfachauswahl)</string>
     <string name="wishlist_search_rarity_clear">Auswahl löschen</string>
+    <!-- Canonical rarity groups – German UI labels for the canonical English keys -->
+    <string name="rarity_group_none">Keine</string>
+    <string name="rarity_group_common">Häufig</string>
+    <string name="rarity_group_uncommon">Ungewöhnlich</string>
+    <string name="rarity_group_rare">Selten</string>
+    <string name="rarity_group_holo_rare">Holo Selten</string>
+    <string name="rarity_group_ultra_rare">Ultra Selten</string>
+    <string name="rarity_group_illustration_rare">Illustration Selten</string>
+    <string name="rarity_group_promo">Promo</string>
     <string name="wishlist_search_result_count">%1$d Karten gefunden</string>
     <string name="wishlist_search_excluded_fullart">%1$d Pokémon ausgeblendet, weil sie bereits als Full Art markiert sind</string>
     <string name="wishlist_search_no_results">Keine Karten für diese Filter gefunden.</string>
@@ -444,6 +453,8 @@
     <string name="ui_scanner_primary_switch_text">%1$s wurde als weitere Karte eingetragen. Soll sie die aktuelle Lieblingskarte %2$s ersetzen? Die ersetzte Karte bleibt als weitere Karte in der Sammlung.</string>
     <string name="ui_scanner_primary_switch_confirm">Ersetzen</string>
     <string name="ui_scanner_primary_switch_keep">Behalten</string>
+    <string name="ui_scanner_multi_pokemon_title">Pokémon auswählen</string>
+    <string name="ui_scanner_multi_pokemon_text">Diese Karte zeigt mehrere Pokémon. Wähle, für welches du sie hinzufügen möchtest.</string>
 
     <!-- T13: user-visible texts moved out of Kotlin sources -->
     <string name="diag_integrity_ok">✓ Beide Datenbanken sind intakt. Unzugeordnet: %1$d</string>

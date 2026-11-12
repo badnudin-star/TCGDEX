@@ -14,6 +14,7 @@ import com.pokemontcg.sammlung.ui.cards.extractOcrSearchTokens
 import com.pokemontcg.sammlung.ui.cards.foldOcrAccents
 import com.pokemontcg.sammlung.ui.cards.splitPrefixedNumber
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 
 class CatalogRepository(private val db: AppDatabase) {
@@ -87,6 +88,23 @@ class CatalogRepository(private val db: AppDatabase) {
 
     suspend fun getPokemonByDexId(dexId: Int): PokemonEntity? =
         db.pokemonDao().getPokemonByDexId(dexId)
+
+    suspend fun getDexIdsForCard(cardId: String): List<Int> =
+        db.cardPokemonDao().getDexIdsForCard(cardId)
+
+    suspend fun findDexIdByName(language: String, name: String): Int? =
+        db.pokemonNameDao().findDexIdByName(language, name)
+
+    suspend fun findDexIdByNameCaseInsensitive(name: String): Int? =
+        db.pokemonNameDao().findDexIdByNameCaseInsensitive(name)
+
+    suspend fun getAllPokemonNamesOnce(): List<PokemonNameEntity> {
+        return try {
+            db.pokemonNameDao().getAllPokemonNames().first()
+        } catch (_: Exception) {
+            emptyList()
+        }
+    }
 
     suspend fun getCardsByIds(cardIds: List<String>): List<CardEntity> =
         if (cardIds.isEmpty()) emptyList() else db.cardDao().getCardsByIds(cardIds)

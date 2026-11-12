@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.pokemontcg.sammlung.data.local.entities.CardEntity
 import com.pokemontcg.sammlung.data.model.RarityGrouper
+import com.pokemontcg.sammlung.data.model.RarityGroupLocalization
 import com.pokemontcg.sammlung.data.local.user.CardCategory
 
 /**
@@ -52,12 +53,13 @@ fun CardCategoryDialog(
                     style = MaterialTheme.typography.bodySmall
                 )
                 val rarityGroup = RarityGrouper.canonical(card.rarity)
+                val rarityLabel = if (rarityGroup == "None") stringResource(R.string.ui_keine_oder_noch_ohne_) else RarityGroupLocalization.localizedLabel(rarityGroup)
                 Text(
                     stringResource(
                         R.string.category_dialog_card,
                         card.setName,
                         card.number,
-                        if (rarityGroup == "None") stringResource(R.string.ui_keine_oder_noch_ohne_) else rarityGroup
+                        rarityLabel
                     ),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant

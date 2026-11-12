@@ -45,6 +45,7 @@ import com.pokemontcg.sammlung.data.model.MergedCatalogCard
 import com.pokemontcg.sammlung.data.model.PokemonCardGroup
 import com.pokemontcg.sammlung.data.model.GenerationModel
 import com.pokemontcg.sammlung.data.model.RarityGrouper
+import com.pokemontcg.sammlung.data.model.RarityGroupLocalization
 import com.pokemontcg.sammlung.data.export.WishlistTextExporter
 import com.pokemontcg.sammlung.ui.components.CardImageDialog
 import com.pokemontcg.sammlung.ui.components.TcgImage
@@ -676,7 +677,7 @@ private fun WishlistDatabaseTab(
                         FilterChip(
                             selected = rarityGroup in params.rarities,
                             onClick = { onToggleRarity(rarityGroup) },
-                            label = { Text(rarityGroup) }
+                            label = { Text(RarityGroupLocalization.localizedLabel(rarityGroup)) }
                         )
                     }
                     if (params.rarities.isNotEmpty()) {
@@ -843,7 +844,7 @@ private fun WishlistSearchCardRow(
                     style = MaterialTheme.typography.bodySmall
                 )
                 if (rarityGroup != "None") {
-                    Text(rarityGroup, style = MaterialTheme.typography.labelSmall)
+                    Text(RarityGroupLocalization.localizedLabel(rarityGroup), style = MaterialTheme.typography.labelSmall)
                 }
                 if (card.languages.isNotEmpty()) {
                     Text(
