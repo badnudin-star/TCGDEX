@@ -19,6 +19,10 @@ val catalogManifestUrl = providers.gradleProperty("catalogManifestUrl")
     .orElse("https://github.com/badnudin-star/TCGDEX/releases/download/catalog-latest/manifest.json")
     .get()
 
+val appUpdateManifestUrl = providers.gradleProperty("appUpdateManifestUrl")
+    .orElse("https://github.com/badnudin-star/TCGDEX/releases/download/app-latest/app-manifest.json")
+    .get()
+
 android {
     namespace = "com.pokemontcg.sammlung"
     compileSdk = 35
@@ -27,14 +31,19 @@ android {
         applicationId = "com.pokemontcg.sammlung"
         minSdk = 26
         targetSdk = 35
-        versionCode = 15
-        versionName = "2.0.0"
+        versionCode = 16
+        versionName = "2.1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField(
             "String",
             "CATALOG_MANIFEST_URL",
             "\"${catalogManifestUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
+        )
+        buildConfigField(
+            "String",
+            "APP_UPDATE_MANIFEST_URL",
+            "\"${appUpdateManifestUrl.replace("\\", "\\\\").replace("\"", "\\\"")}\""
         )
     }
 

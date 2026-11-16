@@ -19,6 +19,26 @@
     <string name="settings_wifi_only_desc">Spart mobile Daten beim Katalog-Sync</string>
     <string name="settings_update_time_fixed">Katalog und Preise werden täglich um 03:00 Uhr aktualisiert.</string>
     <string name="settings_btn_update_now">Jetzt aktualisieren</string>
+    <string name="settings_section_app_update">App-Update</string>
+    <string name="settings_app_update_desc">Direkt aus der App aktualisieren — ohne die APK manuell zu laden.</string>
+    <string name="settings_app_version_current">Installiert: v%1$s (%2$d)</string>
+    <string name="settings_app_update_check">Auf Update prüfen</string>
+    <string name="settings_app_update_checking">Suche nach Update …</string>
+    <string name="settings_app_update_available">Update verfügbar: v%1$s (%2$d)</string>
+    <string name="settings_app_update_up_to_date">App ist aktuell (v%1$s)</string>
+    <string name="settings_app_update_error">Fehler: %1$s</string>
+    <string name="settings_app_update_download">Herunterladen &amp; Installieren</string>
+    <string name="settings_app_update_downloading">Download läuft …</string>
+    <string name="settings_app_update_download_complete">Download abgeschlossen — Installer wird geöffnet …</string>
+    <string name="settings_app_update_install_permission_required">Für Updates muss „Unbekannte Apps installieren“ erlaubt werden.</string>
+    <string name="settings_app_update_open_settings">Einstellungen öffnen</string>
+    <string name="settings_app_update_install">Installation starten</string>
+    <string name="settings_app_update_no_url">Keine APK-URL im Manifest</string>
+    <string name="settings_app_update_downloading_hint">Download läuft — Benachrichtigung zeigt Fortschritt. Bei Abschluss öffnet sich der Installer.</string>
+    <string name="settings_app_update_apk_not_found">APK nicht gefunden</string>
+    <string name="settings_app_update_installer_failed">Installer konnte nicht geöffnet werden</string>
+    <string name="settings_app_update_source">Quelle: %1$s</string>
+
     <string name="settings_section_display">Anzeige &amp; Katalog</string>
     <string name="settings_language">Bevorzugte Katalogsprache:</string>
     <string name="settings_currency_source">Währung &amp; Quelle: Euro (Cardmarket)</string>
