@@ -10,6 +10,7 @@ import com.pokemontcg.sammlung.data.local.entities.PokemonNameEntity
 import com.pokemontcg.sammlung.data.local.entities.SetEntity
 import com.pokemontcg.sammlung.data.local.entities.SourceAuditEntity
 import com.pokemontcg.sammlung.data.model.batchCardIds
+import com.pokemontcg.sammlung.ui.cards.ImageHash
 import com.pokemontcg.sammlung.ui.cards.extractOcrSearchTokens
 import com.pokemontcg.sammlung.ui.cards.foldOcrAccents
 import com.pokemontcg.sammlung.ui.cards.splitPrefixedNumber
@@ -153,6 +154,43 @@ class CatalogRepository(private val db: AppDatabase) {
         maxPrice = maxPrice?.takeIf { it.isFinite() && it > 0.0 },
         limit = limit
     )
+
+    // ---- Image-hash fallback (Variante 1) ----
+
+    /**
+     * Finds cards whose `imageHash` is within [maxDistance] bits of [queryHash].
+     * Pure in-Kotlin scan: loads only id+hash rows, computes hamming distance,
+     * returns full entities for the closest candidates.
+     * Null/invalid hashes yield empty result without DB hit.
+     */
+    suspend fun findCardsByImageHash(
+        queryHash: String?,
+        maxDistance: Int = ImageHash.DEFAULT_MAX_DISTANCE,
+        limit: Int = 10
+    ): List<CardEntity> {
+        if (!ImageHash.isValidHash(queryHash)) return emptyList()
+        val normalizedQuery = queryHash!!.lowercase()
+        val rows = db.cardDao().getAllImageHashRows()
+        if (rows.isEmpty()) return emptyList()
+        val scored = rows.mapNotNull { row ->
+            val dist = ImageHash.hammingDistance(normalizedQuery, row.imageHash.lowercase())
+            if (dist <= maxDistance) row.id to dist else null
+        }.sortedBy { it.second }
+            .take(limit)
+            .map { it.first }
+        if (scored.isEmpty()) return emptyList()
+        val byId = db.cardDao().getCardsByIds(scored).associateBy { it.id }
+        // Preserve distance order.
+        return scored.mapNotNull { byId[it] }
+    }
+
+    suspend fun findCardsByImageHashExact(hash: String?, limit: Int = 10): List<CardEntity> {
+        if (!ImageHash.isValidHash(hash)) return emptyList()
+        return db.cardDao().getCardsByImageHashExact(hash!!.lowercase(), limit)
+    }
+
+    suspend fun getCardsWithImageHashCount(): Int =
+        db.cardDao().getAllImageHashRows().size
 
     private companion object {
         const val CATALOG_SEARCH_LIMIT = 400

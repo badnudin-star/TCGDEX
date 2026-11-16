@@ -11,6 +11,7 @@ import android.content.ContextWrapper
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.graphics.Matrix
 import android.net.Uri
 import android.provider.Settings
@@ -74,7 +75,7 @@ import java.util.concurrent.atomic.AtomicReference
 
 @Composable
 fun CardScannerScreen(
-    onCardDetected: (detectedCardNumber: String?, rawText: String) -> Unit,
+    onCardDetected: (detectedCardNumber: String?, rawText: String, imageHash: String?) -> Unit,
     onDismiss: () -> Unit,
     batchMode: Boolean = false,
     onBatchModeChange: (Boolean) -> Unit = {},
@@ -172,6 +173,9 @@ fun CardScannerScreen(
     // ROI mode (region of interest): only the area inside the guide frame is OCR-read.
     // Less surrounding card text means fewer false matches on the number line.
     var roiMode by rememberSaveable { mutableStateOf(false) }
+    // Image-hash fallback (Variante 1): when OCR yields no DB hit, the dHash of the
+    // camera crop is tried against the catalog's precomputed hashes.
+    var imageFallbackEnabled by rememberSaveable { mutableStateOf(true) }
     // Shared OCR models: the live camera analyzer and the gallery import use the
     // same clients, so the ML Kit models are loaded (and released) exactly once.
     val recognizers = remember {
@@ -212,6 +216,17 @@ fun CardScannerScreen(
             val inputImage = withContext(Dispatchers.IO) {
                 runCatching { InputImage.fromFilePath(context, uri) }.getOrNull()
             }
+            // For image-hash fallback also decode a bitmap (same file, reused for dHash).
+            val galleryHash = withContext(Dispatchers.IO) {
+                if (!imageFallbackEnabled) null else runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { stream ->
+                        val bmp = BitmapFactory.decodeStream(stream)
+                        val h = ImageHash.computeDHash(bmp)
+                        try { bmp?.recycle() } catch (_: Exception) {}
+                        h
+                    }
+                }.getOrNull()
+            }
             if (inputImage == null) {
                 galleryBusy = false
                 if (!galleryDisposed.get()) {
@@ -229,9 +244,9 @@ fun CardScannerScreen(
                     if (galleryDisposed.get()) return@analyzeStillImage
                     detectedText = rawText
                     if (!cardNumber.isNullOrBlank()) {
-                        onCardDetected(cardNumber, rawText)
+                        onCardDetected(cardNumber, rawText, galleryHash)
                     } else {
-                        onCardDetected(null, rawText)
+                        onCardDetected(null, rawText, galleryHash)
                     }
                 },
                 onUnreadable = {
@@ -251,17 +266,17 @@ fun CardScannerScreen(
     Box(modifier = Modifier.fillMaxSize()) {
         key(cameraRetryKey) {
             CameraPreview(
-                onTextRecognized = { rawText, cardNumberMatch ->
+                onTextRecognized = { rawText, cardNumberMatch, imageHash ->
                     detectedText = rawText
                     // A readable number is a strong signal and is confirmed over two
                     // frames; the fuzzy name fallback is noisier and needs three
                     // identical frames in a row before it triggers a catalog search.
                     if (!cardNumberMatch.isNullOrBlank()) {
                         if (submitGate.submitNumber(cardNumberMatch)) {
-                            onCardDetected(cardNumberMatch, rawText)
+                            onCardDetected(cardNumberMatch, rawText, imageHash)
                         }
                     } else if (submitGate.submitNameTokens(extractOcrSearchTokens(rawText, limit = 4))) {
-                        onCardDetected(null, rawText)
+                        onCardDetected(null, rawText, imageHash)
                     }
                 },
                 onCameraError = { cameraError = true },
@@ -270,7 +285,8 @@ fun CardScannerScreen(
                 recognizers = recognizers,
                 roiEnabled = roiMode,
                 roiFrameWidthPx = roiFrameWidthPx,
-                roiFrameHeightPx = roiFrameHeightPx
+                roiFrameHeightPx = roiFrameHeightPx,
+                imageFallbackEnabled = imageFallbackEnabled
             )
         }
 
@@ -408,6 +424,11 @@ fun CardScannerScreen(
                         selected = batchMode,
                         onClick = { onBatchModeChange(!batchMode) },
                         label = { Text(stringResource(R.string.scanner_mode_batch)) }
+                    )
+                    FilterChip(
+                        selected = imageFallbackEnabled,
+                        onClick = { imageFallbackEnabled = !imageFallbackEnabled },
+                        label = { Text(stringResource(R.string.scanner_mode_image)) }
                     )
                 }
                 // Gallery import: a photo runs through the same OCR chain as the
@@ -549,14 +570,15 @@ internal fun analyzeStillImage(
 @SuppressLint("UnsafeOptInUsageError")
 @Composable
 private fun CameraPreview(
-    onTextRecognized: (rawText: String, cardNumberMatch: String?) -> Unit,
+    onTextRecognized: (rawText: String, cardNumberMatch: String?, imageHash: String?) -> Unit,
     onCameraError: () -> Unit,
     zoomRatio: Float,
     torchOn: Boolean,
     recognizers: List<com.google.mlkit.vision.text.TextRecognizer>,
     roiEnabled: Boolean = false,
     roiFrameWidthPx: Int = 0,
-    roiFrameHeightPx: Int = 0
+    roiFrameHeightPx: Int = 0,
+    imageFallbackEnabled: Boolean = true
 ) {
     val currentOnCameraError by rememberUpdatedState(onCameraError)
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -664,6 +686,9 @@ private fun CameraPreview(
                     }
 
                     try {
+                        // Bitmap for image-hash fallback (dHash) – same crop as OCR when ROI is on.
+                        var hashBitmap: Bitmap? = null
+                        var hashOwnerUpright: Bitmap? = null
                         // ROI mode: convert the frame to an upright bitmap and crop it to the
                         // on-screen guide frame before OCR, so only that region is searched.
                         val inputImage = if (roiEnabled) {
@@ -675,6 +700,7 @@ private fun CameraPreview(
                             } else {
                                 bitmap
                             }
+                            hashOwnerUpright = upright
                             val previewSize = previewSizeState.value
                             val crop = computeRoiCropRect(
                                 frameWidthPx = roiFrameWidthPx,
@@ -684,19 +710,46 @@ private fun CameraPreview(
                                 bitmapWidth = upright.width,
                                 bitmapHeight = upright.height
                             )
-                            if (crop.width >= upright.width && crop.height >= upright.height) {
+                            val cropped = if (crop.width >= upright.width && crop.height >= upright.height) {
+                                upright
+                            } else {
+                                Bitmap.createBitmap(upright, crop.left, crop.top, crop.width, crop.height)
+                            }
+                            hashBitmap = cropped
+                            if (cropped === upright) {
                                 InputImage.fromBitmap(upright, 0)
                             } else {
-                                InputImage.fromBitmap(
-                                    Bitmap.createBitmap(upright, crop.left, crop.top, crop.width, crop.height),
-                                    0
-                                )
+                                InputImage.fromBitmap(cropped, 0)
                             }
                         } else {
+                            if (imageFallbackEnabled) {
+                                try {
+                                    val bmp = imageProxy.toBitmap()
+                                    val rotation = imageProxy.imageInfo.rotationDegrees
+                                    val upright = if (rotation != 0) {
+                                        val m = Matrix().apply { postRotate(rotation.toFloat()) }
+                                        Bitmap.createBitmap(bmp, 0, 0, bmp.width, bmp.height, m, true)
+                                    } else bmp
+                                    hashBitmap = upright
+                                    hashOwnerUpright = upright
+                                    // bmp is separate when rotated; upright owns the data now
+                                } catch (_: Exception) {
+                                    hashBitmap = null
+                                }
+                            }
                             InputImage.fromMediaImage(
                                 mediaImage,
                                 imageProxy.imageInfo.rotationDegrees
                             )
+                        }
+                        val imageHash: String? = if (imageFallbackEnabled) {
+                            try { hashBitmap?.let { ImageHash.computeDHash(it) } } catch (_: Exception) { null }
+                        } else null
+                        // Non-ROI hash bitmap is not backing the InputImage (which uses mediaImage),
+                        // so it can be freed immediately after the hash is computed.
+                        if (!roiEnabled && hashBitmap != null) {
+                            try { hashBitmap.recycle() } catch (_: Exception) {}
+                            hashBitmap = null
                         }
 
                         // Emits exactly once per frame and always releases the gate + frame.
@@ -716,8 +769,19 @@ private fun CameraPreview(
                                 val rawText = listOfNotNull(primary?.text, secondary?.text)
                                     .joinToString("\n")
                                 val cardMatch = extractCardNumber(rawText)
-                                onTextRecognized(sizeOrderedText, cardMatch)
+                                onTextRecognized(sizeOrderedText, cardMatch, imageHash)
+                            } else if (!disposed.get()) {
+                                // Even when OCR yields nothing, the image hash can still be useful.
+                                // Forward an empty text + hash so the fallback can trigger.
+                                if (imageHash != null) {
+                                    onTextRecognized("", null, imageHash)
+                                }
                             }
+                            // ROI bitmaps back the InputImage; let ML Kit finish before any recycle.
+                            // Non-ROI was already recycled after the hash was computed.
+                            // GC will reclaim the ROI bitmaps; explicit recycle would risk use-after-free
+                            // while ML Kit still decodes the InputImage.
+
                             frameGate.release()
                             imageProxy.close()
                         }

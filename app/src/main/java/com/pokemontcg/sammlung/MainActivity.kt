@@ -50,7 +50,7 @@ import com.pokemontcg.sammlung.ui.cards.totalBatchCards
 import com.pokemontcg.sammlung.ui.cards.CardMatchCandidate
 import com.pokemontcg.sammlung.ui.cards.isCurrentScannerRequest
 import com.pokemontcg.sammlung.ui.cards.rankCardMatches
-import com.pokemontcg.sammlung.ui.cards.resolveScannerMatches
+import com.pokemontcg.sammlung.ui.cards.resolveScannerMatchesWithImageFallback
 import com.pokemontcg.sammlung.ui.detail.PokemonDetailScreen
 import com.pokemontcg.sammlung.ui.detail.PokemonDetailViewModel
 import com.pokemontcg.sammlung.ui.diagnostics.DiagnosticsScreen
@@ -276,7 +276,7 @@ class MainActivity : ComponentActivity() {
 
                         composable("scanner") {
                             CardScannerScreen(
-                                onCardDetected = { detectedNumber, rawOcrText ->
+                                onCardDetected = { detectedNumber, rawOcrText, imageHash ->
                                     // Bind this asynchronous lookup to the exact scanner entry that
                                     // started it, so a late result cannot reopen a dialog later.
                                     val scannerEntryId = navController.currentBackStackEntry?.id
@@ -287,11 +287,13 @@ class MainActivity : ComponentActivity() {
                                     selectedScannedCard = null
                                     scope.launch {
                                         val matches = runCatching {
-                                            resolveScannerMatches(
+                                            resolveScannerMatchesWithImageFallback(
                                                 detectedNumber = detectedNumber,
                                                 rawOcrText = rawOcrText,
+                                                imageHash = imageHash,
                                                 lookupByNumber = catalogRepo::getCardsByNumber,
-                                                lookupByOcrText = catalogRepo::getCardsByOcrText
+                                                lookupByOcrText = catalogRepo::getCardsByOcrText,
+                                                lookupByImageHash = { hash -> catalogRepo.findCardsByImageHash(hash) }
                                             )
                                         }.getOrElse { emptyList() }
                                         if (!isCurrentScannerRequest(

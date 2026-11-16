@@ -101,9 +101,9 @@ class CatalogImporter(
         preferencesRepository ?: AppPreferencesRepository(context)
     }
     private companion object {
-        // Must match AppDatabase schema 19.json; change with a Room schema migration.
-        const val EXPECTED_ROOM_IDENTITY_HASH = "30e035f98a85f4132fd9bce05c2e0b76"
-        const val CURRENT_CATALOG_SCHEMA_VERSION = 19
+        // Must match AppDatabase schema 20.json; change with a Room schema migration.
+        const val EXPECTED_ROOM_IDENTITY_HASH = "bbbe127128ded978f58309a8f22c0380"
+        const val CURRENT_CATALOG_SCHEMA_VERSION = 20
         const val MAX_MANIFEST_BYTES = 256 * 1024L
         const val MAX_CATALOG_BYTES = 512 * 1024 * 1024L
         private const val MAX_REDIRECTS = 5
