@@ -34,6 +34,10 @@
     <string name="settings_app_update_open_settings">Einstellungen öffnen</string>
     <string name="settings_app_update_install">Installation starten</string>
     <string name="settings_app_update_no_url">Keine APK-URL im Manifest</string>
+    <string name="settings_app_update_downloading_hint">Download läuft — Benachrichtigung zeigt Fortschritt. Bei Abschluss öffnet sich der Installer.</string>
+    <string name="settings_app_update_apk_not_found">APK nicht gefunden</string>
+    <string name="settings_app_update_installer_failed">Installer konnte nicht geöffnet werden</string>
+    <string name="settings_app_update_source">Quelle: %1$s</string>
 
     <string name="settings_section_display">Anzeige &amp; Katalog</string>
     <string name="settings_language">Bevorzugte Katalogsprache:</string>

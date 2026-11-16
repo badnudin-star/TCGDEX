@@ -74,7 +74,7 @@ fun AppUpdateSection() {
                 statusText = context.getString(R.string.settings_app_update_download_complete)
                 val ok = AppUpdateManager.triggerInstallFromDownloadId(context, completedId)
                 if (!ok) {
-                    Toast.makeText(context, "Installer konnte nicht geöffnet werden", Toast.LENGTH_LONG).show()
+                    Toast.makeText(context, context.getString(R.string.settings_app_update_installer_failed), Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -206,7 +206,7 @@ fun AppUpdateSection() {
                 if (isDownloading) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                     Text(
-                        "Download läuft — Benachrichtigung zeigt Fortschritt. Bei Abschluss öffnet sich der Installer.",
+                        stringResource(R.string.settings_app_update_downloading_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -225,7 +225,7 @@ fun AppUpdateSection() {
                             }
                             val ok = AppUpdateManager.triggerInstall(context, apkFile)
                             if (!ok) {
-                                Toast.makeText(context, "APK nicht gefunden", Toast.LENGTH_SHORT).show()
+                                Toast.makeText(context, context.getString(R.string.settings_app_update_apk_not_found), Toast.LENGTH_SHORT).show()
                             }
                         },
                         modifier = Modifier.fillMaxWidth()
@@ -237,7 +237,7 @@ fun AppUpdateSection() {
 
             // Debug info: manifest URL
             Text(
-                "Quelle: ${AppUpdateManager.manifestUrl}",
+                stringResource(R.string.settings_app_update_source, AppUpdateManager.manifestUrl),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
