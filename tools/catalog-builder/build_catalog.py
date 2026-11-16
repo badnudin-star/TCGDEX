@@ -24,7 +24,7 @@ from typing import Any, Callable
 import requests
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.."))
-SCHEMA_JSON_PATH = os.path.join(ROOT, "app/schemas/com.pokemontcg.sammlung.data.local.AppDatabase/19.json")
+SCHEMA_JSON_PATH = os.path.join(ROOT, "app/schemas/com.pokemontcg.sammlung.data.local.AppDatabase/20.json")
 OUTPUT_DIR = os.path.dirname(os.path.abspath(__file__))
 OUTPUT_DB_PATH = os.path.join(OUTPUT_DIR, "catalog.sqlite")
 OUTPUT_MANIFEST_PATH = os.path.join(OUTPUT_DIR, "manifest.json")
@@ -386,6 +386,84 @@ def apply_image_fallbacks(db: sqlite3.Connection) -> dict[str, int]:
     print(f"Image fallbacks: {stats['cardImagesFilled']} card image(s) copied across languages, "
           f"{stats['cardSetColumnsFilled']} card row(s) got set images/abbreviation from the sets table")
     return stats
+
+
+def compute_dhash_for_image(image_bytes: bytes) -> str | None:
+    """Compute 64-bit dHash (9×8 grayscale) as 16-char hex. Returns None on failure."""
+    try:
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(image_bytes))
+        # Ensure RGB for consistent grayscale conversion
+        if img.mode not in ("RGB", "L"):
+            img = img.convert("RGB")
+        gray = img.convert("L").resize((9, 8), Image.BILINEAR)
+        pixels = list(gray.getdata())  # 72 values row-major
+        bits = []
+        for y in range(8):
+            for x in range(8):
+                left = pixels[y * 9 + x]
+                right = pixels[y * 9 + x + 1]
+                bits.append('1' if left < right else '0')
+        bit_str = ''.join(bits)
+        return format(int(bit_str, 2), '016x')
+    except Exception as exc:
+        # Silent for transient image issues
+        return None
+
+
+def populate_image_hashes(db_path: str, max_workers: int = MAX_WORKERS, limit: int | None = None) -> int:
+    """Download card artwork and store perceptual hashes (Variante 1).
+
+    Only cards with a non-null imageUrl are considered. The same artwork
+    across languages shares the URL, so the hash is reused per unique URL
+    to avoid re-downloading.
+    """
+    import requests as req
+    from PIL import Image  # verify Pillow is available
+    import io
+
+    with sqlite3.connect(db_path) as db:
+        rows = db.execute("SELECT id, imageUrl FROM cards WHERE imageUrl IS NOT NULL AND imageUrl != ''").fetchall()
+    if not rows:
+        return 0
+    # Group by unique URL to deduplicate
+    url_to_ids: dict[str, list[str]] = {}
+    for card_id, url in rows:
+        url_to_ids.setdefault(url, []).append(card_id)
+    unique_urls = list(url_to_ids.keys())
+    if limit is not None:
+        unique_urls = unique_urls[:limit]
+    print(f"Image-hash: {len(unique_urls)} unique artwork URLs for {len(rows)} cards")
+
+    def fetch_and_hash(url: str) -> tuple[str, str | None]:
+        try:
+            resp = req.get(url, headers={"User-Agent": USER_AGENT}, timeout=(10, 20))
+            if resp.status_code != 200 or not resp.content:
+                return url, None
+            h = compute_dhash_for_image(resp.content)
+            return url, h
+        except Exception:
+            return url, None
+
+    url_hashes: dict[str, str | None] = {}
+    with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = {pool.submit(fetch_and_hash, url): url for url in unique_urls}
+        for fut in concurrent.futures.as_completed(futures):
+            url, h = fut.result()
+            url_hashes[url] = h
+
+    updated = 0
+    with sqlite3.connect(db_path) as db:
+        for url, h in url_hashes.items():
+            if h is None:
+                continue
+            for card_id in url_to_ids[url]:
+                db.execute("UPDATE cards SET imageHash=? WHERE id=?", (h, card_id))
+                updated += 1
+        db.commit()
+    print(f"Image-hash: {updated} card(s) got imageHash")
+    return updated
 
 
 def fetch_pokemon_names(*, fetcher: Callable[..., Any] = request_json) -> tuple[list[tuple], list[tuple]]:
@@ -1116,6 +1194,7 @@ def main() -> int:
     parser.add_argument("--output-dir", default=OUTPUT_DIR)
     parser.add_argument("--skip-bulbapedia", action="store_true", help="Skip optional serial set-list cross-check")
     parser.add_argument("--resume", action="store_true", help="Resume from catalog.sqlite and catalog-progress.json")
+    parser.add_argument("--compute-image-hashes", action="store_true", help="Compute perceptual dHash for card artwork (Variante 1, needs network for images)")
     args = parser.parse_args()
     output_dir = os.path.abspath(args.output_dir)
     os.makedirs(output_dir, exist_ok=True)
@@ -1165,6 +1244,11 @@ def main() -> int:
             return 2
 
         _normalize_pokemon_name_languages(stage_db)
+        if args.compute_image_hashes:
+            try:
+                populate_image_hashes(stage_db)
+            except Exception as exc:
+                print(f"Image-hash warning: {exc}")
         pre_fill_db = os.path.join(staging_dir, "pre-fill.sqlite")
         shutil.copy2(stage_db, pre_fill_db)
         try:

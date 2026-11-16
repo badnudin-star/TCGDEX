@@ -75,7 +75,9 @@ data class CardEntity(
     /** 0 = brief catalog item, 1 = full details loaded. */
     @ColumnInfo(defaultValue = "0") val detailLoaded: Int = 0,
     /** Official abbreviation of the card's set, for badges when setSymbolUrl is missing. */
-    val setAbbreviation: String? = null
+    val setAbbreviation: String? = null,
+    /** Perceptual dHash of the card artwork (16-char hex, 64-bit), for image-fallback scanning. Null when not computed. */
+    val imageHash: String? = null
 )
 
 @Entity(tableName = "last_update")

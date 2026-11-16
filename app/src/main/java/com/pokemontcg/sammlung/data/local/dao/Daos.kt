@@ -113,6 +113,20 @@ interface CardDao {
     @Query("SELECT DISTINCT rarity FROM cards WHERE rarity IS NOT NULL AND TRIM(rarity) <> '' ORDER BY rarity COLLATE NOCASE ASC")
     fun getAllRarities(): Flow<List<String>>
 
+    // ---- Image-hash fallback (Variante 1) ----
+
+    @Query("SELECT * FROM cards WHERE imageHash IS NOT NULL")
+    suspend fun getCardsWithImageHash(): List<CardEntity>
+
+    @Query("SELECT id, imageHash FROM cards WHERE imageHash IS NOT NULL")
+    suspend fun getAllImageHashRows(): List<CardImageHashRow>
+
+    @Query("SELECT * FROM cards WHERE imageHash = :hash LIMIT :limit")
+    suspend fun getCardsByImageHashExact(hash: String, limit: Int = 10): List<CardEntity>
+
+    @Query("UPDATE cards SET imageHash = :hash WHERE id = :cardId")
+    suspend fun updateCardImageHash(cardId: String, hash: String?)
+
     /**
      * Catalog search for the wishlist: rarity multi-select plus a price ceiling, already ordered
      * by National Pokédex id so the result can be grouped per Pokémon like the main screen.
@@ -193,6 +207,9 @@ data class SetLanguageRow(val setId: String, val language: String)
 
 /** One catalog search hit: the card plus the Pokédex id it is grouped under. */
 data class CardSearchRow(val cardId: String, val dexId: Int?)
+
+/** Lightweight row for image-hash fallback (Variante 1). */
+data class CardImageHashRow(val id: String, val imageHash: String)
 
 @Dao
 interface LastUpdateDao {

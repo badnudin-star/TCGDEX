@@ -435,7 +435,9 @@
     <!-- T??: scanner ROI mode and batch scan -->
     <string name="scanner_mode_roi">Nur Rahmen (ROI)</string>
     <string name="scanner_mode_batch">Batch-Scan</string>
+    <string name="scanner_mode_image">Bild-Fallback</string>
     <string name="scanner_roi_hint">Es wird nur der umrandete Bereich ausgelesen – weniger Fremdtext auf der Karte, präzisere Treffer.</string>
+    <string name="scanner_image_hint">Bei schlechtem Text nutzt der Scanner das Kartenbild (dHash) als Fallback.</string>
     <string name="scanner_batch_count">%1$d Karten gescannt</string>
     <string name="scanner_batch_last_added">Zuletzt: %1$s</string>
     <string name="scanner_batch_finish">Fertig</string>

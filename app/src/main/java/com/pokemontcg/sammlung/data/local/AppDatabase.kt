@@ -22,7 +22,7 @@ import com.pokemontcg.sammlung.data.local.entities.*
         PokemonNameEntity::class,
         SyncCheckpointEntity::class,
     ],
-    version = 19,
+    version = 20,
     exportSchema = true
 )
 @TypeConverters(CardCategoryConverter::class)
@@ -319,6 +319,17 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * Adds the perceptual image hash for the image-fallback scanner (Variante 1).
+         * 64-bit dHash stored as 16-char hex, nullable until the catalog is rebuilt
+         * with `--compute-image-hashes`.
+         */
+        val MIGRATION_19_20 = object : Migration(19, 20) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE cards ADD COLUMN imageHash TEXT")
+            }
+        }
+
         /** The exact migration chain used by production and instrumentation tests. */
         val ALL_MIGRATIONS: Array<Migration> = arrayOf(
             MIGRATION_6_7,
@@ -333,7 +344,8 @@ abstract class AppDatabase : RoomDatabase() {
             MIGRATION_15_16,
             MIGRATION_16_17,
             MIGRATION_17_18,
-            MIGRATION_18_19
+            MIGRATION_18_19,
+            MIGRATION_19_20
         )
 
         @Volatile private var INSTANCE: AppDatabase? = null
