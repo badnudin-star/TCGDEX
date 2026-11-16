@@ -48,9 +48,9 @@ jobs:
         run: |
           if [ -n "$KEYSTORE_B64" ]; then
             echo "Release secrets found — preparing keystore.properties"
-            echo "$KEYSTORE_B64" | base64 -d > release.jks
+            echo "$KEYSTORE_B64" | base64 -d > release.p12
             cat > keystore.properties <<EOF
-          storeFile=${GITHUB_WORKSPACE}/release.jks
+          storeFile=${GITHUB_WORKSPACE}/release.p12
           storePassword=${STORE_PW}
           keyAlias=${KEY_ALIAS}
           keyPassword=${KEY_PW}
