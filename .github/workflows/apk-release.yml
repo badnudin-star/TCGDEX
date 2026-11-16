@@ -1,12 +1,19 @@
 name: APK Release
 
-# Baut die Debug-APK und veröffentlicht sie am stabilen Release-Tag `app-latest`:
-#   https://github.com/badnudin-star/TCGDEX/releases/download/app-latest/TCG-Sammlung-debug.apk
-# Bewusst ein Debug-Build ohne festen Release-Signaturschluessel (Nutzerentscheidung):
-# Die App installiert direkt, aber Android verlangt bei einem Update aus einem neuen
-# Build Deinstallieren + Neuinstallieren - vorher die Sammlung exportieren.
+# Baut die APK und veröffentlicht sie am stabilen Release-Tag `app-latest`:
+#   https://github.com/badnudin-star/TCGDEX/releases/download/app-latest/TCG-Sammlung.apk
+#   https://github.com/badnudin-star/TCGDEX/releases/download/app-latest/app-manifest.json  (für In-App Update-Button)
+#
+# Signierung: wenn GitHub Secrets RELEASE_KEYSTORE_BASE64 etc. gesetzt sind, wird ein
+# Release-Build (assembleRelease) mit festem Keystore erzeugt -> In-Place Update funktioniert.
+# Ohne Secrets fallback auf Debug-Build (wie bisher) — dann muss bei Update deinstalliert werden.
 on:
   workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version bump: patch/minor/major oder leer für keinen Bump (Worklog schreibt selbst)'
+        required: false
+        default: ''
 
 permissions:
   contents: write
@@ -32,55 +39,119 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v5
 
-      - name: Build debug APK
+      - name: Restore release keystore (if secrets present)
+        env:
+          KEYSTORE_B64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          STORE_PW: ${{ secrets.RELEASE_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          KEY_PW: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          if [ -n "$KEYSTORE_B64" ]; then
+            echo "Release secrets found — preparing keystore.properties"
+            echo "$KEYSTORE_B64" | base64 -d > release.jks
+            cat > keystore.properties <<EOF
+          storeFile=${GITHUB_WORKSPACE}/release.jks
+          storePassword=${STORE_PW}
+          keyAlias=${KEY_ALIAS}
+          keyPassword=${KEY_PW}
+          EOF
+            echo "keystore.properties created, will build release APK"
+          else
+            echo "No release secrets — building debug APK (signature will change each build)"
+          fi
+
+      - name: Build APK (release if keystore present, else debug)
         run: |
           set +e
-          ./gradlew --console=plain assembleDebug 2>&1 | tee /tmp/gradle-apk.log
+          if [ -f keystore.properties ]; then
+            echo "Building assembleRelease …"
+            ./gradlew --console=plain assembleRelease 2>&1 | tee /tmp/gradle-apk.log
+          else
+            echo "Building assembleDebug …"
+            ./gradlew --console=plain assembleDebug 2>&1 | tee /tmp/gradle-apk.log
+          fi
           outcome=${PIPESTATUS[0]}
           set -e
           if [ "$outcome" -ne 0 ]; then
             problems=$(grep -E '^e: |error:|What went wrong|Execution failed|> Task .* FAILED' /tmp/gradle-apk.log \
               | head -10 | tr '\n' '|' | sed 's/%/%25/g; s/\r//g')
-            echo "::error::Debug-APK-Build fehlgeschlagen (exit $outcome): $problems"
+            echo "::error::APK-Build fehlgeschlagen (exit $outcome): $problems"
             exit 1
           fi
 
       - name: Collect APK and build metadata
         run: |
-          apk="app/build/outputs/apk/debug/app-debug.apk"
-          if [ ! -f "$apk" ]; then
-            echo "::error::Debug-APK fehlt unter $apk" >&2
+          # Find built APK (release first, then debug)
+          apk_release="app/build/outputs/apk/release/app-release.apk"
+          apk_debug="app/build/outputs/apk/debug/app-debug.apk"
+          if [ -f "$apk_release" ]; then
+            apk="$apk_release"
+            variant="release"
+          elif [ -f "$apk_debug" ]; then
+            apk="$apk_debug"
+            variant="debug"
+          else
+            echo "::error::Kein APK gefunden unter $apk_release oder $apk_debug" >&2
+            ls -R app/build/outputs/apk || true
             exit 1
           fi
+          # Unified filename for in-app updater (old name kept for compatibility)
+          cp "$apk" TCG-Sammlung.apk
           cp "$apk" TCG-Sammlung-debug.apk
+
           version_name=$(grep -m1 'versionName' app/build.gradle.kts | sed 's/.*"\([^"]*\)".*/\1/')
           version_code=$(grep -m1 'versionCode' app/build.gradle.kts | sed 's/[^0-9]*\([0-9]*\).*/\1/')
           commit_sha=$(git rev-parse --short HEAD)
           build_date=$(date -u '+%Y-%m-%d %H:%M UTC')
+
+          # Manifest for in-app updater
+          apk_url="https://github.com/badnudin-star/TCGDEX/releases/download/app-latest/TCG-Sammlung.apk"
+          cat > app-manifest.json <<EOF
           {
-            echo "## TCG Sammlung – Debug-APK"
+            "versionCode": ${version_code},
+            "versionName": "${version_name}",
+            "apkUrl": "${apk_url}",
+            "changelog": "Build ${version_name} (${version_code}) vom ${build_date} — Commit ${commit_sha} — Variante: ${variant}"
+          }
+          EOF
+          cat app-manifest.json
+
+          if [ "$variant" = "release" ]; then
+            update_hint="Dieses Update kann direkt über den In-App Update-Button installiert werden (gleicher Signaturschlüssel)."
+          else
+            update_hint="Dies ist ein Debug-Build mit wechselndem Signaturschlüssel. Android verlangt bei einem Update Deinstallieren + Neuinstallieren — vorher die Sammlung exportieren (Einstellungen → Sammlung exportieren). Für In-Place Updates muss ein Release-Keystore in den GitHub Secrets hinterlegt werden (siehe docs/KEYSTORE_INSTRUCTIONS.md)."
+          fi
+
+          {
+            echo "## TCG Sammlung – APK ${variant}"
             echo ""
             echo "- **Version:** $version_name (VersionCode $version_code)"
-            echo "- **Build:** Commit \`$commit_sha\` vom $build_date"
-            echo "- **Variante:** Debug-Build (installationsfähig, ohne festen Release-Signaturschlüssel)"
+            echo "- **Build:** Commit \`${commit_sha}\` vom $build_date"
+            echo "- **Variante:** ${variant}"
+            echo "- **In-App Update:** \`app-manifest.json\` enthält Version + APK-URL für den Update-Button in Einstellungen → App-Update"
             echo ""
             echo "### Installation"
             echo ""
-            echo "1. APK herunterladen und öffnen."
-            echo "2. Falls gefragt: Installation aus **unbekannten Quellen** für deinen Browser/dateimanager erlauben."
+            echo "1. APK herunterladen und öffnen (oder in der App: Einstellungen → App-Update → Herunterladen & Installieren)."
+            echo "2. Falls gefragt: Installation aus **unbekannten Quellen** für diese App erlauben (Android 8+ einmalig unter Einstellungen → Unbekannte Apps)."
             echo ""
-            echo "### Wichtig bei Updates"
+            echo "### Hinweis bei Updates"
             echo ""
-            echo "Jeder Build wird mit einem frischen Debug-Schlüssel signiert. Android akzeptiert daher **kein** Update über eine installierte ältere APK: Vor der Neuinstallation die Sammlung exportieren (Einstellungen → Sammlung exportieren), die alte App deinstallieren, die neue installieren und die Sammlung wieder importieren."
+            echo "$update_hint"
           } > release-notes.md
-          echo "APK: $(ls -la TCG-Sammlung-debug.apk)"
+
+          echo "APK: $(ls -lh TCG-Sammlung.apk TCG-Sammlung-debug.apk app-manifest.json)"
+          echo "Manifest: $(cat app-manifest.json)"
 
       - name: Publish APK release
         uses: softprops/action-gh-release@v3
         with:
           tag_name: app-latest
-          name: TCG Sammlung – Debug-APK (latest)
+          name: TCG Sammlung – APK (latest)
           body_path: release-notes.md
-          files: TCG-Sammlung-debug.apk
+          files: |
+            TCG-Sammlung.apk
+            TCG-Sammlung-debug.apk
+            app-manifest.json
           overwrite_files: true
           make_latest: true

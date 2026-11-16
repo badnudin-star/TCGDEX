@@ -294,6 +294,9 @@ fun SettingsScreen(
                     }
                 }
 
+                // Section: App-Update (In-App APK Update via GitHub Release)
+                AppUpdateSection()
+
                 // Section: Anzeige
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
