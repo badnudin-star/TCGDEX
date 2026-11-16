@@ -17,6 +17,9 @@ from build_catalog import (
 )
 from verify_catalog_artifacts import verify_catalog_artifacts
 
+def _current_schema_version():
+    return load_schema(SCHEMA_JSON_PATH)["database"]["version"]
+
 
 class TestCatalogBuilder(unittest.TestCase):
     def setUp(self):
@@ -167,7 +170,7 @@ class TestCatalogBuilder(unittest.TestCase):
 
     def test_schema_loading_uses_current_room_version(self):
         schema = load_schema(SCHEMA_JSON_PATH)
-        self.assertEqual(schema["database"]["version"], 19)
+        self.assertEqual(schema["database"]["version"], _current_schema_version())
         self.assertGreater(len(schema["database"]["entities"]), 0)
 
     def test_set_listing_rejects_malformed_response(self):
@@ -292,8 +295,8 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        manifest = generate_manifest(db_file, manifest_file, report_file, 19, coverage)
-        self.assertEqual(manifest["schemaVersion"], 19)
+        manifest = generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
+        self.assertEqual(manifest["schemaVersion"], _current_schema_version())
         self.assertRegex(manifest["version"], r"^\d{4}\.\d{2}\.\d{2}\.\d{6}\.\d{3}$")
         self.assertEqual(manifest["size"], os.path.getsize(db_file))
         with open(db_file, "rb") as handle:
@@ -314,7 +317,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         result = verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
         self.assertEqual(result["integrity"], "ok")
         self.assertEqual(result["languages"], len(LANGUAGES))
@@ -328,7 +331,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Catalog table schema mismatch for cards"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -341,7 +344,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Catalog index schema mismatch for cards"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -354,7 +357,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Catalog index schema mismatch for cards"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -367,7 +370,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "unexpected views or triggers"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -380,7 +383,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "unexpected views or triggers"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -395,7 +398,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Catalog relationship integrity failed for cards.setId"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -412,7 +415,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Catalog relationship integrity failed for card_pokemon.dexId"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -425,7 +428,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Catalog relationship integrity failed for card_pokemon.cardId"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -438,7 +441,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Catalog relationship integrity failed for pokemon_names.dexId"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -456,7 +459,7 @@ class TestCatalogBuilder(unittest.TestCase):
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
         coverage["en"]["cards"] = 2
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Coverage card count for en"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -475,7 +478,7 @@ class TestCatalogBuilder(unittest.TestCase):
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
         coverage["en"] = {"sets": 1, "cards": 1, "expectedCards": 1, "coveragePercent": 100.0}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         result = verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
         self.assertEqual(result["integrity"], "ok")
 
@@ -494,7 +497,7 @@ class TestCatalogBuilder(unittest.TestCase):
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
         coverage["en"]["cards"] = 1
         coverage["en"]["sets"] = 0
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Coverage set count for en"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -512,7 +515,7 @@ class TestCatalogBuilder(unittest.TestCase):
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
         coverage["en"] = {"sets": 1, "cards": 1, "expectedCards": 4, "coveragePercent": 99.0}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with self.assertRaisesRegex(ValueError, "Coverage percentage for en"):
             verify_catalog_artifacts(db_file, manifest_file, SCHEMA_JSON_PATH)
 
@@ -543,7 +546,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with open(manifest_file, "r", encoding="utf-8") as handle:
             manifest_text = handle.read()
         manifest_text = manifest_text.replace('"sets": 0', '"sets": 0, "sets": 0', 1)
@@ -571,7 +574,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with open(manifest_file, encoding="utf-8") as handle:
             manifest = json.load(handle)
         manifest["builtAt"] = True
@@ -588,7 +591,7 @@ class TestCatalogBuilder(unittest.TestCase):
         manifest_file = os.path.join(self.temp_dir, "manifest.json")
         report_file = os.path.join(self.temp_dir, "coverage_report.md")
         coverage = {lang: {"sets": 0, "cards": 0, "expectedCards": 0, "coveragePercent": None} for lang in LANGUAGES}
-        generate_manifest(db_file, manifest_file, report_file, 19, coverage)
+        generate_manifest(db_file, manifest_file, report_file, _current_schema_version(), coverage)
         with open(db_file, "ab") as handle:
             handle.write(b"tampered")
         with self.assertRaisesRegex(ValueError, "SHA-256"):
@@ -1060,17 +1063,17 @@ class TestCatalogBuilder(unittest.TestCase):
             raise AssertionError(f"Unexpected test URL: {url}")
 
         summary = populate_database(conn, fetcher=fake_fetcher, include_bulbapedia=False,
-                                    checkpoint_path=checkpoint, schema_version=19)
+                                    checkpoint_path=checkpoint, schema_version=_current_schema_version())
         conn.close()
         self.assertEqual(summary["languages"]["fr"]["missingCards"], 2)
-        plan = build_catalog.apply_language_fallback(db_file, checkpoint, 19, summary)
+        plan = build_catalog.apply_language_fallback(db_file, checkpoint, _current_schema_version(), summary)
         self.assertEqual(summary["languages"]["fr"]["filledFromEnglish"], 2)
         self.assertEqual([e["status"] for e in plan], ["fillable"])
         coverage = build_catalog.build_coverage(db_file, summary)
         self.assertEqual(coverage["fr"]["cards"], 3)
         manifest = os.path.join(self.temp_dir, "manifest.json")
         report = os.path.join(self.temp_dir, "coverage_report.md")
-        build_catalog.generate_manifest(db_file, manifest, report, 19, coverage, summary)
+        build_catalog.generate_manifest(db_file, manifest, report, _current_schema_version(), coverage, summary)
         verify_catalog_artifacts(db_file, manifest, SCHEMA_JSON_PATH)
         with open(report, encoding="utf-8") as handle:
             self.assertIn("Per Englisch ergänzt", handle.read())
