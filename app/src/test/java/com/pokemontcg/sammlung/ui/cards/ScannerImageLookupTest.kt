@@ -49,7 +49,7 @@ class ScannerImageLookupTest {
             detectedNumber = null, rawOcrText = "", imageHash = "not-a-hash",
             lookupByNumber = { emptyList() },
             lookupByOcrText = { emptyList() },
-            lookupByImageHash = { fail("should not be called") }
+            lookupByImageHash = { error("should not be called") }
         )
         assertTrue(result.isEmpty())
     }
@@ -60,7 +60,7 @@ class ScannerImageLookupTest {
             detectedNumber = null, rawOcrText = "", imageHash = null,
             lookupByNumber = { emptyList() },
             lookupByOcrText = { emptyList() },
-            lookupByImageHash = { fail("should not be called") }
+            lookupByImageHash = { error("should not be called") }
         )
         assertTrue(result.isEmpty())
     }
