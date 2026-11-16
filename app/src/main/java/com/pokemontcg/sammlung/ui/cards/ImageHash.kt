@@ -24,6 +24,28 @@ object ImageHash {
     const val HASH_HEX_LENGTH = 16
 
     /**
+     * Pure dHash over an already 9×8 grayscale pixel buffer (row-major, 72 ints ARGB).
+     * Extracted for unit-testability without Android Bitmap.
+     */
+    fun computeDHashFromPixels(pixels9x8: IntArray): String? {
+        if (pixels9x8.size != 72) return null
+        var hash = 0L
+        for (y in 0 until 8) {
+            for (x in 0 until 8) {
+                val left = pixels9x8[y * 9 + x]
+                val right = pixels9x8[y * 9 + x + 1]
+                val gl = toGray(left)
+                val gr = toGray(right)
+                if (gl < gr) {
+                    val bitPos = y * 8 + x // 0 = MSB
+                    hash = hash or (1L shl (63 - bitPos))
+                }
+            }
+        }
+        return hash.toHexString()
+    }
+
+    /**
      * dHash horizontal 8×8 over 9×8 grayscale.
      * Returns 16-char hex or null on invalid bitmap.
      */
@@ -38,20 +60,7 @@ object ImageHash {
         try {
             val pixels = IntArray(9 * 8)
             scaled.getPixels(pixels, 0, 9, 0, 0, 9, 8)
-            var hash = 0L
-            for (y in 0 until 8) {
-                for (x in 0 until 8) {
-                    val left = pixels[y * 9 + x]
-                    val right = pixels[y * 9 + x + 1]
-                    val gl = toGray(left)
-                    val gr = toGray(right)
-                    if (gl < gr) {
-                        val bitPos = y * 8 + x // 0 = MSB
-                        hash = hash or (1L shl (63 - bitPos))
-                    }
-                }
-            }
-            return hash.toHexString()
+            return computeDHashFromPixels(pixels)
         } finally {
             if (scaled !== bitmap) {
                 try { scaled.recycle() } catch (_: Exception) {}

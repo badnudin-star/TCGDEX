@@ -1,39 +1,46 @@
 package com.pokemontcg.sammlung.ui.cards
 
-import android.graphics.Bitmap
-import android.graphics.Color
 import org.junit.Assert.*
 import org.junit.Test
 
 class ImageHashTest {
 
-    @Test
-    fun `computeDHash - solid color has deterministic hash`() {
-        // 9x8 solid white -> all comparisons equal (grayLeft < grayRight false) -> all zeros
-        val bmp = Bitmap.createBitmap(9, 8, Bitmap.Config.ARGB_8888)
-        bmp.eraseColor(Color.WHITE)
-        val hash = ImageHash.computeDHash(bmp)
-        assertNotNull(hash)
-        assertEquals(16, hash!!.length)
-        assertTrue(ImageHash.isValidHash(hash))
-        // All white: every left < right is false -> 0 bits -> hex 000...0
-        assertEquals("0000000000000000", hash)
-        bmp.recycle()
-    }
+    private fun solidPixels(color: Int): IntArray = IntArray(72) { color }
 
-    @Test
-    fun `computeDHash - gradient left to right yields all ones`() {
-        // Create a horizontal gradient: left black -> right white, so every left < right true -> all ones
-        val bmp = Bitmap.createBitmap(9, 8, Bitmap.Config.ARGB_8888)
+    private fun gradientPixels(): IntArray {
+        val arr = IntArray(72)
         for (y in 0 until 8) {
             for (x in 0 until 9) {
                 val gray = (x * 255 / 8)
-                bmp.setPixel(x, y, Color.rgb(gray, gray, gray))
+                val col = (0xFF shl 24) or (gray shl 16) or (gray shl 8) or gray
+                arr[y * 9 + x] = col
             }
         }
-        val hash = ImageHash.computeDHash(bmp)
+        return arr
+    }
+
+    @Test
+    fun `computeDHashFromPixels - solid color is deterministic`() {
+        // 9x8 solid white -> all comparisons equal -> all zeros
+        val white = (0xFF shl 24) or (0xFF shl 16) or (0xFF shl 8) or 0xFF
+        val hash = ImageHash.computeDHashFromPixels(solidPixels(white))
+        assertNotNull(hash)
+        assertEquals(16, hash!!.length)
+        assertTrue(ImageHash.isValidHash(hash))
+        assertEquals("0000000000000000", hash)
+    }
+
+    @Test
+    fun `computeDHashFromPixels - gradient left to right yields all ones`() {
+        val hash = ImageHash.computeDHashFromPixels(gradientPixels())
         assertEquals("ffffffffffffffff", hash)
-        bmp.recycle()
+    }
+
+    @Test
+    fun `computeDHash - null input returns null`() {
+        assertNull(ImageHash.computeDHash(null))
+        assertNull(ImageHash.computeDHashFromPixels(IntArray(10)))
+        assertNull(ImageHash.computeDHashFromPixels(IntArray(0)))
     }
 
     @Test
@@ -58,15 +65,10 @@ class ImageHashTest {
         assertFalse(ImageHash.isValidHash(null))
         assertFalse(ImageHash.isValidHash(""))
         assertFalse(ImageHash.isValidHash("abc"))
-        assertFalse(ImageHash.isValidHash("g000000000000000")) // g invalid hex
-        assertFalse(ImageHash.isValidHash("00000000000000000")) // 17 chars
+        assertFalse(ImageHash.isValidHash("g000000000000000"))
+        assertFalse(ImageHash.isValidHash("00000000000000000"))
         assertTrue(ImageHash.isValidHash("ABCDEF1234567890"))
         assertTrue(ImageHash.isValidHash("abcdef1234567890"))
-    }
-
-    @Test
-    fun `computeDHash null input returns null`() {
-        assertNull(ImageHash.computeDHash(null))
     }
 
     @Test
@@ -80,24 +82,23 @@ class ImageHashTest {
         assertTrue(ImageHash.isSimilar("0000000000000000", "0000000000000000", 10))
         assertTrue(ImageHash.isSimilar("0000000000000000", "0000000000000001", 1))
         assertFalse(ImageHash.isSimilar("0000000000000000", "ffffffffffffffff", 10))
-        assertFalse(ImageHash.isSimilar("0000000000000000", "0000000000000003", 1)) // distance 2
+        assertFalse(ImageHash.isSimilar("0000000000000000", "0000000000000003", 1))
     }
 
     @Test
-    fun `dHash is stable across bitmap scaling`() {
-        // Create a 100x140 card-like bitmap with a left-right gradient,
-        // ensure hash is still deterministic after scaling to 9x8 internal.
-        val src = Bitmap.createBitmap(100, 140, Bitmap.Config.ARGB_8888)
-        src.eraseColor(Color.GRAY)
-        for (x in 0 until 100) {
-            val gray = (x * 255 / 100)
-            for (y in 0 until 140) {
-                src.setPixel(x, y, Color.rgb(gray, gray, gray))
-            }
-        }
-        val h1 = ImageHash.computeDHash(src)
-        val h2 = ImageHash.computeDHash(src)
+    fun `dHash stable across same pixels`() {
+        val h1 = ImageHash.computeDHashFromPixels(gradientPixels())
+        val h2 = ImageHash.computeDHashFromPixels(gradientPixels())
         assertEquals(h1, h2)
-        src.recycle()
+    }
+
+    @Test
+    fun `toGray - known values`() {
+        assertEquals(0, ImageHash.toGray(0xFF000000.toInt()))
+        assertEquals(255, ImageHash.toGray(0xFFFFFFFF.toInt()))
+        // Pure red ~76, green ~149, blue ~29 by luma
+        assertEquals(76, ImageHash.toGray(0xFFFF0000.toInt()))
+        assertEquals(149, ImageHash.toGray(0xFF00FF00.toInt()))
+        assertEquals(29, ImageHash.toGray(0xFF0000FF.toInt()))
     }
 }
