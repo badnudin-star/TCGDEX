@@ -251,6 +251,39 @@ def rarity_translations() -> dict[str, str]:
     return _RARITY_TRANSLATIONS_CACHE
 
 
+ASIAN_LANGUAGES: tuple[str, ...] = ("ja", "ko", "zh-tw", "zh-cn")
+"""TCGdex Asian catalog languages whose card-type metadata is still incomplete.
+Until the API ships the missing fields these languages borrow type info from
+their English sibling print with the same artwork (same raw card id)."""
+
+
+def _extract_subtypes(card: dict[str, Any]) -> str | None:
+    """Derive a subtypes string from TCGdex card detail fields.
+
+    TCGdex does not expose a generic ``subtypes`` array. Depending on the
+    card category it provides ``stage`` (Pokemon), ``trainerType`` (Trainer),
+    ``energyType`` (Energy), ``suffix`` or a raw ``subtypes`` list. The
+    builder stores the first available value so the catalog can filter/group
+    by it and the Asian fallback can copy it.
+    """
+    raw_subtypes = card.get("subtypes")
+    if isinstance(raw_subtypes, list) and raw_subtypes:
+        cleaned = [str(s).strip() for s in raw_subtypes if str(s).strip()]
+        if cleaned:
+            return ", ".join(cleaned)
+    if isinstance(raw_subtypes, str) and raw_subtypes.strip():
+        return raw_subtypes.strip()
+    for key in ("stage", "trainerType", "energyType", "suffix"):
+        val = card.get(key)
+        if isinstance(val, str) and val.strip():
+            return val.strip()
+        if isinstance(val, list) and val:
+            cleaned = [str(s).strip() for s in val if str(s).strip()]
+            if cleaned:
+                return ", ".join(cleaned)
+    return None
+
+
 def normalize_rarity(value: Any) -> Any:
     """Maps a localized rarity label to the canonical English key; unknown values pass through."""
     if not isinstance(value, str):
@@ -307,6 +340,7 @@ def upsert_card(db: sqlite3.Connection, lang: str, card: dict[str, Any], set_ite
     dex_ids = card.get("dexId") if isinstance(card.get("dexId"), list) else []
     dex_ids = sorted({_integer(value) for value in dex_ids if _integer(value) > 0})
     category = str(card.get("category") or "Pokemon")
+    subtypes = _extract_subtypes(card)
     pricing = card.get("pricing") if isinstance(card.get("pricing"), dict) else {}
     cardmarket = pricing.get("cardmarket") if isinstance(pricing.get("cardmarket"), dict) else {}
     name = str(card.get("name") or raw_id)
@@ -322,7 +356,7 @@ def upsert_card(db: sqlite3.Connection, lang: str, card: dict[str, Any], set_ite
     set_abbrev = set_abbreviations().get(set_id, {}).get("abbreviation") or None
     values = (card_id, name, category, local_id, normalize_rarity(card.get("rarity")), set_id, set_name, series,
               image, large_image, cardmarket.get("avg"), cardmarket.get("low"), cardmarket.get("trend"),
-              dex_ids[0] if dex_ids else None, None, _language_code(lang),
+              dex_ids[0] if dex_ids else None, subtypes, _language_code(lang),
               ",".join(map(str, dex_ids)) if dex_ids else None,
               _image_url(set_data.get("logo") or set_item.get("logo")),
               _image_url(set_data.get("symbol") or set_item.get("symbol")),
@@ -385,6 +419,104 @@ def apply_image_fallbacks(db: sqlite3.Connection) -> dict[str, int]:
     stats = {"cardImagesFilled": card_image_updates, "cardSetColumnsFilled": max(set_column_updates, 0)}
     print(f"Image fallbacks: {stats['cardImagesFilled']} card image(s) copied across languages, "
           f"{stats['cardSetColumnsFilled']} card row(s) got set images/abbreviation from the sets table")
+    return stats
+
+
+def apply_card_type_fallbacks(db: sqlite3.Connection) -> dict[str, int]:
+    """Fill missing Asian card-type metadata from the English sibling print.
+
+    TCGdex's Asian localisations (ja/ko/zh-tw/zh-cn) are still incomplete:
+    new cards appear with placeholder supertypes/rarities or empty subtypes
+    while the English print of the same artwork already has the correct
+    classification. Until the API ships the missing fields the builder copies
+    those attributes across languages, but never overwrites a real Asian value.
+
+    Idempotent and safe to re-run on --resume.
+    """
+    rows = db.execute("SELECT id, language, supertype, rarity, subtypes FROM cards").fetchall()
+    by_raw: dict[str, list[tuple]] = {}
+    for row in rows:
+        raw_id = str(row[0]).split(":", 1)[-1]
+        by_raw.setdefault(raw_id, []).append(row)
+
+    # English sibling per raw id – the authoritative source for the fallback.
+    english_by_raw: dict[str, tuple] = {}
+    for raw_id, prints in by_raw.items():
+        for card_id, language, supertype, rarity, subtypes in prints:
+            if language == "en":
+                english_by_raw[raw_id] = (card_id, language, supertype, rarity, subtypes)
+                break
+
+    supertype_updates = 0
+    rarity_updates = 0
+    subtypes_updates = 0
+
+    for raw_id, prints in by_raw.items():
+        en = english_by_raw.get(raw_id)
+        if not en:
+            continue
+        _, _, en_supertype, en_rarity, en_subtypes = en
+        # Skip English entries that themselves have no usable data.
+        if not en_supertype and not en_rarity and not en_subtypes:
+            continue
+        for card_id, language, supertype, rarity, subtypes in prints:
+            if language not in ASIAN_LANGUAGES:
+                continue
+            new_supertype = supertype
+            new_rarity = rarity
+            new_subtypes = subtypes
+            needs_update = False
+
+            # supertype/kartenart: Asian TCGdex defaults to \"Pokemon\" when the
+            # API omits category; Trainer/Energy cards would then be misclassified.
+            # Copy only when Asian is missing or the known default while English
+            # has a specific different type. Never overwrite a distinct Asian supertype.
+            if en_supertype and en_supertype.strip():
+                en_super = en_supertype.strip()
+                asian_missing_super = not supertype or not str(supertype).strip()
+                asian_is_default_pokemon = str(supertype).strip().lower() == "pokemon"
+                # If Asian is default Pokemon but English is Trainer/Energy, it's a placeholder.
+                if asian_missing_super or (asian_is_default_pokemon and en_super.lower() != "pokemon"):
+                    if supertype != en_super:
+                        new_supertype = en_super
+                        needs_update = True
+
+            # rarity: copy only when Asian is empty/NULL.
+            if en_rarity and str(en_rarity).strip():
+                if rarity is None or (isinstance(rarity, str) and not rarity.strip()):
+                    new_rarity = en_rarity
+                    needs_update = True
+
+            # subtypes: copy only when Asian is empty/NULL.
+            if en_subtypes and str(en_subtypes).strip():
+                if subtypes is None or (isinstance(subtypes, str) and not subtypes.strip()):
+                    new_subtypes = en_subtypes
+                    needs_update = True
+
+            if needs_update:
+                db.execute(
+                    "UPDATE cards SET supertype=?, rarity=?, subtypes=? WHERE id=?",
+                    (new_supertype, new_rarity, new_subtypes, card_id),
+                )
+                if new_supertype != supertype:
+                    supertype_updates += 1
+                if new_rarity != rarity:
+                    rarity_updates += 1
+                if new_subtypes != subtypes:
+                    subtypes_updates += 1
+
+    db.commit()
+    stats = {
+        "cardSupertypesFilled": supertype_updates,
+        "cardRaritiesFilled": rarity_updates,
+        "cardSubtypesFilled": subtypes_updates,
+    }
+    total = supertype_updates + rarity_updates + subtypes_updates
+    if total:
+        print(
+            f"Card-type fallbacks (Asian←EN): {supertype_updates} supertype(s), "
+            f"{rarity_updates} rarity(s), {subtypes_updates} subtype(s) filled"
+        )
     return stats
 
 
@@ -796,6 +928,9 @@ def populate_database(db: sqlite3.Connection, *, fetcher: Callable[..., Any] = r
             print(f"Note: removed {orphan_links} card->Pokémon link(s) whose dexId is missing in the PokéAPI snapshot")
     set_logo_overrides_applied = apply_set_logo_overrides(db)
     image_fallbacks = apply_image_fallbacks(db)
+    card_type_fallbacks = apply_card_type_fallbacks(db)
+    # Merge type fallback counts into image fallback stats for reporting compatibility
+    image_fallbacks.update(card_type_fallbacks)
     bulbapedia_titles = fetch_bulbapedia_set_titles(fetcher=fetcher) if include_bulbapedia else set()
     api_names = {name.lower() for name in all_set_names.values()}
     missing_bulba = sorted(title for title in bulbapedia_titles if title.lower() not in api_names)
