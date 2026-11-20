@@ -99,6 +99,10 @@ class MainActivity : ComponentActivity() {
                     var showScanResults by remember { mutableStateOf(false) }
                     var selectedScannedCard by remember { mutableStateOf<CardEntity?>(null) }
                     var scanLookupFailed by remember { mutableStateOf(false) }
+                    // Diagnostic info for the failure dialog – visible without logcat.
+                    var lastScanDetectedNumber by remember { mutableStateOf<String?>(null) }
+                    var lastScanRawText by remember { mutableStateOf<String?>(null) }
+                    var lastScanImageHash by remember { mutableStateOf<String?>(null) }
                     // Batch mode accumulates the best match of every scan without dialogs.
                     var scannerBatchActive by rememberSaveable { mutableStateOf(false) }
                     var scannerBatchItems by remember { mutableStateOf<List<BatchScanItem>>(emptyList()) }
@@ -334,6 +338,9 @@ class MainActivity : ComponentActivity() {
                                         } else {
                                             scannedCardMatches = rankedMatches
                                             scanLookupFailed = matches.isEmpty()
+                                            lastScanDetectedNumber = detectedNumber
+                                            lastScanRawText = rawOcrText
+                                            lastScanImageHash = imageHash
                                             showScanResults = true
                                         }
                                     }
@@ -378,7 +385,27 @@ class MainActivity : ComponentActivity() {
                             },
                             text = {
                                 if (scanLookupFailed) {
-                                    Text(stringResource(R.string.ui_scanner_no_match))
+                                    androidx.compose.foundation.layout.Column(verticalArrangement = androidx.compose.foundation.layout.Arrangement.spacedBy(8.dp)) {
+                                        Text(stringResource(R.string.ui_scanner_no_match))
+                                        androidx.compose.material3.HorizontalDivider()
+                                        Text(
+                                            "Debug: Nummer=${lastScanDetectedNumber ?: "–"} | Hash=${if (lastScanImageHash != null) "ja" else "nein"}",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
+                                        lastScanRawText?.takeIf { it.isNotBlank() }?.let { raw ->
+                                            Text(
+                                                "OCR: ${raw.take(180)}",
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                        Text(
+                                            "Tipp: Einstellungen → Diagnose prüfen: Katalog-Karten muss >0 sein. Falls 0 → Katalog neu laden. Falls >0 aber alle Scans leer → Wishlist-Suche 'Pikachu' testen.",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.secondary
+                                        )
+                                    }
                                 } else {
                                     androidx.compose.foundation.lazy.LazyColumn(modifier = Modifier.heightIn(max = 360.dp)) {
                                         items(scannedCardMatches, key = { it.id }) { card ->
